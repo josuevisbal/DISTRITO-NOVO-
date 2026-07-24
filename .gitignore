@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# lanzador local: lleva rutas de esta máquina
+/dev.cmd
