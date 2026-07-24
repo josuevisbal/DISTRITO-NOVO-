@@ -806,6 +806,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      abrir_turno: { Args: { p_base: number }; Returns: string }
+      anular_pedido: {
+        Args: { p_motivo: string; p_pedido: string }
+        Returns: undefined
+      }
+      cerrar_turno: {
+        Args: { p_efectivo_contado: number; p_nota?: string }
+        Returns: Json
+      }
+      confirmar_contraentrega: {
+        Args: { p_pedido: string }
+        Returns: undefined
+      }
       confirmar_pedido: { Args: { p_pedido: string }; Returns: undefined }
       crear_pedido: { Args: { p_payload: Json; p_slug: string }; Returns: Json }
       mi_estacion: { Args: never; Returns: string }
@@ -814,6 +827,15 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["rol_usuario"]
       }
+      registrar_cobro: {
+        Args: {
+          p_medio: Database["public"]["Enums"]["medio_pago"]
+          p_monto?: number
+          p_pedido: string
+        }
+        Returns: undefined
+      }
+      turno_abierto: { Args: never; Returns: string }
       verificar_transferencia: {
         Args: { p_motivo?: string; p_ok: boolean; p_pedido: string }
         Returns: undefined

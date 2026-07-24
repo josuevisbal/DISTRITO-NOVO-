@@ -250,3 +250,68 @@ Pedido **#1004** de mesa con tres estaciones: Chicharronada (Asados, 18 min), Ha
 
 - Caja: verificar transferencias, contraentrega, arqueo y cierre de turno — Fase 4.
 - Domiciliario: asignación y entrega — Fase 5. El pase asignará domiciliario ahí.
+
+---
+
+## Fase 4 — Caja y transferencias
+
+**Objetivo:** cerrar un turno y que los cuatro medios de pago cuadren con los pedidos.
+
+### Hecho
+
+- **Funciones de caja** (migración `funciones_caja_turno_cobro_arqueo`, reflejadas en
+  `schema.sql`). La fuente de verdad del arqueo es `caja_movimientos`: cada peso que entra
+  deja un movimiento atado al turno abierto, así los cuatro medios cuadran solos.
+  - `abrir_turno(base)` / `turno_abierto()` — un turno abierto a la vez por restaurante.
+  - `registrar_cobro(pedido, medio, monto?)` — deja el pago verificado, el movimiento de
+    caja y cierra el pedido. Para mesa, recoger y mostrador.
+  - `confirmar_contraentrega(pedido)` — caja confirma un efectivo pendiente y entra a
+    cocina; el efectivo se legaliza al entregar (Fase 5).
+  - `anular_pedido(pedido, motivo)` — exige motivo y guarda responsable.
+  - `cerrar_turno(efectivo_contado, nota?)` — calcula el efectivo esperado
+    (base + ingresos efectivo − egresos) y la diferencia, y devuelve el arqueo por medio.
+  - `verificar_transferencia` ahora, al aprobar, también deja el ingreso de transferencia
+    en el turno abierto, para que cuente en el arqueo.
+  - Todas `security definer`, revocadas de `anon` y concedidas solo a `authenticated`.
+- **`/app/caja`** (guarda `cajero`/`admin`):
+  - Barra de turno: abrir con base, arqueo en vivo por los cuatro medios, y cerrar.
+  - **Alerta persistente de transferencias por verificar**, con el monto exacto y el
+    contador de espera ("Esperando hace 37 min"). No se cierra sola: solo con "Verifiqué el
+    pago" (tras ver el banco) o "Rechazar" con motivo. El texto recuerda que el pantallazo
+    es una pista, no una prueba.
+  - **Contraentrega por confirmar** y **Por cobrar** (mesa/recoger/mostrador) con selector
+    de medio (efectivo, transferencia, datáfono).
+  - **Anular con motivo** en línea, en cualquier tarjeta activa.
+  - **Resumen de cierre** con el desglose por medio, base, esperado, contado y diferencia
+    ("Cuadra" con check, o el faltante con alerta). Vive a nivel de página para que
+    sobreviva al refresco que deja el turno en null.
+- Tipos regenerados en `src/lib/database.types.ts` con las funciones nuevas.
+
+### Corregido
+
+- **Un pedido pagado no debe reaparecer "por cobrar".** Al verificar una transferencia de
+  un pedido para recoger, entraba a cocina y volvía a salir en "Por cobrar". Ahora esa
+  sección excluye los pedidos que ya tienen un pago verificado.
+- **El dev server se corrompió al correr `npm run build` con `next dev` vivo**: ambos
+  escriben en `.next`. Se resolvió deteniendo el preview, borrando `.next` y reiniciando.
+  Regla: no compilar producción con el dev server corriendo.
+
+### Verificado (en el navegador, contra la base)
+
+Con el turno abierto (base $200.000):
+
+| Medio | Pedidos | Total |
+|---|---|---|
+| Efectivo | #1004 (mesa, cobrado) | $60.500 |
+| Transferencia | #1002 + #1003 (verificadas) | $76.405 |
+
+Al cerrar contando $260.500 (base + efectivo): **efectivo esperado $260.500, contado
+$260.500, diferencia $0** y el desglose por medio cuadra con los pedidos. También se probó
+la **anulación con motivo**: pedido #1005 quedó `anulado` con motivo "Cliente no llegó a
+recoger" y responsable "Cajero". `tsc`, `eslint` y `npm run build` limpios.
+
+### Pendiente para fases siguientes
+
+- La legalización del efectivo del domiciliario alimentará el arqueo como movimiento
+  `legalizacion`/`efectivo` — Fase 5 (ya está contemplado en `cerrar_turno`).
+- El ingreso por `pasarela` lo dejará el webhook — Fase 6.
