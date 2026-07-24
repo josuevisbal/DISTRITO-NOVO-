@@ -162,3 +162,91 @@ con la migración `items_visibles_con_token_del_pedido`.
 - Verificación humana de la transferencia en Caja — Fase 4.
 - El seed no trae ninguna promoción tipo `combo`; el camino está codificado y probado por
   tipos, pero se ejercitará cuando el admin cree una (Fase 6).
+
+---
+
+## Fase 3 — Cocinas y pase
+
+**Objetivo:** confirmar un pedido con productos de las tres estaciones y ver los tickets
+aparecer **escalonados**, no todos al tiempo.
+
+### Hecho
+
+- **Sesión y guardas por rol.**
+  - `src/middleware.ts` + `src/lib/supabase/middleware.ts`: refrescan la sesión en cada
+    request y protegen `/app` (sin sesión → login; con sesión en el login → a `/app`).
+  - `src/lib/sesion.ts`: `staffActual()`, `exigirRol(...roles)` e `inicioDeRol(rol)`. La
+    guarda de verdad es la RLS; esto solo evita mostrar pantallas que el rol no usa.
+  - `/app/login` (Server Action con `useActionState`) e `/app` que reparte según el rol.
+  - `BarraStaff`: quién eres y botón de salir, en todas las pantallas internas.
+- **`/app/mesero`**: lista los pedidos de mesa `pendiente` y los confirma con
+  `confirmar_pedido()`. Aquí es donde “nada entra a cocina sin confirmación”.
+- **`/app/cocina` y `/app/cocina/[estacion]`**: fondo oscuro, tickets grandes, un botón
+  Empezar/Listo por ticket y “Agotar” por producto. Si el usuario es de cocina, salta
+  directo a su estación. Cronómetro-semáforo por ticket (verde → amarillo al 80 % →
+  rojo al pasarse), con **color + ícono + texto + tiempo**, nunca solo color.
+- **`/app/pase`**: cada pedido en cocina con una barra por estación (en gris la que no
+  toca) y el botón **Liberar a despacho**, habilitado solo cuando el pedido está `listo`.
+- **Realtime** (`src/lib/realtime.ts` y el propio tablero de cocina): mesero y pase
+  refrescan del servidor ante cambios; cocina además reintenta cada 15 s para que una
+  comanda con `disparo_en` futuro **aparezca sola** cuando su hora pasa, sin cron. Si la
+  conexión se cae, cocina lo avisa y sigue reintentando sin perder el último estado.
+- **Cronómetro anclado al servidor** (`src/lib/cronometro.ts`): el semáforo se calcula
+  desde `disparo_en` y `objetivo_en` (= `disparo_en + minutos`). El navegador solo mide el
+  desfase contra el reloj del servidor una vez al montar y corrige con él; nunca cronometra
+  con su propio reloj a secas.
+- **Usuarios de staff** (migración `crear_usuarios_staff_prueba`): siete cuentas de prueba,
+  una por rol, con las tres de cocina atadas a su estación. Contraseña `distrito2026`.
+- **Realtime habilitado** en `pedidos` y `comandas` (migración `realtime_pedidos_comandas`);
+  la RLS sigue mandando: cada quien recibe solo lo que ya podía leer.
+
+### Corregido: el login rechazaba a los usuarios creados a mano
+
+Los usuarios se insertaron directo en `auth.users`. El hash y el correo estaban bien, pero
+las columnas de token (`confirmation_token`, `recovery_token`, `email_change`, …) quedaron
+en `NULL`, y GoTrue las lee como texto y falla al escanearlas, así que el login daba “correo
+o contraseña incorrectos”. Se pasaron a cadena vacía (migración
+`corregir_tokens_nulos_auth_usuarios_prueba`).
+
+### Decisiones
+
+- Los colores del semáforo son del **sistema**, no de la marca: son un código universal
+  (verde/amarillo/rojo) y no deben cambiar por cliente. Los de la marca (`--marca-*`) siguen
+  saliendo del tema; el color del **borde** de cada ticket sí es el de su estación, que vive
+  en la base.
+- Al marcar una comanda o liberar un pedido no se apaga el estado “ocupado” en el éxito: el
+  refresco de Realtime retira o reordena la tarjeta, y apagarlo antes deja el botón activo un
+  instante (riesgo de doble toque).
+- El tablero filtra en la consulta por `disparo_en <= now()` además de la RLS, para que
+  admin y pase vean el mismo tablero que la cocina.
+
+### Verificado (en el navegador, extremo a extremo)
+
+Pedido **#1004** de mesa con tres estaciones: Chicharronada (Asados, 18 min), Hamburguesa
+(Comida rápida, 10 min) y Agua (Bebidas, 1 min).
+
+1. Login del **mesero** → confirmó el pedido. `confirmar_pedido()` calculó el objetivo común
+   (now + 18 min) y los disparos:
+
+   | Estación | minutos | disparo tras confirmar |
+   |---|---|---|
+   | Asados | 18 | **0 min** (ya) |
+   | Comida rápida | 10 | **+8 min** |
+   | Bebidas | 1 | **+17 min** |
+
+2. **Cocina Asados** (su usuario entró directo a su estación) mostró el ticket con semáforo
+   verde “A tiempo” y cuenta regresiva viva; **Cocina Bebidas** mostró “Nada en preparación”
+   porque su comanda aún no dispara. → **Tickets escalonados, no todos al tiempo.**
+3. Se simuló que las tres estaciones terminaron: el disparador dejó el pedido en `listo`, el
+   **pase** se actualizó solo por Realtime (tres barras “Listo”) y habilitó **Liberar a
+   despacho**; al liberar, el pedido quedó `en_despacho`.
+
+`tsc`, `eslint` y `npm run build` limpios (middleware de 94 kB incluido).
+
+> Los pedidos #1001 (efectivo, pendiente), #1002 (transferencia, esperando_pago) y #1004
+> (ahora en_despacho) quedan como datos de prueba para las fases de Caja y Domiciliario.
+
+### Pendiente para fases siguientes
+
+- Caja: verificar transferencias, contraentrega, arqueo y cierre de turno — Fase 4.
+- Domiciliario: asignación y entrega — Fase 5. El pase asignará domiciliario ahí.
