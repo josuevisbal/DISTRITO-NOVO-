@@ -43,9 +43,14 @@ export function BannerPromociones({ promociones, productos, onAgregarCombo }: Pr
           return (
             <li
               key={promo.id}
-              className="w-[min(20rem,85vw)] shrink-0 snap-start rounded-xl border border-marca-acento/40 bg-gradient-to-br from-marca-acento/15 to-marca-superficie p-5"
+              className="entra relative w-[min(20rem,85vw)] shrink-0 snap-start overflow-hidden rounded-2xl border border-marca-acento/50 bg-gradient-to-br from-marca-superficie-tenue to-marca-superficie p-5 shadow-sm"
             >
-              <p className="flex items-center gap-2 text-marca-acento">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full opacity-20"
+                style={{ backgroundColor: 'var(--marca-acento)' }}
+              />
+              <p className="flex items-center gap-2 text-marca-acento-fuerte">
                 {promo.tipo === 'envio' ? (
                   <IconoMoto className="size-4 shrink-0" />
                 ) : promo.tipo === 'combo' ? (

@@ -1,9 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 
-import { IconoAtras, IconoBolsa, IconoCheck, IconoMas, IconoMenos } from '@/components/iconos'
+import {
+  IconoAtras,
+  IconoBolsa,
+  IconoCheck,
+  IconoDestello,
+  IconoFloritura,
+  IconoMas,
+  IconoMenos,
+} from '@/components/iconos'
 import type { Carta, ProductoCarta } from '@/lib/datos/carta'
 import { formatearPesos } from '@/lib/formato'
 import { crearPedido } from './acciones'
@@ -142,16 +150,30 @@ export function CartaCliente({ carta, mesa }: Props) {
 
 function Encabezado({ nombre, mesa }: { nombre: string; mesa?: { numero: number } }) {
   return (
-    <header className="px-5 pt-10 sm:px-8">
+    <header className="fondo-papel relative overflow-hidden px-5 pb-8 pt-12 text-center sm:px-8">
       {mesa ? (
-        <p className="mb-2 inline-block rounded-full border border-marca-acento px-3 py-1 text-sm font-medium text-marca-acento">
+        <p className="animate-escala mx-auto mb-4 inline-flex items-center gap-1.5 rounded-full border border-marca-acento bg-marca-superficie px-3 py-1 text-sm font-medium text-marca-acento-fuerte">
+          <IconoDestello className="size-3.5" />
           Mesa {mesa.numero}
         </p>
       ) : null}
-      <h1 className="font-titulo text-4xl font-bold text-marca-acento sm:text-5xl">
-        {nombre}
+
+      <div className="animate-aparecer flex items-center justify-center gap-3 text-marca-acento-fuerte">
+        <IconoFloritura className="h-3 w-16 opacity-80" />
+        <IconoDestello className="size-4" />
+        <IconoFloritura className="h-3 w-16 -scale-x-100 opacity-80" />
+      </div>
+
+      <h1
+        className="animate-subir mt-3 text-5xl font-black leading-none tracking-tight text-marca-acento sm:text-6xl"
+        style={{ fontFamily: 'var(--fuente-logo)' }}
+      >
+        <span className="texto-oro">{nombre}</span>
       </h1>
-      <p className="mt-2 text-marca-texto-suave">
+
+      <div className="filete-oro animate-aparecer mx-auto mt-4 w-40" />
+
+      <p className="animate-aparecer mt-4 text-marca-texto-suave">
         {mesa ? 'Arma tu pedido y el mesero lo confirma.' : 'Pide desde aquí, sin cuenta.'}
       </p>
     </header>
@@ -226,10 +248,10 @@ function Menu({
                     .getElementById(`categoria-${c.id}`)
                     ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 }
-                className={`min-h-11 shrink-0 rounded-full border px-4 text-sm ${
+                className={`min-h-11 shrink-0 rounded-full border px-4 text-sm transition-all duration-200 ${
                   seleccionada
-                    ? 'border-marca-acento bg-marca-acento font-semibold text-marca-acento-texto'
-                    : 'border-marca-borde text-marca-texto'
+                    ? 'border-marca-acento bg-marca-acento font-semibold text-marca-acento-texto shadow-sm'
+                    : 'border-marca-borde bg-marca-superficie text-marca-texto hover:border-marca-acento'
                 }`}
               >
                 {c.nombre}
@@ -241,58 +263,102 @@ function Menu({
 
       <div className="mx-auto max-w-3xl px-5 pb-40 sm:px-8">
         {conProductos.map((categoria) => (
-          <section key={categoria.id} id={`categoria-${categoria.id}`} className="scroll-mt-24 pt-10">
-            <h2 className="font-titulo text-2xl font-medium text-marca-texto">
-              {categoria.nombre}
-            </h2>
+          <section key={categoria.id} id={`categoria-${categoria.id}`} className="scroll-mt-24 pt-12">
+            <EncabezadoSeccion titulo={categoria.nombre} />
 
-            <ul className="mt-4 divide-y divide-marca-borde">
-              {categoria.items.map((producto) => {
-                const cantidad = cantidadDe(producto.id)
-
-                return (
-                  <li key={producto.id} className="flex items-start gap-4 py-4">
-                    <div className="min-w-0 flex-1">
-                      <h3
-                        className={`font-medium ${
-                          producto.disponible ? 'text-marca-texto' : 'text-marca-texto-suave'
-                        }`}
-                      >
-                        {producto.nombre}
-                      </h3>
-                      {producto.descripcion ? (
-                        <p className="mt-1 text-sm text-marca-texto-suave">
-                          {producto.descripcion}
-                        </p>
-                      ) : null}
-                      <p className="mt-2 inline-block rounded-md border border-marca-acento px-2.5 py-1 text-sm font-medium text-marca-acento">
-                        {formatearPesos(producto.precio)}
-                      </p>
-                    </div>
-
-                    {producto.disponible ? (
-                      <button
-                        type="button"
-                        onClick={() => onAgregar(producto)}
-                        aria-label={`Agregar ${producto.nombre}`}
-                        className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-marca-acento px-3 font-medium text-marca-acento-texto"
-                      >
-                        <IconoMas className="size-4 shrink-0" />
-                        {cantidad > 0 ? cantidad : 'Agregar'}
-                      </button>
-                    ) : (
-                      <span className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-3 py-2.5 text-sm text-marca-texto-suave">
-                        Agotado
-                      </span>
-                    )}
-                  </li>
-                )
-              })}
+            <ul className="mt-6 grid gap-3">
+              {categoria.items.map((producto, i) => (
+                <ItemProducto
+                  key={producto.id}
+                  producto={producto}
+                  cantidad={cantidadDe(producto.id)}
+                  indice={i}
+                  onAgregar={onAgregar}
+                />
+              ))}
             </ul>
           </section>
         ))}
       </div>
     </>
+  )
+}
+
+/** Encabezado de categoría enmarcado en dorado, como los rótulos de la carta impresa. */
+function EncabezadoSeccion({ titulo }: { titulo: string }) {
+  return (
+    <div className="flex items-center gap-4">
+      <IconoFloritura className="hidden h-3 w-14 text-marca-acento opacity-70 sm:block" />
+      <h2 className="marco-oro rounded-xl bg-marca-superficie px-6 py-2.5 text-center font-titulo text-xl font-bold uppercase tracking-wide text-marca-acento-fuerte sm:text-2xl">
+        {titulo}
+      </h2>
+      <IconoFloritura className="hidden h-3 w-14 -scale-x-100 text-marca-acento opacity-70 sm:block" />
+    </div>
+  )
+}
+
+function ItemProducto({
+  producto,
+  cantidad,
+  indice,
+  onAgregar,
+}: {
+  producto: ProductoCarta
+  cantidad: number
+  indice: number
+  onAgregar: (p: ProductoCarta) => void
+}) {
+  return (
+    <li
+      className="entra flex items-stretch gap-4 rounded-xl border border-marca-borde bg-marca-superficie p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-md"
+      style={{ '--i': indice } as CSSProperties}
+    >
+      {producto.foto_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={producto.foto_url}
+          alt=""
+          className="size-20 shrink-0 rounded-lg object-cover sm:size-24"
+        />
+      ) : null}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <h3
+          className={`font-titulo text-lg font-semibold leading-tight ${
+            producto.disponible ? 'text-marca-texto' : 'text-marca-texto-suave'
+          }`}
+        >
+          {producto.nombre}
+        </h3>
+        {producto.descripcion ? (
+          <p className="mt-0.5 text-sm leading-snug text-marca-texto-suave">
+            {producto.descripcion}
+          </p>
+        ) : null}
+
+        <div className="mt-auto flex items-center justify-between gap-3 pt-2.5">
+          <span className="marco-oro inline-flex items-center rounded-lg bg-marca-superficie-tenue px-3 py-1 font-titulo text-base font-bold tabular-nums text-marca-acento-fuerte">
+            {formatearPesos(producto.precio)}
+          </span>
+
+          {producto.disponible ? (
+            <button
+              type="button"
+              onClick={() => onAgregar(producto)}
+              aria-label={`Agregar ${producto.nombre}`}
+              className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto shadow-sm transition-transform active:scale-95"
+            >
+              <IconoMas className="size-4 shrink-0" />
+              {cantidad > 0 ? cantidad : 'Agregar'}
+            </button>
+          ) : (
+            <span className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-3 py-2.5 text-sm text-marca-texto-suave">
+              Agotado
+            </span>
+          )}
+        </div>
+      </div>
+    </li>
   )
 }
 
@@ -391,7 +457,7 @@ function HojaCarrito({
                   </button>
                 </div>
 
-                <p className="w-24 shrink-0 text-right font-medium text-marca-acento">
+                <p className="w-24 shrink-0 text-right font-medium text-marca-acento-fuerte">
                   {formatearPesos(linea.producto.precio * linea.cantidad)}
                 </p>
               </div>
@@ -413,7 +479,7 @@ function HojaCarrito({
       <div className="border-t border-marca-borde p-4">
         <div className="mx-auto max-w-2xl">
           {error ? (
-            <p role="alert" className="mb-3 text-sm text-marca-acento">
+            <p role="alert" className="mb-3 text-sm text-marca-acento-fuerte">
               {error}
             </p>
           ) : null}
@@ -422,7 +488,7 @@ function HojaCarrito({
             <span className="text-marca-texto-suave">
               {mesa ? 'Total' : 'Subtotal, sin domicilio'}
             </span>
-            <span className="font-titulo text-2xl font-bold text-marca-acento">
+            <span className="font-titulo text-2xl font-bold text-marca-acento-fuerte">
               {formatearPesos(subtotal)}
             </span>
           </div>

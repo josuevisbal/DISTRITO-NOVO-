@@ -132,7 +132,7 @@ function Tarjeta({ pedido }: { pedido: PedidoPase }) {
                   <span className="text-marca-texto-suave">—</span>
                 ) : listo ? (
                   <>
-                    <IconoCheck className="size-4 shrink-0 text-marca-acento" />
+                    <IconoCheck className="size-4 shrink-0 text-marca-acento-fuerte" />
                     <span className="text-marca-texto">Listo</span>
                   </>
                 ) : (
@@ -189,7 +189,7 @@ function TarjetaDespacho({
       <div className="flex items-center justify-between">
         <p className="font-titulo text-lg text-marca-texto">#{despacho.numero}</p>
         {despacho.domiciliario_nombre ? (
-          <span className="flex items-center gap-1.5 text-sm text-marca-acento">
+          <span className="flex items-center gap-1.5 text-sm text-marca-acento-fuerte">
             <IconoMoto className="size-4" />
             {despacho.domiciliario_nombre}
           </span>
@@ -202,14 +202,14 @@ function TarjetaDespacho({
       {despacho.zona ? <p className="text-sm text-marca-texto-suave">{despacho.zona}</p> : null}
 
       {despacho.nota_entrega ? (
-        <p className="mt-2 flex gap-2 text-sm text-marca-acento">
+        <p className="mt-2 flex gap-2 text-sm text-marca-acento-fuerte">
           <IconoAlerta className="size-5 shrink-0" />
           Volvió: {despacho.nota_entrega}
         </p>
       ) : null}
 
       {error ? (
-        <p role="alert" className="mt-2 flex gap-2 text-sm text-marca-acento">
+        <p role="alert" className="mt-2 flex gap-2 text-sm text-marca-acento-fuerte">
           <IconoAlerta className="size-5 shrink-0" />
           {error}
         </p>

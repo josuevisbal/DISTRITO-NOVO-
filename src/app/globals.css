@@ -3,15 +3,99 @@
 @theme inline {
   --color-marca-fondo: var(--marca-fondo);
   --color-marca-superficie: var(--marca-superficie);
+  --color-marca-superficie-tenue: var(--marca-superficie-tenue);
   --color-marca-borde: var(--marca-borde);
   --color-marca-texto: var(--marca-texto);
   --color-marca-texto-suave: var(--marca-texto-suave);
   --color-marca-acento: var(--marca-acento);
+  --color-marca-acento-fuerte: var(--marca-acento-fuerte);
   --color-marca-acento-texto: var(--marca-acento-texto);
   --font-titulo: var(--marca-fuente-titulo);
   --font-texto: var(--marca-fuente-texto);
+
+  --animate-aparecer: aparecer 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-subir: subir 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-escala: escala 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 body {
   font-family: var(--fuente-texto), system-ui, sans-serif;
+}
+
+/* ---------- Animaciones ---------- */
+@keyframes aparecer {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes subir {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes escala {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes brillo {
+  0% { background-position: -160% 0; }
+  100% { background-position: 260% 0; }
+}
+@keyframes latido {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Entrada escalonada: se le pasa --i (índice) al elemento */
+.entra {
+  animation: var(--animate-subir);
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* Respeta a quien pide menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .entra,
+  [class*="animate-"] {
+    animation: none !important;
+  }
+}
+
+/* ---------- Dorado de marca ---------- */
+/* Texto con degradado metálico dorado (para titulares grandes). */
+.texto-oro {
+  background-image: linear-gradient(
+    100deg,
+    var(--marca-acento-fuerte),
+    var(--marca-acento) 30%,
+    #eacb73 50%,
+    var(--marca-acento) 70%,
+    var(--marca-acento-fuerte)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Línea/filete dorado con brillo que recorre, para separadores decorativos. */
+.filete-oro {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--marca-acento) 20%,
+    #eacb73 50%,
+    var(--marca-acento) 80%,
+    transparent
+  );
+}
+
+/* Marco dorado de encabezado de sección (estilo carta impresa). */
+.marco-oro {
+  border: 1.5px solid var(--marca-acento);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--marca-acento) 22%, transparent);
+}
+
+/* Sutil textura de papel para el fondo claro (nada de tono plano). */
+.fondo-papel {
+  background-image:
+    radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--marca-acento) 8%, transparent), transparent 45%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--marca-acento) 6%, transparent), transparent 40%);
 }

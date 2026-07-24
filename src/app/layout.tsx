@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Cinzel, Inter } from 'next/font/google'
+import { Cinzel, Cinzel_Decorative, Inter } from 'next/font/google'
 
 import './globals.css'
 
@@ -7,6 +7,13 @@ const fuenteTitulo = Cinzel({
   variable: '--fuente-titulo',
   subsets: ['latin'],
   weight: ['500', '700'],
+})
+
+// Fuente labrada solo para el logotipo, evocando la carta impresa.
+const fuenteLogo = Cinzel_Decorative({
+  variable: '--fuente-logo',
+  subsets: ['latin'],
+  weight: ['700', '900'],
 })
 
 const fuenteTexto = Inter({
@@ -25,7 +32,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es">
-      <body className={`${fuenteTitulo.variable} ${fuenteTexto.variable} antialiased`}>
+      <body
+        className={`${fuenteTitulo.variable} ${fuenteLogo.variable} ${fuenteTexto.variable} antialiased`}
+      >
         {children}
       </body>
     </html>

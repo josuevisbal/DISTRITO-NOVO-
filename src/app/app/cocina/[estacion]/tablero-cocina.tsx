@@ -33,11 +33,12 @@ type Props = {
   servidorAhoraISO: string
 }
 
-/** Colores del semáforo: fijos del sistema (no de marca), con texto e ícono que acompañan. */
+/** Colores del semáforo: fijos del sistema (no de marca), con texto e ícono que acompañan.
+ *  Pensados para fondo claro: contraste alto de texto sobre relleno tenue. */
 const SEMAFORO: Record<Semaforo, { fondo: string; borde: string; texto: string }> = {
-  verde: { fondo: '#0f2e22', borde: '#2E9E8F', texto: '#7ee3cf' },
-  amarillo: { fondo: '#3a2f05', borde: '#E0B02B', texto: '#f4d873' },
-  rojo: { fondo: '#3a1010', borde: '#E0552B', texto: '#f6a58c' },
+  verde: { fondo: '#E6F5EE', borde: '#2E9E8F', texto: '#12655A' },
+  amarillo: { fondo: '#FBF1D4', borde: '#C79A1E', texto: '#7A5A0F' },
+  rojo: { fondo: '#FBE6DE', borde: '#C2452F', texto: '#9A3320' },
 }
 
 export function TableroCocina({ tickets, color, servidorAhoraISO }: Props) {
@@ -83,7 +84,7 @@ export function TableroCocina({ tickets, color, servidorAhoraISO }: Props) {
     <>
       {!enLinea ? (
         <p className="flex items-center justify-center gap-2 bg-marca-superficie px-4 py-2 text-sm text-marca-texto">
-          <IconoAlerta className="size-5 shrink-0 text-marca-acento" />
+          <IconoAlerta className="size-5 shrink-0 text-marca-acento-fuerte" />
           Sin conexión. Reintentando… se muestra el último estado conocido.
         </p>
       ) : null}
@@ -168,7 +169,7 @@ function TicketCocina({
                 <span className="font-bold">{item.cantidad}×</span> {item.nombre}
               </p>
               {item.notas ? (
-                <p className="text-sm font-medium text-marca-acento">{item.notas}</p>
+                <p className="text-sm font-medium text-marca-acento-fuerte">{item.notas}</p>
               ) : null}
             </div>
             <button
@@ -189,7 +190,7 @@ function TicketCocina({
             type="button"
             onClick={() => marcar('preparando')}
             disabled={ocupado}
-            className="min-h-14 w-full rounded-xl border-2 border-marca-acento text-lg font-semibold text-marca-acento disabled:opacity-60"
+            className="min-h-14 w-full rounded-xl border-2 border-marca-acento text-lg font-semibold text-marca-acento-fuerte disabled:opacity-60"
           >
             Empezar
           </button>

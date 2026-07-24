@@ -112,3 +112,37 @@ export function IconoMoto(props: Props) {
     </Svg>
   )
 }
+
+/** Rombo con trazos, adorno para encabezados de sección (estilo carta impresa). */
+export function IconoFloritura({ className }: Props) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 48 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.25}
+      strokeLinecap="round"
+      className={className ?? 'h-3 w-12'}
+    >
+      <path d="M2 6h13" />
+      <path d="M46 6H33" />
+      <path d="M24 2.5 27.5 6 24 9.5 20.5 6 24 2.5Z" />
+      <path d="M18 6l-2-1.6M18 6l-2 1.6M30 6l2-1.6M30 6l2 1.6" />
+    </svg>
+  )
+}
+
+/** Estrella de cuatro puntas para acentos decorativos. */
+export function IconoDestello({ className }: Props) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className ?? 'size-4'}
+    >
+      <path d="M12 2c.6 4.9 2.5 6.8 7.4 7.4C14.5 10 12.6 12 12 16.8 11.4 12 9.5 10 4.6 9.4 9.5 8.8 11.4 6.9 12 2Z" />
+    </svg>
+  )
+}

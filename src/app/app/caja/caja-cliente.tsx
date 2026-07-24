@@ -150,10 +150,10 @@ function TarjetaLegalizar({ liquidacion }: { liquidacion: PorLegalizar }) {
     <article className="rounded-xl border border-marca-borde bg-marca-superficie p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-titulo text-lg text-marca-texto">
-          <IconoMoto className="size-5 text-marca-acento" />
+          <IconoMoto className="size-5 text-marca-acento-fuerte" />
           {liquidacion.nombre}
         </p>
-        <p className="font-titulo text-xl font-bold text-marca-acento">
+        <p className="font-titulo text-xl font-bold text-marca-acento-fuerte">
           {formatearPesos(liquidacion.total)}
         </p>
       </div>
@@ -368,7 +368,7 @@ function ResumenCierre({
           <dt className="text-marca-texto-suave">Diferencia</dt>
           <dd
             className={`flex items-center gap-1.5 font-bold ${
-              cuadra ? 'text-marca-texto' : 'text-marca-acento'
+              cuadra ? 'text-marca-texto' : 'text-marca-acento-fuerte'
             }`}
           >
             {cuadra ? <IconoCheck className="size-5" /> : <IconoAlerta className="size-5" />}
@@ -409,7 +409,7 @@ function AlertaTransferencia({
           <p className="font-titulo text-xl text-marca-texto">Pedido #{transferencia.numero}</p>
           <p className="text-sm text-marca-texto-suave">{transferencia.cliente ?? 'Sin nombre'}</p>
         </div>
-        <span className="flex items-center gap-1 rounded-full border border-marca-acento px-2.5 py-1 text-xs text-marca-acento">
+        <span className="flex items-center gap-1 rounded-full border border-marca-acento px-2.5 py-1 text-xs text-marca-acento-fuerte">
           <IconoReloj className="size-3.5" />
           Esperando {haceCuanto(new Date(transferencia.creado_en).getTime(), ahora)}
         </span>
@@ -417,13 +417,13 @@ function AlertaTransferencia({
 
       <p className="mt-3 rounded-lg border border-marca-borde bg-marca-fondo p-3 text-center">
         <span className="block text-xs text-marca-texto-suave">Debe llegar exactamente</span>
-        <span className="font-titulo text-2xl font-bold text-marca-acento">
+        <span className="font-titulo text-2xl font-bold text-marca-acento-fuerte">
           {formatearPesos(transferencia.monto_exacto)}
         </span>
       </p>
 
       <p className="mt-2 flex gap-2 text-xs text-marca-texto-suave">
-        <IconoAlerta className="size-4 shrink-0 text-marca-acento" />
+        <IconoAlerta className="size-4 shrink-0 text-marca-acento-fuerte" />
         El pantallazo del cliente es una pista. Confirma solo si viste el movimiento en el banco.
       </p>
 
@@ -479,7 +479,7 @@ function TarjetaContraentrega({ pedido }: { pedido: Contraentrega }) {
             <p className="text-sm text-marca-texto-suave">{pedido.direccion}</p>
           ) : null}
         </div>
-        <p className="font-medium text-marca-acento">{formatearPesos(pedido.total)}</p>
+        <p className="font-medium text-marca-acento-fuerte">{formatearPesos(pedido.total)}</p>
       </div>
 
       {error ? <Error texto={error} /> : null}
@@ -523,7 +523,7 @@ function TarjetaCobro({ pedido }: { pedido: PorCobrar }) {
         <p className="font-titulo text-lg text-marca-texto">
           {pedido.mesa ? `Mesa ${pedido.mesa}` : `Pedido #${pedido.numero}`}
         </p>
-        <p className="font-titulo text-xl font-bold text-marca-acento">
+        <p className="font-titulo text-xl font-bold text-marca-acento-fuerte">
           {formatearPesos(pedido.total)}
         </p>
       </div>
@@ -632,7 +632,7 @@ function AccionConMotivo({
           type="button"
           disabled={disabled || motivo.trim() === ''}
           onClick={() => onConfirmar(motivo.trim())}
-          className="min-h-11 flex-1 rounded-lg border border-marca-acento px-3 text-sm font-medium text-marca-acento disabled:opacity-50"
+          className="min-h-11 flex-1 rounded-lg border border-marca-acento px-3 text-sm font-medium text-marca-acento-fuerte disabled:opacity-50"
         >
           {etiquetaConfirmar}
         </button>
@@ -678,7 +678,7 @@ function Vacio({ texto }: { texto: string }) {
 
 function Error({ texto }: { texto: string }) {
   return (
-    <p role="alert" className="mt-2 flex gap-2 text-sm text-marca-acento">
+    <p role="alert" className="mt-2 flex gap-2 text-sm text-marca-acento-fuerte">
       <IconoAlerta className="size-5 shrink-0" />
       {texto}
     </p>

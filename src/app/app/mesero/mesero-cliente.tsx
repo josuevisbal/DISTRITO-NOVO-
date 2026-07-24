@@ -81,7 +81,7 @@ function Tarjeta({ pedido }: { pedido: PedidoMesa }) {
       </ul>
 
       {error ? (
-        <p role="alert" className="mt-3 flex gap-2 text-sm text-marca-acento">
+        <p role="alert" className="mt-3 flex gap-2 text-sm text-marca-acento-fuerte">
           <IconoAlerta className="size-5 shrink-0" />
           {error}
         </p>

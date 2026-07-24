@@ -49,7 +49,7 @@ export function SeguimientoCliente({ token, inicial, pago }: Props) {
         <p className="text-xs uppercase tracking-[0.2em] text-marca-texto-suave">
           Pedido #{pedido.numero}
         </p>
-        <h1 className="mt-2 font-titulo text-3xl font-bold text-marca-acento">
+        <h1 className="mt-2 font-titulo text-3xl font-bold text-marca-acento-fuerte">
           {anulado ? 'Pedido anulado' : esperandoPago ? 'Falta tu pago' : 'Seguimiento'}
         </h1>
       </header>
@@ -60,7 +60,7 @@ export function SeguimientoCliente({ token, inicial, pago }: Props) {
 
       {anulado ? (
         <p className="mt-6 flex gap-2.5 rounded-lg border border-marca-acento bg-marca-superficie p-4 text-sm text-marca-texto">
-          <IconoAlerta className="size-5 shrink-0 text-marca-acento" />
+          <IconoAlerta className="size-5 shrink-0 text-marca-acento-fuerte" />
           Este pedido fue anulado. Si crees que es un error, escríbenos.
         </p>
       ) : (
@@ -81,7 +81,7 @@ function PanelTransferencia({
 }) {
   return (
     <section className="mt-6 rounded-xl border border-marca-acento bg-marca-superficie p-5">
-      <p className="flex items-center gap-2 text-marca-acento">
+      <p className="flex items-center gap-2 text-marca-acento-fuerte">
         <IconoReloj className="size-5 shrink-0" />
         <span className="font-medium">Tu pedido aún no entra a cocina</span>
       </p>
@@ -93,7 +93,7 @@ function PanelTransferencia({
 
       <div className="mt-4 rounded-lg border border-marca-borde bg-marca-fondo p-4 text-center">
         <p className="text-sm text-marca-texto-suave">Valor exacto a transferir</p>
-        <p className="mt-1 font-titulo text-4xl font-bold text-marca-acento">
+        <p className="mt-1 font-titulo text-4xl font-bold text-marca-acento-fuerte">
           {formatearPesos(pedido.monto_exacto ?? pedido.total)}
         </p>
         {pedido.codigo_pago !== null ? (
@@ -130,7 +130,7 @@ function DatoCopiable({ etiqueta, valor }: { etiqueta: string; valor: string }) 
         <span className="block text-xs text-marca-texto-suave">{etiqueta}</span>
         <span className="block font-medium text-marca-texto">{valor}</span>
       </span>
-      <span className="flex items-center gap-1.5 text-sm text-marca-acento">
+      <span className="flex items-center gap-1.5 text-sm text-marca-acento-fuerte">
         {copiado ? (
           <>
             <IconoCheck className="size-4 shrink-0" />
@@ -191,7 +191,7 @@ function LineaEstados({ estado }: { estado: EstadoPedido }) {
             <div className={`pb-6 ${activo || cumplido ? '' : 'opacity-50'}`}>
               <p
                 className={`${
-                  activo ? 'font-semibold text-marca-acento' : 'font-medium text-marca-texto'
+                  activo ? 'font-semibold text-marca-acento-fuerte' : 'font-medium text-marca-texto'
                 }`}
               >
                 {paso.titulo}
@@ -209,7 +209,7 @@ function ResumenPedido({ pedido }: { pedido: PedidoSeguimiento }) {
   return (
     <section className="mt-8 rounded-xl border border-marca-borde bg-marca-superficie p-5">
       <h2 className="flex items-center gap-2 font-titulo text-lg text-marca-texto">
-        <IconoBolsa className="size-5 shrink-0 text-marca-acento" />
+        <IconoBolsa className="size-5 shrink-0 text-marca-acento-fuerte" />
         Tu pedido
       </h2>
 
@@ -241,7 +241,7 @@ function ResumenPedido({ pedido }: { pedido: PedidoSeguimiento }) {
         ) : null}
         <div className="flex justify-between border-t border-marca-borde pt-2 text-base">
           <dt className="font-medium text-marca-texto">Total</dt>
-          <dd className="font-titulo text-lg font-bold text-marca-acento">
+          <dd className="font-titulo text-lg font-bold text-marca-acento-fuerte">
             {formatearPesos(pedido.total)}
           </dd>
         </div>

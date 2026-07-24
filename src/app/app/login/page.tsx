@@ -31,7 +31,7 @@ export default async function PaginaLogin({
     <main className="flex min-h-screen flex-col items-center justify-center px-5 py-10">
       <header className="mb-8 text-center">
         {nombre ? (
-          <h1 className="font-titulo text-3xl font-bold text-marca-acento">{nombre}</h1>
+          <h1 className="font-titulo text-3xl font-bold text-marca-acento-fuerte">{nombre}</h1>
         ) : null}
         <p className="mt-1 text-sm text-marca-texto-suave">Acceso del equipo</p>
       </header>

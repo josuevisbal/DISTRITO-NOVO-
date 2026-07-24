@@ -40,7 +40,7 @@ export function LoginForm({ destino }: { destino: string }) {
           role="alert"
           className="mt-4 flex gap-2.5 rounded-lg border border-marca-acento bg-marca-superficie p-3 text-sm text-marca-texto"
         >
-          <IconoAlerta className="size-5 shrink-0 text-marca-acento" />
+          <IconoAlerta className="size-5 shrink-0 text-marca-acento-fuerte" />
           {estado.error}
         </p>
       ) : null}

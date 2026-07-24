@@ -87,7 +87,7 @@ export function Checkout({
         Volver al pedido
       </button>
 
-      <h2 className="mt-3 font-titulo text-3xl font-bold text-marca-acento">Tus datos</h2>
+      <h2 className="mt-3 font-titulo text-3xl font-bold text-marca-acento-fuerte">Tus datos</h2>
 
       <Grupo titulo="¿Cómo lo quieres?">
         <div className="grid grid-cols-2 gap-3">
@@ -185,7 +185,7 @@ export function Checkout({
 
         {datos.medio === 'transferencia' ? (
           <p className="flex gap-2.5 rounded-lg border border-marca-borde bg-marca-superficie p-3.5 text-sm text-marca-texto-suave">
-            <IconoAlerta className="size-5 shrink-0 text-marca-acento" />
+            <IconoAlerta className="size-5 shrink-0 text-marca-acento-fuerte" />
             <span>
               Tu pedido no entra a cocina hasta que alguien de caja vea la transferencia en
               el banco. Por eso el valor lleva un código al final: para poder ubicarla.
@@ -205,7 +205,7 @@ export function Checkout({
         ) : null}
         <div className="flex items-baseline justify-between border-t border-marca-borde pt-3 text-lg">
           <dt className="font-titulo font-medium text-marca-texto">Total</dt>
-          <dd className="font-titulo text-2xl font-bold text-marca-acento">
+          <dd className="font-titulo text-2xl font-bold text-marca-acento-fuerte">
             {formatearPesos(total)}
           </dd>
         </div>
@@ -213,7 +213,7 @@ export function Checkout({
 
       {faltaParaEnvioGratis !== null ? (
         <p className="mt-3 flex items-center gap-2 text-sm text-marca-texto-suave">
-          <IconoMoto className="size-4 shrink-0 text-marca-acento" />
+          <IconoMoto className="size-4 shrink-0 text-marca-acento-fuerte" />
           Te faltan {formatearPesos(faltaParaEnvioGratis)} para el domicilio gratis.
         </p>
       ) : null}
@@ -223,7 +223,7 @@ export function Checkout({
           role="alert"
           className="mt-5 flex gap-2.5 rounded-lg border border-marca-acento bg-marca-superficie p-3.5 text-sm text-marca-texto"
         >
-          <IconoAlerta className="size-5 shrink-0 text-marca-acento" />
+          <IconoAlerta className="size-5 shrink-0 text-marca-acento-fuerte" />
           {error}
         </p>
       ) : null}
@@ -353,7 +353,7 @@ function Renglon({
   return (
     <div className="flex justify-between">
       <dt className="text-marca-texto-suave">{termino}</dt>
-      <dd className={destacado ? 'font-medium text-marca-acento' : 'text-marca-texto'}>
+      <dd className={destacado ? 'font-medium text-marca-acento-fuerte' : 'text-marca-texto'}>
         {valor}
       </dd>
     </div>

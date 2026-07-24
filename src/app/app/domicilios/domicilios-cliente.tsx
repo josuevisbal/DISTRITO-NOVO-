@@ -112,14 +112,14 @@ function TarjetaEntrega({ entrega }: { entrega: Entrega }) {
       ) : null}
 
       {entrega.nota_entrega ? (
-        <p className="mt-3 flex gap-2 text-sm text-marca-acento">
+        <p className="mt-3 flex gap-2 text-sm text-marca-acento-fuerte">
           <IconoAlerta className="size-5 shrink-0" />
           Intento anterior: {entrega.nota_entrega}
         </p>
       ) : null}
 
       {error ? (
-        <p role="alert" className="mt-3 flex gap-2 text-sm text-marca-acento">
+        <p role="alert" className="mt-3 flex gap-2 text-sm text-marca-acento-fuerte">
           <IconoAlerta className="size-5 shrink-0" />
           {error}
         </p>
@@ -160,11 +160,11 @@ function TarjetaEntrega({ entrega }: { entrega: Entrega }) {
 
 function CobroCaja({ pagado, total }: { pagado: boolean; total: number }) {
   if (pagado) {
-    // Verde: ya está pago, no cobrar.
+    // Verde: ya está pago, no cobrar. (Relleno tenue para fondo claro.)
     return (
       <p
         className="mt-4 flex items-center justify-center gap-2 rounded-xl border-2 p-4 text-lg font-bold"
-        style={{ backgroundColor: '#0f2e22', borderColor: '#2E9E8F', color: '#7ee3cf' }}
+        style={{ backgroundColor: '#E6F5EE', borderColor: '#2E9E8F', color: '#12655A' }}
       >
         <IconoCheck className="size-6 shrink-0" />
         Ya está pago · No cobrar
@@ -176,7 +176,7 @@ function CobroCaja({ pagado, total }: { pagado: boolean; total: number }) {
   return (
     <div
       className="mt-4 rounded-xl border-2 p-4 text-center"
-      style={{ backgroundColor: '#3a2f05', borderColor: '#E0B02B', color: '#f4d873' }}
+      style={{ backgroundColor: '#FBF1D4', borderColor: '#C79A1E', color: '#7A5A0F' }}
     >
       <span className="block text-sm font-medium">Cobrar en efectivo</span>
       <span className="font-titulo text-3xl font-bold">{formatearPesos(total)}</span>
@@ -222,7 +222,7 @@ function FalloEntrega({
           type="button"
           disabled={disabled || motivo.trim() === ''}
           onClick={() => onConfirmar(motivo.trim())}
-          className="min-h-12 flex-1 rounded-lg border border-marca-acento font-medium text-marca-acento disabled:opacity-50"
+          className="min-h-12 flex-1 rounded-lg border border-marca-acento font-medium text-marca-acento-fuerte disabled:opacity-50"
         >
           Reportar
         </button>
