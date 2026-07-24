@@ -69,3 +69,21 @@ export async function liberarPedido(pedidoId: string): Promise<Resultado> {
   revalidatePath('/app/pase')
   return { ok: true }
 }
+
+/** El pase asigna un domiciliario a un pedido en despacho. */
+export async function asignarDomiciliario(
+  pedidoId: string,
+  domiciliarioId: string,
+): Promise<Resultado> {
+  await exigirRol('pase', 'admin')
+  const supabase = await crearClienteServidor()
+
+  const { error } = await supabase.rpc('asignar_domiciliario', {
+    p_pedido: pedidoId,
+    p_domi: domiciliarioId,
+  })
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/app/pase')
+  return { ok: true }
+}

@@ -11,10 +11,12 @@ import {
   anularPedido,
   cerrarTurno,
   confirmarContraentrega,
+  legalizarDomiciliario,
   registrarCobro,
   verificarTransferencia,
   type ArqueoCierre,
 } from './acciones'
+import { IconoMoto } from '@/components/iconos'
 
 export type Turno = { id: string; base_inicial: number; abierto_en: string } | null
 export type Transferencia = {
@@ -39,6 +41,12 @@ export type PorCobrar = {
   mesa: number | null
   total: number
 }
+export type PorLegalizar = {
+  domiciliario_id: string
+  nombre: string
+  total: number
+  pedidos: number
+}
 
 const MEDIOS: { valor: 'efectivo' | 'transferencia' | 'datafono'; nombre: string }[] = [
   { valor: 'efectivo', nombre: 'Efectivo' },
@@ -59,11 +67,13 @@ type Props = {
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
   porCobrar: PorCobrar[]
+  porLegalizar: PorLegalizar[]
   servidorAhoraISO: string
 }
 
 export function CajaCliente(props: Props) {
-  const { turno, arqueo, transferencias, contraentregas, porCobrar, servidorAhoraISO } = props
+  const { turno, arqueo, transferencias, contraentregas, porCobrar, porLegalizar, servidorAhoraISO } =
+    props
 
   useRefrescarEnCambios(['pedidos'], { intervaloMs: 15000 })
 
@@ -110,7 +120,59 @@ export function CajaCliente(props: Props) {
           porCobrar.map((p) => <TarjetaCobro key={p.pedido_id} pedido={p} />)
         )}
       </Seccion>
+
+      <Seccion titulo="Efectivo de domiciliarios por legalizar" cantidad={porLegalizar.length}>
+        {porLegalizar.length === 0 ? (
+          <Vacio texto="Ningún domiciliario tiene efectivo por entregar." />
+        ) : (
+          porLegalizar.map((l) => <TarjetaLegalizar key={l.domiciliario_id} liquidacion={l} />)
+        )}
+      </Seccion>
     </main>
+  )
+}
+
+function TarjetaLegalizar({ liquidacion }: { liquidacion: PorLegalizar }) {
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function legalizar() {
+    setOcupado(true)
+    setError(null)
+    const r = await legalizarDomiciliario(liquidacion.domiciliario_id)
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+    }
+  }
+
+  return (
+    <article className="rounded-xl border border-marca-borde bg-marca-superficie p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 font-titulo text-lg text-marca-texto">
+          <IconoMoto className="size-5 text-marca-acento" />
+          {liquidacion.nombre}
+        </p>
+        <p className="font-titulo text-xl font-bold text-marca-acento">
+          {formatearPesos(liquidacion.total)}
+        </p>
+      </div>
+      <p className="mt-1 text-sm text-marca-texto-suave">
+        {liquidacion.pedidos} {liquidacion.pedidos === 1 ? 'entrega' : 'entregas'} en efectivo por recibir.
+      </p>
+
+      {error ? <Error texto={error} /> : null}
+
+      <button
+        type="button"
+        onClick={legalizar}
+        disabled={ocupado}
+        className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento font-medium text-marca-acento-texto disabled:opacity-60"
+      >
+        <IconoCheck className="size-5" />
+        Recibí {formatearPesos(liquidacion.total)}
+      </button>
+    </article>
   )
 }
 

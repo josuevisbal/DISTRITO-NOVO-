@@ -417,6 +417,7 @@ export type Database = {
           mesa_id: string | null
           monto_exacto: number | null
           motivo_anulacion: string | null
+          nota_entrega: string | null
           numero: number
           objetivo_en: string | null
           restaurante_id: string
@@ -445,6 +446,7 @@ export type Database = {
           mesa_id?: string | null
           monto_exacto?: number | null
           motivo_anulacion?: string | null
+          nota_entrega?: string | null
           numero?: number
           objetivo_en?: string | null
           restaurante_id: string
@@ -473,6 +475,7 @@ export type Database = {
           mesa_id?: string | null
           monto_exacto?: number | null
           motivo_anulacion?: string | null
+          nota_entrega?: string | null
           numero?: number
           objetivo_en?: string | null
           restaurante_id?: string
@@ -811,6 +814,10 @@ export type Database = {
         Args: { p_motivo: string; p_pedido: string }
         Returns: undefined
       }
+      asignar_domiciliario: {
+        Args: { p_domi: string; p_pedido: string }
+        Returns: undefined
+      }
       cerrar_turno: {
         Args: { p_efectivo_contado: number; p_nota?: string }
         Returns: Json
@@ -821,12 +828,19 @@ export type Database = {
       }
       confirmar_pedido: { Args: { p_pedido: string }; Returns: undefined }
       crear_pedido: { Args: { p_payload: Json; p_slug: string }; Returns: Json }
+      entregar_pedido: { Args: { p_pedido: string }; Returns: undefined }
+      fallo_entrega: {
+        Args: { p_motivo: string; p_pedido: string }
+        Returns: undefined
+      }
+      legalizar_domiciliario: { Args: { p_domi: string }; Returns: number }
       mi_estacion: { Args: never; Returns: string }
       mi_restaurante: { Args: never; Returns: string }
       mi_rol: {
         Args: never
         Returns: Database["public"]["Enums"]["rol_usuario"]
       }
+      recoger_pedido: { Args: { p_pedido: string }; Returns: undefined }
       registrar_cobro: {
         Args: {
           p_medio: Database["public"]["Enums"]["medio_pago"]

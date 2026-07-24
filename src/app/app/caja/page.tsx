@@ -4,6 +4,7 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 import {
   CajaCliente,
   type Contraentrega,
+  type PorLegalizar,
   type PorCobrar,
   type Transferencia,
   type Turno,
@@ -92,6 +93,32 @@ export default async function PaginaCaja() {
       total: p.total,
     }))
 
+  // Efectivo entregado por domiciliarios que aún no ha entrado a caja, agrupado por persona.
+  const { data: entregados } = await supabase
+    .from('pedidos')
+    .select('total, domiciliario_id, usuarios!pedidos_domiciliario_id_fkey(nombre)')
+    .eq('restaurante_id', staff.restaurante_id)
+    .eq('estado', 'entregado')
+    .eq('medio_pago', 'efectivo')
+
+  const porLegalizarMapa = new Map<string, PorLegalizar>()
+  for (const p of entregados ?? []) {
+    if (!p.domiciliario_id) continue
+    const previo = porLegalizarMapa.get(p.domiciliario_id)
+    if (previo) {
+      previo.total += p.total
+      previo.pedidos += 1
+    } else {
+      porLegalizarMapa.set(p.domiciliario_id, {
+        domiciliario_id: p.domiciliario_id,
+        nombre: p.usuarios?.nombre ?? 'Domiciliario',
+        total: p.total,
+        pedidos: 1,
+      })
+    }
+  }
+  const porLegalizar = [...porLegalizarMapa.values()]
+
   return (
     <>
       <BarraStaff staff={staff} titulo="Caja" />
@@ -101,6 +128,7 @@ export default async function PaginaCaja() {
         transferencias={transferencias}
         contraentregas={contraentregas}
         porCobrar={porCobrar}
+        porLegalizar={porLegalizar}
         servidorAhoraISO={new Date().toISOString()}
       />
     </>

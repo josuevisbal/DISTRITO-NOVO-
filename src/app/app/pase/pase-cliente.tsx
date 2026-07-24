@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 
-import { IconoCheck, IconoReloj } from '@/components/iconos'
+import { IconoAlerta, IconoCheck, IconoMoto, IconoReloj } from '@/components/iconos'
 import { useRefrescarEnCambios } from '@/lib/realtime'
-import { liberarPedido } from '../acciones'
+import { asignarDomiciliario, liberarPedido } from '../acciones'
 
 type EstadoComanda = 'pendiente' | 'preparando' | 'listo' | 'cancelada'
 
@@ -25,6 +25,18 @@ export type PedidoPase = {
   barras: BarraEstacion[]
 }
 
+export type Despacho = {
+  id: string
+  numero: number
+  direccion: string | null
+  zona: string | null
+  nota_entrega: string | null
+  domiciliario_id: string | null
+  domiciliario_nombre: string | null
+}
+
+export type Domiciliario = { id: string; nombre: string }
+
 const TEXTO_COMANDA: Record<EstadoComanda, string> = {
   pendiente: 'En cola',
   preparando: 'Preparando',
@@ -32,23 +44,48 @@ const TEXTO_COMANDA: Record<EstadoComanda, string> = {
   cancelada: 'Cancelada',
 }
 
-export function PaseCliente({ pedidos }: { pedidos: PedidoPase[] }) {
+export function PaseCliente({
+  pedidos,
+  despachos,
+  domiciliarios,
+}: {
+  pedidos: PedidoPase[]
+  despachos: Despacho[]
+  domiciliarios: Domiciliario[]
+}) {
   useRefrescarEnCambios(['pedidos', 'comandas'], { intervaloMs: 15000 })
 
-  if (pedidos.length === 0) {
-    return (
-      <p className="mx-auto mt-24 max-w-sm px-6 text-center text-lg text-marca-texto-suave">
-        No hay pedidos en cocina.
-      </p>
-    )
-  }
-
   return (
-    <ul className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
-      {pedidos.map((p) => (
-        <Tarjeta key={p.id} pedido={p} />
-      ))}
-    </ul>
+    <div className="space-y-8 p-4">
+      <section>
+        <h2 className="mb-3 font-titulo text-lg text-marca-texto">En cocina</h2>
+        {pedidos.length === 0 ? (
+          <p className="text-marca-texto-suave">No hay pedidos en cocina.</p>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {pedidos.map((p) => (
+              <Tarjeta key={p.id} pedido={p} />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-3 flex items-center gap-2 font-titulo text-lg text-marca-texto">
+          <IconoMoto className="size-5" />
+          Domicilios por despachar
+        </h2>
+        {despachos.length === 0 ? (
+          <p className="text-marca-texto-suave">Nada por despachar.</p>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {despachos.map((d) => (
+              <TarjetaDespacho key={d.id} despacho={d} domiciliarios={domiciliarios} />
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   )
 }
 
@@ -121,6 +158,89 @@ function Tarjeta({ pedido }: { pedido: PedidoPase }) {
         <IconoCheck className="size-5 shrink-0" />
         {pedido.listo ? 'Liberar a despacho' : 'Esperando cocina'}
       </button>
+    </li>
+  )
+}
+
+function TarjetaDespacho({
+  despacho,
+  domiciliarios,
+}: {
+  despacho: Despacho
+  domiciliarios: Domiciliario[]
+}) {
+  const [domi, setDomi] = useState(despacho.domiciliario_id ?? '')
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function asignar() {
+    if (!domi) return
+    setOcupado(true)
+    setError(null)
+    const r = await asignarDomiciliario(despacho.id, domi)
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+    }
+  }
+
+  return (
+    <li className="flex flex-col rounded-2xl border border-marca-borde bg-marca-superficie p-4">
+      <div className="flex items-center justify-between">
+        <p className="font-titulo text-lg text-marca-texto">#{despacho.numero}</p>
+        {despacho.domiciliario_nombre ? (
+          <span className="flex items-center gap-1.5 text-sm text-marca-acento">
+            <IconoMoto className="size-4" />
+            {despacho.domiciliario_nombre}
+          </span>
+        ) : null}
+      </div>
+
+      {despacho.direccion ? (
+        <p className="mt-2 text-marca-texto">{despacho.direccion}</p>
+      ) : null}
+      {despacho.zona ? <p className="text-sm text-marca-texto-suave">{despacho.zona}</p> : null}
+
+      {despacho.nota_entrega ? (
+        <p className="mt-2 flex gap-2 text-sm text-marca-acento">
+          <IconoAlerta className="size-5 shrink-0" />
+          Volvió: {despacho.nota_entrega}
+        </p>
+      ) : null}
+
+      {error ? (
+        <p role="alert" className="mt-2 flex gap-2 text-sm text-marca-acento">
+          <IconoAlerta className="size-5 shrink-0" />
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex flex-1 flex-col justify-end gap-2">
+        <label className="block">
+          <span className="sr-only">Domiciliario</span>
+          <select
+            value={domi}
+            onChange={(e) => setDomi(e.target.value)}
+            className="min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 text-marca-texto"
+          >
+            <option value="">Escoge domiciliario</option>
+            {domiciliarios.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={asignar}
+          disabled={ocupado || !domi || domi === despacho.domiciliario_id}
+          className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-marca-acento font-medium text-marca-acento-texto disabled:opacity-50"
+        >
+          <IconoMoto className="size-5" />
+          {despacho.domiciliario_id ? 'Reasignar' : 'Asignar domiciliario'}
+        </button>
+      </div>
     </li>
   )
 }

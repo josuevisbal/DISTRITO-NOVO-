@@ -62,6 +62,16 @@ export async function anularPedido(pedidoId: string, motivo: string): Promise<Re
   return { ok: true }
 }
 
+/** Caja recibe (legaliza) todo el efectivo que un domiciliario entregó en el turno. */
+export async function legalizarDomiciliario(domiId: string): Promise<Resultado> {
+  await exigirRol('cajero', 'admin')
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('legalizar_domiciliario', { p_domi: domiId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/caja')
+  return { ok: true }
+}
+
 export type ArqueoCierre = {
   base_inicial: number
   efectivo_esperado: number

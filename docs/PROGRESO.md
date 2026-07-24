@@ -315,3 +315,61 @@ recoger" y responsable "Cajero". `tsc`, `eslint` y `npm run build` limpios.
 - La legalización del efectivo del domiciliario alimentará el arqueo como movimiento
   `legalizacion`/`efectivo` — Fase 5 (ya está contemplado en `cerrar_turno`).
 - El ingreso por `pasarela` lo dejará el webhook — Fase 6.
+
+---
+
+## Fase 5 — Domiciliario
+
+**Objetivo:** entregar un pedido en efectivo y que el monto aparezca en Caja por legalizar.
+
+### Hecho
+
+- **Funciones de domiciliario** (migración `funciones_domiciliario_entrega_legalizacion`,
+  reflejadas en `schema.sql`; columna nueva `pedidos.nota_entrega`):
+  - `asignar_domiciliario(pedido, domi)` — pase/admin; el pedido debe estar en despacho y el
+    domiciliario ser del mismo restaurante.
+  - `recoger_pedido(pedido)` — domiciliario; en_despacho → en_camino, solo su pedido.
+  - `entregar_pedido(pedido)` — domiciliario; en_camino → `entregado` si es efectivo (queda
+    por legalizar) o `cerrado` si ya venía pago.
+  - `fallo_entrega(pedido, motivo)` — vuelve a despacho con el motivo en `nota_entrega`.
+  - `legalizar_domiciliario(domi)` — caja; por cada entrega en efectivo de esa persona deja
+    un movimiento `legalizacion`/`efectivo` en el turno, un pago verificado, y cierra el
+    pedido. Devuelve el total.
+  - Todas `security definer`, revocadas de `anon`, concedidas a `authenticated`.
+- **`/app/domicilios`** (guarda `domiciliario`/`admin`): lista de asignados con detalle de
+  **dirección grande** (se lee de pie), zona, indicaciones, **qué lleva**, y botones de
+  **Llamar** (`tel:`) y **WhatsApp** (`wa.me` con indicativo, sin quemarlo). Estados:
+  "Recogí, voy en camino" → "Entregué" / "No pude entregar" (con motivo).
+- **Recuadro de cobro** (`src/lib/telefono.ts` para los enlaces): **amarillo** con el monto
+  si es efectivo, **verde "Ya está pago · No cobrar"** si ya venía pago. El color va con
+  ícono y texto, nunca solo color.
+- **Pase** ahora asigna domiciliario: nueva sección "Domicilios por despachar" con la
+  dirección, un selector de domiciliario y el botón Asignar/Reasignar. Si un pedido volvió
+  por un intento fallido, muestra el motivo.
+- **Caja** ahora tiene "Efectivo de domiciliarios por legalizar": el efectivo entregado y
+  aún no recibido, agrupado por persona, con un botón "Recibí $X" que lo legaliza y lo mete
+  al arqueo.
+- Tipos regenerados (columna `nota_entrega` y las cinco funciones nuevas).
+
+### Verificado (en el navegador, extremo a extremo)
+
+Pedido **#1001** (domicilio, efectivo, $74.500):
+
+1. **Pase**: se liberó a despacho y apareció en "Domicilios por despachar"; se le asignó el
+   Domiciliario. En la base quedó `en_despacho` con `domiciliario_id`.
+2. **Domiciliario**: vio la dirección grande, la zona (Riomar), el recuadro **amarillo
+   "Cobrar en efectivo $74.500"**, "Qué lleva (4)", y los enlaces `tel:3009998877` y
+   `wa.me/573009998877`. Marcó "Recogí, voy en camino" (→ `en_camino`) y "Entregué"
+   (→ `entregado`, con `entregado_en`).
+3. **Caja**: apareció "Domiciliario · $74.500 · 1 entrega por recibir". Al tocar "Recibí
+   $74.500" se creó el movimiento `legalizacion`/`efectivo`, el pedido quedó `cerrado` y el
+   arqueo de efectivo del turno subió a $74.500. → **el monto aparece en Caja por legalizar
+   y luego cuadra.**
+
+También se verificó el recuadro **verde "Ya está pago · No cobrar"** con el pedido #1003
+(transferencia ya verificada). `tsc`, `eslint` y `npm run build` limpios.
+
+### Pendiente para fases siguientes
+
+- Admin: CRUD de carta, promociones, zonas y usuarios; reportes; PWA y despliegue — Fase 6.
+- El webhook de pasarela dejará su ingreso en el arqueo — Fase 6.

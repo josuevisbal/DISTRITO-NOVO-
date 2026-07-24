@@ -148,6 +148,7 @@ create table if not exists pedidos (
   domiciliario_id uuid references usuarios(id),
   entregado_en timestamptz,
   motivo_anulacion text,
+  nota_entrega text,        -- motivo cuando el domiciliario no pudo entregar
   anulado_por uuid references usuarios(id)
 );
 create index if not exists ix_pedidos_rest_estado on pedidos(restaurante_id, estado);
@@ -548,6 +549,102 @@ begin
 end $$;
 
 -- =====================================================================
+-- DOMICILIARIO · asignación, entrega y legalización del efectivo
+-- =====================================================================
+
+-- pase/admin asigna un domiciliario a un pedido en despacho
+create or replace function asignar_domiciliario(p_pedido uuid, p_domi uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_rest uuid; v_estado estado_pedido; v_domi_rest uuid; v_domi_rol rol_usuario;
+begin
+  if mi_rol() not in ('pase','admin') then raise exception 'Solo pase o administración'; end if;
+
+  select restaurante_id, estado into v_rest, v_estado from pedidos where id = p_pedido;
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+  if v_estado <> 'en_despacho' then raise exception 'El pedido no está listo para despacho'; end if;
+
+  select restaurante_id, rol into v_domi_rest, v_domi_rol from usuarios where id = p_domi and activo;
+  if v_domi_rest is distinct from mi_restaurante() or v_domi_rol <> 'domiciliario' then
+    raise exception 'Domiciliario no válido';
+  end if;
+
+  update pedidos set domiciliario_id = p_domi where id = p_pedido;
+end $$;
+
+-- el domiciliario recoge: en_despacho -> en_camino (solo su pedido)
+create or replace function recoger_pedido(p_pedido uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_domi uuid; v_estado estado_pedido;
+begin
+  if mi_rol() <> 'domiciliario' then raise exception 'Solo el domiciliario'; end if;
+  select domiciliario_id, estado into v_domi, v_estado from pedidos where id = p_pedido;
+  if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
+  if v_estado <> 'en_despacho' then raise exception 'El pedido no está por recoger'; end if;
+
+  update pedidos set estado = 'en_camino' where id = p_pedido;
+end $$;
+
+-- el domiciliario entrega. Si es efectivo, queda 'entregado' con el efectivo por legalizar
+-- en caja; si ya venía pago, se cierra directo.
+create or replace function entregar_pedido(p_pedido uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_domi uuid; v_estado estado_pedido; v_medio medio_pago;
+begin
+  if mi_rol() <> 'domiciliario' then raise exception 'Solo el domiciliario'; end if;
+  select domiciliario_id, estado, medio_pago into v_domi, v_estado, v_medio
+    from pedidos where id = p_pedido;
+  if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
+  if v_estado <> 'en_camino' then raise exception 'El pedido no está en camino'; end if;
+
+  update pedidos
+     set estado = case when v_medio = 'efectivo' then 'entregado'::estado_pedido
+                       else 'cerrado'::estado_pedido end,
+         entregado_en = now()
+   where id = p_pedido;
+end $$;
+
+-- no se pudo entregar: vuelve a despacho con el motivo, para que pase o caja decidan
+create or replace function fallo_entrega(p_pedido uuid, p_motivo text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_domi uuid; v_estado estado_pedido;
+begin
+  if mi_rol() <> 'domiciliario' then raise exception 'Solo el domiciliario'; end if;
+  if coalesce(trim(p_motivo),'') = '' then raise exception 'Escribe por qué no se pudo entregar'; end if;
+  select domiciliario_id, estado into v_domi, v_estado from pedidos where id = p_pedido;
+  if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
+  if v_estado not in ('en_camino','en_despacho') then raise exception 'El pedido no está en reparto'; end if;
+
+  update pedidos set estado = 'en_despacho', nota_entrega = p_motivo where id = p_pedido;
+end $$;
+
+-- caja legaliza (recibe) todo el efectivo entregado por un domiciliario en el turno abierto
+create or replace function legalizar_domiciliario(p_domi uuid) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_turno uuid; v_total bigint := 0; r record;
+begin
+  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  v_turno := turno_abierto();
+  if v_turno is null then raise exception 'Abre un turno antes de legalizar'; end if;
+
+  for r in
+    select id, total from pedidos
+    where restaurante_id = mi_restaurante() and domiciliario_id = p_domi
+      and estado = 'entregado' and medio_pago = 'efectivo'
+  loop
+    insert into pagos (pedido_id, medio, monto, estado, verificado_por, verificado_en)
+    values (r.id, 'efectivo', r.total, 'verificado', auth.uid(), now());
+
+    insert into caja_movimientos (turno_id, tipo, medio, monto, pedido_id, usuario_id)
+    values (v_turno, 'legalizacion', 'efectivo', r.total, r.id, p_domi);
+
+    update pedidos set estado = 'cerrado' where id = r.id;
+    v_total := v_total + r.total;
+  end loop;
+
+  return v_total;
+end $$;
+
+-- =====================================================================
 -- RLS
 -- =====================================================================
 alter table restaurantes     enable row level security;
@@ -698,3 +795,15 @@ grant execute on function registrar_cobro(uuid, medio_pago, bigint) to authentic
 grant execute on function confirmar_contraentrega(uuid) to authenticated;
 grant execute on function anular_pedido(uuid, text) to authenticated;
 grant execute on function cerrar_turno(bigint, text) to authenticated;
+
+-- domiciliario: asignación (pase), estados de entrega (domiciliario) y legalización (caja)
+revoke all on function asignar_domiciliario(uuid, uuid) from public, anon;
+revoke all on function recoger_pedido(uuid) from public, anon;
+revoke all on function entregar_pedido(uuid) from public, anon;
+revoke all on function fallo_entrega(uuid, text) from public, anon;
+revoke all on function legalizar_domiciliario(uuid) from public, anon;
+grant execute on function asignar_domiciliario(uuid, uuid) to authenticated;
+grant execute on function recoger_pedido(uuid) to authenticated;
+grant execute on function entregar_pedido(uuid) to authenticated;
+grant execute on function fallo_entrega(uuid, text) to authenticated;
+grant execute on function legalizar_domiciliario(uuid) to authenticated;
