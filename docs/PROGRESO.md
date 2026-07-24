@@ -83,4 +83,82 @@ con las 3 estaciones y los precios en formato `$10.000`. Sin errores en consola.
 
 ## Fase 2 — Carta pública y creación de pedidos
 
-_No iniciada._
+**Objetivo:** poder pedir desde el celular, que el pedido quede correcto en la base con el
+domicilio calculado por zona y la promoción de envío aplicada, y ver la pantalla de
+transferencia con llave y monto exacto.
+
+### Hecho
+
+- **Ruta `/[slug]`** (carta pública) con la identidad de Distrito Novo leída del tema: negro
+  y dorado, títulos en Cinzel, precios en placas con borde dorado, categorías en chips
+  horizontales pegajosos que marcan la sección visible.
+  - `src/app/[slug]/layout.tsx`: cuelga el tema (`variablesTema`) y genera el `<title>` desde
+    el nombre en la tabla `restaurantes`. Ningún componente conoce el slug del cliente.
+  - `src/lib/datos/carta.ts`: una sola pasada trae restaurante, categorías, productos,
+    promociones (con sus items) y zonas. Sin costos: eso es solo del admin.
+- **Banner de promociones** arriba de todo (`promociones.tsx`): envío / combo / aviso, con
+  ícono SVG por tipo. El combo agrega sus productos al carrito de un toque y muestra el
+  precio **sumando los productos a su precio real**, no `precio_combo`, porque
+  `crear_pedido` cobra la suma de `productos` (anunciar otro valor sería cobrar distinto).
+- **Carrito y checkout** (`carta-cliente.tsx`, `checkout.tsx`): cantidades, notas por
+  renglón, selector de barrio, entrega a domicilio o para recoger, y medio efectivo o
+  transferencia. La vista previa del domicilio replica la regla del servidor
+  (`src/lib/cuentas.ts`) pero deja claro que la cuenta que manda es la de la base.
+- **Creación de pedidos** (`acciones.ts`, Server Action): llama a `crear_pedido(slug,
+  payload)`. El navegador solo manda `producto_id`, `cantidad` y `notas`; **nunca un
+  precio**. El estado inicial lo decide la función según canal y medio.
+- **Pantalla de transferencia** en el seguimiento (`seguimiento-cliente.tsx`): valor exacto
+  grande con el código de 3 cifras, llave y cuenta copiables (leídas de `restaurantes`).
+  Alerta persistente de que el pedido no entra a cocina hasta que caja verifique.
+- **Ruta `/[slug]/pedido/[token]`**: línea de estados con check en lo cumplido, punto en el
+  activo y texto — nunca solo color. Se relee del servidor cada 15 s (la verdad vive en
+  Supabase, no en el reloj del navegador).
+- **Ruta `/[slug]/mesa/[qr_token]`**: la misma carta atada a una mesa; el pedido entra por
+  canal `mesa` y queda `pendiente` para que lo confirme el mesero.
+- **Cliente por token** (`src/lib/supabase/token.ts`): el comensal no tiene cuenta; su
+  permiso es el token del pedido, que viaja en la cabecera `x-pedido-token` y la RLS compara
+  contra `pedidos.token`. Va en cabecera y no en la consulta para que el filtro lo ponga la
+  base, no el front.
+- **Íconos SVG** en `src/components/iconos.tsx`. Cero emojis.
+- `src/app/page.tsx` (raíz) ahora redirige al primer restaurante activo por su slug; se fue
+  la página de prueba de la Fase 1.
+
+### Corregido: el seguimiento no mostraba los productos
+
+La RLS dejaba al comensal ver su pedido con el token pero no sus renglones (`pedido_items`
+solo lo veía el staff). Se agregó la política `pub_items_token`: los items visibles cuando el
+token en la cabecera coincide con el del pedido dueño. Corregido en `schema.sql` y aplicado
+con la migración `items_visibles_con_token_del_pedido`.
+
+### Decisiones
+
+- El estado inicial del pedido lo pone `crear_pedido` en la base, no el front: `mesa` y
+  contraentrega quedan `pendiente`, transferencia `esperando_pago`, pasarela `pendiente`
+  (la confirma el webhook de la Fase 6).
+- Tras confirmar no se limpia el carrito ni se apaga el `enviando`: la navegación al
+  seguimiento desmonta la pantalla, y apagarlo antes dejaba el botón activo un instante,
+  con riesgo de doble pedido.
+- El combo del banner no usa `precio_combo` para lo que cobra: usa la suma real de los
+  productos, que es lo que la base va a cobrar.
+
+### Verificado (en el navegador, extremo a extremo)
+
+- **Pedido #1001** — domicilio, barrio Riomar (que cuesta $8.000), subtotal $74.500. Como
+  superó el umbral de $70.000 de la promo de envío, quedó con **domicilio $0** y total
+  $74.500. Precios de los 4 renglones puestos por el servidor. Estado `pendiente` (efectivo).
+- **Pedido #1002** — para recoger, transferencia. Quedó en `esperando_pago` y el seguimiento
+  mostró el valor exacto **$10.202** (código 202), la llave `@distritonovo` y la cuenta,
+  todo desde `restaurantes`.
+- Ruta de mesa por QR: carga la carta con el chip "Mesa 1".
+- `tsc --noEmit` y `eslint` limpios. Sin errores en consola.
+
+> Nota: los pedidos #1001 (pendiente/efectivo) y #1002 (esperando_pago/transferencia) se
+> dejaron en la base a propósito, como datos de prueba para el mesero y la caja de fases
+> siguientes.
+
+### Pendiente para fases siguientes
+
+- Login y guardas por rol; `/app/mesero` para confirmar los pedidos de mesa — Fase 3.
+- Verificación humana de la transferencia en Caja — Fase 4.
+- El seed no trae ninguna promoción tipo `combo`; el camino está codificado y probado por
+  tipos, pero se ejercitará cuando el admin cree una (Fase 6).

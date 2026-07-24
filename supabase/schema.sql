@@ -443,6 +443,15 @@ create policy pub_mesa  on mesas           for select using (activa);
 create policy pub_ped_token on pedidos for select
   using (token::text = current_setting('request.headers', true)::json->>'x-pedido-token');
 
+-- ...y los renglones de ese mismo pedido, para que el seguimiento muestre qué pidió.
+-- El token viaja en la cabecera, nunca en la consulta, así que no se puede pescar otro.
+create policy pub_items_token on pedido_items for select
+  using (exists (
+    select 1 from pedidos p
+    where p.id = pedido_id
+      and p.token::text = current_setting('request.headers', true)::json->>'x-pedido-token'
+  ));
+
 -- --- staff: todo dentro de su restaurante ---
 -- Todas estas políticas van 'to authenticated' a propósito. Las políticas permisivas se
 -- suman con OR y Postgres las evalúa TODAS, así que si una quedara abierta a 'public' un

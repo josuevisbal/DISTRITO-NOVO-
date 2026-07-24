@@ -1,0 +1,251 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
+import { IconoAlerta, IconoBolsa, IconoCheck, IconoCopiar, IconoReloj } from '@/components/iconos'
+import type { PedidoSeguimiento } from '@/lib/datos/pedido'
+import { pasoDe, pasosVisibles, type EstadoPedido } from '@/lib/estados'
+import { formatearPesos } from '@/lib/formato'
+import { crearClienteConToken } from '@/lib/supabase/token'
+
+type Props = {
+  token: string
+  inicial: PedidoSeguimiento
+  pago: { llave: string | null; cuenta: string | null }
+}
+
+export function SeguimientoCliente({ token, inicial, pago }: Props) {
+  const [pedido, setPedido] = useState(inicial)
+
+  // El estado avanza en cocina/caja, no aquí. Se relee del servidor cada 15 s: la verdad
+  // vive en Supabase y nunca se calcula desde el reloj del navegador.
+  useEffect(() => {
+    const supabase = crearClienteConToken(token)
+    let vivo = true
+
+    async function refrescar() {
+      const { data } = await supabase
+        .from('pedidos')
+        .select('estado, subtotal, domicilio, total, monto_exacto, codigo_pago')
+        .eq('token', token)
+        .maybeSingle()
+      if (vivo && data) setPedido((prev) => ({ ...prev, ...data }))
+    }
+
+    const id = setInterval(refrescar, 15000)
+    return () => {
+      vivo = false
+      clearInterval(id)
+    }
+  }, [token])
+
+  const estado = pedido.estado as EstadoPedido
+  const anulado = estado === 'anulado'
+  const esperandoPago = estado === 'esperando_pago'
+
+  return (
+    <main className="mx-auto max-w-2xl px-5 py-10 sm:px-8">
+      <header>
+        <p className="text-xs uppercase tracking-[0.2em] text-marca-texto-suave">
+          Pedido #{pedido.numero}
+        </p>
+        <h1 className="mt-2 font-titulo text-3xl font-bold text-marca-acento">
+          {anulado ? 'Pedido anulado' : esperandoPago ? 'Falta tu pago' : 'Seguimiento'}
+        </h1>
+      </header>
+
+      {esperandoPago ? (
+        <PanelTransferencia pedido={pedido} pago={pago} />
+      ) : null}
+
+      {anulado ? (
+        <p className="mt-6 flex gap-2.5 rounded-lg border border-marca-acento bg-marca-superficie p-4 text-sm text-marca-texto">
+          <IconoAlerta className="size-5 shrink-0 text-marca-acento" />
+          Este pedido fue anulado. Si crees que es un error, escríbenos.
+        </p>
+      ) : (
+        <LineaEstados estado={estado} />
+      )}
+
+      <ResumenPedido pedido={pedido} />
+    </main>
+  )
+}
+
+function PanelTransferencia({
+  pedido,
+  pago,
+}: {
+  pedido: PedidoSeguimiento
+  pago: { llave: string | null; cuenta: string | null }
+}) {
+  return (
+    <section className="mt-6 rounded-xl border border-marca-acento bg-marca-superficie p-5">
+      <p className="flex items-center gap-2 text-marca-acento">
+        <IconoReloj className="size-5 shrink-0" />
+        <span className="font-medium">Tu pedido aún no entra a cocina</span>
+      </p>
+      <p className="mt-2 text-sm text-marca-texto-suave">
+        Transfiere el <strong className="text-marca-texto">valor exacto</strong> de abajo.
+        Alguien verifica el movimiento en el banco y ahí arranca tu pedido. Los 3 números del
+        final nos ayudan a encontrar tu pago.
+      </p>
+
+      <div className="mt-4 rounded-lg border border-marca-borde bg-marca-fondo p-4 text-center">
+        <p className="text-sm text-marca-texto-suave">Valor exacto a transferir</p>
+        <p className="mt-1 font-titulo text-4xl font-bold text-marca-acento">
+          {formatearPesos(pedido.monto_exacto ?? pedido.total)}
+        </p>
+        {pedido.codigo_pago !== null ? (
+          <p className="mt-1 text-xs text-marca-texto-suave">
+            No cambies los últimos 3 dígitos: {String(pedido.codigo_pago).padStart(3, '0')}
+          </p>
+        ) : null}
+      </div>
+
+      {pago.llave ? <DatoCopiable etiqueta="Llave / Nequi" valor={pago.llave} /> : null}
+      {pago.cuenta ? <DatoCopiable etiqueta="Cuenta" valor={pago.cuenta} /> : null}
+    </section>
+  )
+}
+
+function DatoCopiable({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  const [copiado, setCopiado] = useState(false)
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(valor)
+          setCopiado(true)
+          setTimeout(() => setCopiado(false), 2000)
+        } catch {
+          // Sin portapapeles (navegador viejo o sin permiso): el valor sigue a la vista.
+        }
+      }}
+      className="mt-3 flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-marca-borde bg-marca-fondo px-4 text-left"
+    >
+      <span>
+        <span className="block text-xs text-marca-texto-suave">{etiqueta}</span>
+        <span className="block font-medium text-marca-texto">{valor}</span>
+      </span>
+      <span className="flex items-center gap-1.5 text-sm text-marca-acento">
+        {copiado ? (
+          <>
+            <IconoCheck className="size-4 shrink-0" />
+            Copiado
+          </>
+        ) : (
+          <>
+            <IconoCopiar className="size-4 shrink-0" />
+            Copiar
+          </>
+        )}
+      </span>
+    </button>
+  )
+}
+
+function LineaEstados({ estado }: { estado: EstadoPedido }) {
+  const pasos = pasosVisibles(estado)
+  const actual = pasoDe(estado)
+
+  return (
+    <ol className="mt-8 space-y-0">
+      {pasos.map((paso) => {
+        const indice = pasoDe(paso.estado)
+        const cumplido = actual >= 0 && indice < actual
+        const activo = indice === actual
+
+        return (
+          <li key={paso.estado} className="flex gap-4">
+            <div className="flex flex-col items-center">
+              {/* El estado no se comunica solo con color: el paso cumplido lleva un check,
+                  el activo un punto lleno, y el texto cambia de peso. */}
+              <span
+                className={`flex size-8 shrink-0 items-center justify-center rounded-full border-2 ${
+                  cumplido
+                    ? 'border-marca-acento bg-marca-acento'
+                    : activo
+                      ? 'border-marca-acento'
+                      : 'border-marca-borde'
+                }`}
+              >
+                {cumplido ? (
+                  <IconoCheck className="size-4 text-marca-acento-texto" />
+                ) : activo ? (
+                  <span className="size-2.5 rounded-full bg-marca-acento" />
+                ) : (
+                  <span className="size-2.5 rounded-full bg-marca-borde" />
+                )}
+              </span>
+              {paso.estado !== pasos[pasos.length - 1].estado ? (
+                <span
+                  className={`w-0.5 flex-1 ${cumplido ? 'bg-marca-acento' : 'bg-marca-borde'}`}
+                  style={{ minHeight: '2rem' }}
+                />
+              ) : null}
+            </div>
+
+            <div className={`pb-6 ${activo || cumplido ? '' : 'opacity-50'}`}>
+              <p
+                className={`${
+                  activo ? 'font-semibold text-marca-acento' : 'font-medium text-marca-texto'
+                }`}
+              >
+                {paso.titulo}
+              </p>
+              <p className="mt-0.5 text-sm text-marca-texto-suave">{paso.detalle}</p>
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+function ResumenPedido({ pedido }: { pedido: PedidoSeguimiento }) {
+  return (
+    <section className="mt-8 rounded-xl border border-marca-borde bg-marca-superficie p-5">
+      <h2 className="flex items-center gap-2 font-titulo text-lg text-marca-texto">
+        <IconoBolsa className="size-5 shrink-0 text-marca-acento" />
+        Tu pedido
+      </h2>
+
+      <ul className="mt-4 space-y-2">
+        {pedido.items.map((item, i) => (
+          <li key={i} className="flex justify-between gap-3 text-sm">
+            <span className="text-marca-texto">
+              {item.cantidad} × {item.nombre_snap}
+              {item.notas ? (
+                <span className="mt-0.5 block text-xs text-marca-texto-suave">
+                  {item.notas}
+                </span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <dl className="mt-4 space-y-1.5 border-t border-marca-borde pt-4 text-sm">
+        <div className="flex justify-between">
+          <dt className="text-marca-texto-suave">Subtotal</dt>
+          <dd className="text-marca-texto">{formatearPesos(pedido.subtotal)}</dd>
+        </div>
+        {pedido.domicilio > 0 ? (
+          <div className="flex justify-between">
+            <dt className="text-marca-texto-suave">Domicilio</dt>
+            <dd className="text-marca-texto">{formatearPesos(pedido.domicilio)}</dd>
+          </div>
+        ) : null}
+        <div className="flex justify-between border-t border-marca-borde pt-2 text-base">
+          <dt className="font-medium text-marca-texto">Total</dt>
+          <dd className="font-titulo text-lg font-bold text-marca-acento">
+            {formatearPesos(pedido.total)}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  )
+}

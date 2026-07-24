@@ -1,0 +1,13 @@
+import { crearClienteServidor } from '@/lib/supabase/servidor'
+
+/** Datos mínimos de marca para títulos y encabezados, sin traer toda la carta. */
+export async function restaurantePorSlug(slug: string) {
+  const supabase = await crearClienteServidor()
+  const { data } = await supabase
+    .from('restaurantes')
+    .select('id, nombre, slug, whatsapp, llave_pago, cuenta_pago')
+    .eq('slug', slug)
+    .eq('activo', true)
+    .maybeSingle()
+  return data
+}
