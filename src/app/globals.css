@@ -103,6 +103,14 @@ body {
   animation: pulso 1.8s var(--mov-estado) infinite;
 }
 
+/* Pastilla de estado: al cambiar de estado, transición suave de color (no un salto seco). */
+.pastilla {
+  transition:
+    background-color var(--mov-media) var(--mov-estado),
+    border-color var(--mov-media) var(--mov-estado),
+    color var(--mov-media) var(--mov-estado);
+}
+
 /* ---------- Micro-interacciones globales (todos los botones/enlaces) ---------- */
 @media (prefers-reduced-motion: no-preference) {
   button,

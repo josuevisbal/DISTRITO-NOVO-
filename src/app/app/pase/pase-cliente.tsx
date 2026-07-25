@@ -125,9 +125,9 @@ function Tarjeta({ pedido, indice }: { pedido: PedidoPase; indice: number }) {
           return (
             <li
               key={b.estacion_id}
-              className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
+              className={`pastilla flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
                 sinItems ? 'opacity-40' : ''
-              }`}
+              } ${listo ? 'bg-marca-acento/10' : ''}`}
               style={{ borderColor: b.color }}
             >
               <span className="flex items-center gap-2 text-marca-texto">

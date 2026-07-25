@@ -3,6 +3,7 @@
 import { useRef, useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck } from '@/components/iconos'
+import { Interruptor } from '@/components/interruptor'
 import { alternarPromo, guardarPromo, quitarFotoPromo, subirFotoPromo } from './acciones'
 
 export type PromoAdmin = {
@@ -114,39 +115,6 @@ function TarjetaPromo({ promo, indice }: { promo: PromoAdmin; indice: number }) 
         {guardando ? 'Guardando…' : guardado ? 'Guardado' : 'Guardar cambios'}
       </button>
     </article>
-  )
-}
-
-/** Interruptor animado: la perilla se desliza y el riel cambia de color. */
-function Interruptor({ activa, onCambiar }: { activa: boolean; onCambiar: (v: boolean) => void }) {
-  const [encendida, setEncendida] = useState(activa)
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={encendida}
-      onClick={() => {
-        const v = !encendida
-        setEncendida(v)
-        onCambiar(v)
-      }}
-      className="flex min-h-11 items-center gap-2"
-    >
-      <span
-        className={`relative h-7 w-12 rounded-full transition-colors duration-200 ${
-          encendida ? 'bg-marca-acento' : 'bg-marca-borde'
-        }`}
-      >
-        <span
-          className={`absolute top-1 size-5 rounded-full bg-white shadow transition-[left] duration-200 motion-reduce:transition-none ${
-            encendida ? 'left-6' : 'left-1'
-          }`}
-        />
-      </span>
-      <span className={`text-sm font-medium ${encendida ? 'text-marca-texto' : 'text-marca-texto-suave'}`}>
-        {encendida ? 'Activa' : 'Inactiva'}
-      </span>
-    </button>
   )
 }
 

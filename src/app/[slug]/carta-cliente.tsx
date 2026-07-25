@@ -357,7 +357,7 @@ function ItemProducto({
             {producto.nombre}
           </h3>
           {producto.destacado ? (
-            <span className="flex shrink-0 items-center gap-1 rounded-full border border-marca-acento px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-marca-acento-fuerte">
+            <span className="entra-pastilla flex shrink-0 items-center gap-1 rounded-full border border-marca-acento px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-marca-acento-fuerte">
               <IconoDestello className="size-3" />
               Popular
             </span>

@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 
 import { IconoSubir, IconoBajar } from '@/components/iconos'
+import { Segmentado } from '@/components/segmentado'
 import { formatearPesos } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
 
@@ -55,27 +56,15 @@ export function ReportesCliente({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-marca-texto-suave">Rendimiento del negocio</p>
 
-        {/* Filtro por mes: chips de los últimos meses. */}
-        <div className="flex max-w-full gap-1.5 overflow-x-auto rounded-xl border border-marca-borde bg-marca-superficie p-1">
-          {meses.slice(0, 6).map((m) => {
-            const activo = m.anio === mesSeleccionado.anio && m.mes === mesSeleccionado.mes
-            return (
-              <button
-                key={`${m.anio}-${m.mes}`}
-                type="button"
-                onClick={() => router.push(`/app/admin/reportes?mes=${m.anio}-${m.mes}`)}
-                aria-pressed={activo}
-                className={`min-h-10 shrink-0 rounded-lg px-3 text-sm capitalize transition-colors ${
-                  activo
-                    ? 'bg-marca-acento font-semibold text-marca-acento-texto'
-                    : 'text-marca-texto-suave hover:text-marca-texto'
-                }`}
-              >
-                {m.etiqueta.split(' ')[0]}
-              </button>
-            )
-          })}
-        </div>
+        {/* Filtro por mes: control segmentado con indicador deslizante. */}
+        <Segmentado
+          opciones={meses.slice(0, 6).map((m) => ({
+            valor: `${m.anio}-${m.mes}`,
+            etiqueta: m.etiqueta.split(' ')[0],
+          }))}
+          valor={`${mesSeleccionado.anio}-${mesSeleccionado.mes}`}
+          onCambiar={(v) => router.push(`/app/admin/reportes?mes=${v}`)}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
