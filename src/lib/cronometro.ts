@@ -34,11 +34,19 @@ export function calcularCronometro(
   return { semaforo, restanteSeg, etiqueta }
 }
 
-/** Formatea segundos con signo como `m:ss` o `-m:ss`. */
+/**
+ * Formatea segundos con signo. Menos de una hora: `m:ss` (cuenta regresiva legible).
+ * Una hora o más: `1 h 14 min`, para que un atraso grande nunca se lea como "674:32".
+ */
 export function formatearRestante(segundos: number): string {
   const signo = segundos < 0 ? '-' : ''
   const abs = Math.abs(segundos)
   const m = Math.floor(abs / 60)
+  if (m >= 60) {
+    const h = Math.floor(m / 60)
+    const mm = m % 60
+    return `${signo}${h} h ${String(mm).padStart(2, '0')} min`
+  }
   const s = abs % 60
   return `${signo}${m}:${String(s).padStart(2, '0')}`
 }

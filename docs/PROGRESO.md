@@ -613,3 +613,20 @@ reportes limpios, y el menú mostrando una familia a la vez (pedido del dueño).
   ve esa (5 tarjetas). Marcadores circulares con inicial ("C", "H") sobre el color de la
   estación. Precio grande dorado y Agregar en cada tarjeta.
 - Tablero y Pedidos en vivo en ceros tras la limpieza. `tsc`, `eslint` y build limpios.
+
+---
+
+# Pulido visual completo (nueva ronda)
+
+## Fase 0 — Cronómetro y datos limpios
+
+- **Cronómetro verificado**: siempre contó desde `disparo_en` (cuando la comanda entra a
+  su estación) hacia `objetivo_en` — nunca desde `creado_en`. El "-674:32" era el formato
+  `m:ss` aplicado a comandas de prueba de hace días. Se humanizó: menos de una hora se ve
+  `15:32`; una hora o más se ve `11 h 14 min` (`formatearRestante` en `cronometro.ts`).
+- **Desarrollo en ceros confirmado** (0 pedidos/comandas/pagos/movimientos/turnos, ya
+  limpiado en R6). Pedido fresco #1000 de tres estaciones: Asados mostró
+  **"A tiempo · 15:32"** (verde, minutos reales) y Cocina Rápida "Nada en preparación"
+  porque su comanda dispara 8 min después — escalonado y RLS intactos.
+- **Producción**: correr `supabase/limpieza.sql` (una vez, antes de operar) borra pedidos,
+  comandas, pagos y caja de prueba sin tocar carta, zonas, mesas, promociones ni usuarios.
