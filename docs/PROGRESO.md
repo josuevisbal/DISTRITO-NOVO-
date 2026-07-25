@@ -531,3 +531,30 @@ verificar en caja" apuntando a Caja. El conteo animado sube de 0 al valor al ent
 > Tropiezo de entorno: el dev server (Turbopack en Windows) quedó sirviendo un bundle roto
 > de una edición intermedia y no recompiló al corregirla; el reinicio del server lo sanó.
 > No era un bug del código (el build de producción ya pasaba).
+
+## Fase R4 — Pedidos en vivo
+
+**Objetivo:** hacer un pedido de prueba y verlo aparecer y cambiar de estado en vivo.
+
+### Hecho
+
+- **`/app/admin/pedidos`** (+ `src/lib/datos/pedidos-vivo.ts`): todos los pedidos del
+  momento (todo estado antes de `cerrado`/`anulado`), del más nuevo al más viejo. Cada fila:
+  mesa o número, canal y cliente, **píldora de estado** con color del sistema + ícono +
+  texto (rojo = exige acción humana), estaciones listas x/y cuando está en cocina, ítems,
+  "hace cuánto" con el reloj corregido del servidor, y el total.
+- **Realtime de verdad**: la vista se refresca sola ante cualquier cambio en `pedidos` o
+  `comandas` (más un reintento cada 15 s).
+- **Insignia en la barra lateral**: "Pedidos en vivo" muestra el conteo en rojo, vivo
+  también (conteo inicial + suscripción Realtime en el armazón; la RLS limita el conteo al
+  restaurante del usuario).
+- `ESTADOS_VIVOS` vive en un módulo neutro (`src/lib/estados-vivos.ts`) que comparten la
+  página (server) y el contador (cliente).
+
+### Verificado (en el navegador, en vivo)
+
+Con la vista abierta y sin recargar:
+1. Se creó el pedido **#1008** vía `crear_pedido` → **apareció solo** (de 4 a 5 filas) por
+   Realtime, con su píldora "Por confirmar".
+2. Se confirmó vía `confirmar_pedido` → la píldora **cambió sola a "En cocina"**.
+La insignia de la lateral marcaba el conteo (4 → 5). `tsc`, `eslint` y build limpios.

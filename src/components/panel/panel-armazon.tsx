@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { cerrarSesion } from '@/app/app/login/acciones'
 import {
   IconoCaja,
+  IconoCampana,
   IconoCarta,
   IconoCerrar,
   IconoEquipo,
@@ -17,7 +18,9 @@ import {
   IconoSalir,
   IconoTablero,
 } from '@/components/iconos'
+import { ESTADOS_VIVOS } from '@/lib/estados-vivos'
 import type { Staff } from '@/lib/sesion'
+import { crearClienteNavegador } from '@/lib/supabase/navegador'
 
 type Modulo = {
   href: string
@@ -25,9 +28,9 @@ type Modulo = {
   Icono: (p: { className?: string }) => React.ReactNode
 }
 
-/** Orden de la barra. Pedidos en vivo se suma en su fase. */
 const MODULOS: Modulo[] = [
   { href: '/app/admin/tablero', titulo: 'Tablero', Icono: IconoTablero },
+  { href: '/app/admin/pedidos', titulo: 'Pedidos en vivo', Icono: IconoCampana },
   { href: '/app/admin/carta', titulo: 'Carta', Icono: IconoCarta },
   { href: '/app/admin/promociones', titulo: 'Promociones', Icono: IconoPorcentaje },
   { href: '/app/admin/zonas', titulo: 'Zonas', Icono: IconoPin },
@@ -60,9 +63,36 @@ type Props = {
 export function PanelArmazon({ staff, nombreRestaurante, children }: Props) {
   const ruta = usePathname()
   const [abierta, setAbierta] = useState(false)
+  const [enVivo, setEnVivo] = useState<number | null>(null)
 
   // Al navegar se cierra el cajón móvil.
   useEffect(() => setAbierta(false), [ruta])
+
+  // Contador de pedidos en vivo para la insignia de la barra: conteo inicial + Realtime.
+  // La RLS ya limita el conteo al restaurante del usuario.
+  useEffect(() => {
+    const supabase = crearClienteNavegador()
+    let vivo = true
+
+    async function contar() {
+      const { count } = await supabase
+        .from('pedidos')
+        .select('id', { count: 'exact', head: true })
+        .in('estado', ESTADOS_VIVOS)
+      if (vivo && count !== null) setEnVivo(count)
+    }
+
+    contar()
+    const canal = supabase
+      .channel('panel-pedidos-vivos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, contar)
+      .subscribe()
+
+    return () => {
+      vivo = false
+      supabase.removeChannel(canal)
+    }
+  }, [])
 
   const activo = MODULOS.find((m) => ruta.startsWith(m.href))
 
@@ -70,7 +100,7 @@ export function PanelArmazon({ staff, nombreRestaurante, children }: Props) {
     <div className="flex min-h-screen">
       {/* ----- Barra lateral (escritorio) ----- */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-panel-lateral lg:flex">
-        <ContenidoLateral nombre={nombreRestaurante} ruta={ruta} />
+        <ContenidoLateral nombre={nombreRestaurante} ruta={ruta} enVivo={enVivo} />
       </aside>
 
       {/* ----- Cajón móvil ----- */}
@@ -91,7 +121,7 @@ export function PanelArmazon({ staff, nombreRestaurante, children }: Props) {
             >
               <IconoCerrar className="size-5" />
             </button>
-            <ContenidoLateral nombre={nombreRestaurante} ruta={ruta} />
+            <ContenidoLateral nombre={nombreRestaurante} ruta={ruta} enVivo={enVivo} />
           </aside>
         </div>
       ) : null}
@@ -139,7 +169,15 @@ export function PanelArmazon({ staff, nombreRestaurante, children }: Props) {
   )
 }
 
-function ContenidoLateral({ nombre, ruta }: { nombre: string; ruta: string }) {
+function ContenidoLateral({
+  nombre,
+  ruta,
+  enVivo,
+}: {
+  nombre: string
+  ruta: string
+  enVivo: number | null
+}) {
   const iniciales = nombre
     .split(/\s+/)
     .map((p) => p[0])
@@ -176,7 +214,16 @@ function ContenidoLateral({ nombre, ruta }: { nombre: string; ruta: string }) {
               }`}
             >
               <m.Icono className="size-5 shrink-0" />
-              {m.titulo}
+              <span className="flex-1">{m.titulo}</span>
+              {m.href === '/app/admin/pedidos' && enVivo !== null && enVivo > 0 ? (
+                <span
+                  className={`flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
+                    activo ? 'bg-black/20 text-marca-acento-texto' : 'bg-red-600 text-white'
+                  }`}
+                >
+                  {enVivo}
+                </span>
+              ) : null}
             </Link>
           )
         })}
