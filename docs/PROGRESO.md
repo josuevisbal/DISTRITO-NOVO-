@@ -672,3 +672,20 @@ reportes limpios, y el menú mostrando una familia a la vez (pedido del dueño).
 - Verificado **por uso real del dueño en el preview**: verificó las transferencias #1001 y
   #1002 desde las notificaciones (entraron a cocina y el monto quedó en el arqueo), abrió
   turno y cobró el #1000 en efectivo. `tsc` y `eslint` limpios.
+
+## Fase 4 (pulido) — Reportes completos con filtro por mes
+
+- **Función `reporte_rango(desde, hasta, zona)`** (solo admin/dueño): total, pedidos,
+  ticket, ventas por día del mes (agrupadas en la zona del negocio), % por estación y top
+  de productos. La zona llega por parámetro: nada quemado.
+- **Filtro por mes**: chips de los últimos 6 meses (URL `?mes=AAAA-M`); el servidor
+  consulta el mes elegido y el anterior y calcula las variaciones.
+- **KPIs con comparación**: +X % / −X % con flecha verde/roja vs. el mes anterior; si el
+  mes anterior no tiene datos, se dice "Sin datos de <mes>" en lugar de inventar.
+- **Gráfica de línea** de ventas por día (Recharts) en dorado de marca, con tooltip en
+  pesos. **% por estación** con barras de color y **ranking** de los 8 más vendidos.
+- Conteo animado compartido (`src/lib/use-conteo.ts`, ahora usado también por el Tablero)
+  **endurecido**: si la pestaña está oculta o hay `prefers-reduced-motion`, el número se
+  fija directo (requestAnimationFrame no corre en pestañas ocultas y quedaba en 0).
+- Verificado: julio 2026 → $132.500 · 3 pedidos · ticket $44.166, punto en la gráfica,
+  65/33/2 % por estación, ranking, y sección de rentabilidad solo para el dueño.

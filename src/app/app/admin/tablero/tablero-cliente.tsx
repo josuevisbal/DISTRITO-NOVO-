@@ -1,42 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 
 import { IconoAlerta, IconoCheck, IconoReloj } from '@/components/iconos'
 import type { DatosTablero } from '@/lib/datos/tablero'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
-
-/**
- * Conteo animado: sube de 0 al valor con suavizado, ~700 ms. Si el sistema pide menos
- * movimiento, salta directo al valor.
- */
-function useConteo(valor: number, ms = 700): number {
-  const [v, setV] = useState(0)
-  const previo = useRef(0)
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setV(valor)
-      return
-    }
-    const desde = previo.current
-    previo.current = valor
-    const t0 = performance.now()
-    let raf = 0
-    const tic = (t: number) => {
-      const p = Math.min(1, (t - t0) / ms)
-      const suave = 1 - Math.pow(1 - p, 3)
-      setV(Math.round(desde + (valor - desde) * suave))
-      if (p < 1) raf = requestAnimationFrame(tic)
-    }
-    raf = requestAnimationFrame(tic)
-    return () => cancelAnimationFrame(raf)
-  }, [valor, ms])
-
-  return v
-}
+import { useConteo } from '@/lib/use-conteo'
 
 export function TableroCliente({ datos, dia }: { datos: DatosTablero; dia: string }) {
   // El resumen se refresca solo cuando cambian los pedidos.

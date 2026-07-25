@@ -878,6 +878,10 @@ export type Database = {
       }
       recoger_pedido: { Args: { p_pedido: string }; Returns: undefined }
       reporte_rentabilidad: { Args: { p_dias?: number }; Returns: Json }
+      reporte_rango: {
+        Args: { p_desde: string; p_hasta: string; p_zona?: string }
+        Returns: Json
+      }
       reporte_ventas: { Args: { p_dias?: number }; Returns: Json }
       registrar_cobro: {
         Args: {

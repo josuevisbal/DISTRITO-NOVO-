@@ -693,6 +693,59 @@ end $$;
 revoke all on function reporte_ventas(int) from public, anon;
 grant execute on function reporte_ventas(int) to authenticated;
 
+-- Reporte por rango [desde, hasta): métricas del mes. El rango y la zona llegan del
+-- servidor (configuración por instancia); nada de zonas quemadas. Solo admin y dueño.
+create or replace function reporte_rango(p_desde timestamptz, p_hasta timestamptz, p_zona text default 'America/Bogota')
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_rest uuid; v_res jsonb; v_total bigint; v_n int;
+begin
+  if mi_rol() not in ('admin','dueno') then raise exception 'Solo administración'; end if;
+  v_rest := mi_restaurante();
+
+  select coalesce(sum(total),0), count(*) into v_total, v_n
+    from pedidos
+    where restaurante_id = v_rest and estado <> 'anulado'
+      and creado_en >= p_desde and creado_en < p_hasta;
+
+  select jsonb_build_object(
+    'total_ventas', v_total,
+    'num_pedidos', v_n,
+    'ticket_promedio', case when v_n > 0 then v_total / v_n else 0 end,
+    'por_dia', coalesce((select jsonb_agg(x order by (x->>'dia')::int) from (
+        select jsonb_build_object('dia', extract(day from creado_en at time zone p_zona)::int,
+                                  'total', sum(total)) x
+        from pedidos
+        where restaurante_id = v_rest and estado <> 'anulado'
+          and creado_en >= p_desde and creado_en < p_hasta
+        group by extract(day from creado_en at time zone p_zona)) s), '[]'::jsonb),
+    'por_estacion', coalesce((select jsonb_agg(x order by x->>'orden') from (
+        select jsonb_build_object('nombre', e.nombre, 'color', e.color, 'orden', e.orden,
+                                  'total', coalesce(sum(i.precio_snap * i.cantidad),0)) x
+        from estaciones e
+        left join pedido_items i on i.estacion_id = e.id
+          and exists (select 1 from pedidos p where p.id = i.pedido_id
+                        and p.restaurante_id = v_rest and p.estado <> 'anulado'
+                        and p.creado_en >= p_desde and p.creado_en < p_hasta)
+        where e.restaurante_id = v_rest and e.activa
+        group by e.nombre, e.color, e.orden) s), '[]'::jsonb),
+    'top_productos', coalesce((select jsonb_agg(x) from (
+        select jsonb_build_object('nombre', i.nombre_snap, 'cantidad', sum(i.cantidad),
+                                  'ventas', sum(i.precio_snap * i.cantidad)) x
+        from pedido_items i join pedidos p on p.id = i.pedido_id
+        where p.restaurante_id = v_rest and p.estado <> 'anulado'
+          and p.creado_en >= p_desde and p.creado_en < p_hasta
+        group by i.nombre_snap
+        order by sum(i.cantidad) desc limit 8) s), '[]'::jsonb)
+  ) into v_res;
+
+  return v_res;
+end $$;
+
+revoke all on function reporte_rango(timestamptz, timestamptz, text) from public, anon;
+grant execute on function reporte_rango(timestamptz, timestamptz, text) to authenticated;
+
 -- =====================================================================
 -- DUEÑO · costos por plato y rentabilidad (SOLO el dueño)
 -- El costo vive en una tabla aparte para que la RLS lo proteja de verdad:

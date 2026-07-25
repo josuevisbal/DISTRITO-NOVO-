@@ -216,6 +216,24 @@ export function IconoSalir(props: Props) {
   )
 }
 
+export function IconoSubir(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 17l5-5 3.5 3.5L20 8" />
+      <path d="M14.5 8H20v5.5" />
+    </Svg>
+  )
+}
+
+export function IconoBajar(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 8l5 5 3.5-3.5L20 17" />
+      <path d="M14.5 17H20v-5.5" />
+    </Svg>
+  )
+}
+
 export function IconoBillete(props: Props) {
   return (
     <Svg {...props}>
