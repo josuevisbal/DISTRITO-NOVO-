@@ -2,6 +2,7 @@ import { cerrarSesion } from '@/app/app/login/acciones'
 import type { Staff } from '@/lib/sesion'
 
 const NOMBRE_ROL: Record<Staff['rol'], string> = {
+  dueno: 'Dueño',
   admin: 'Administración',
   cajero: 'Caja',
   mesero: 'Mesero',

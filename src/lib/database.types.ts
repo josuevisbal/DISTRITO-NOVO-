@@ -529,6 +529,32 @@ export type Database = {
           },
         ]
       }
+      producto_costos: {
+        Row: {
+          actualizado_en: string
+          costo: number
+          producto_id: string
+        }
+        Insert: {
+          actualizado_en?: string
+          costo?: number
+          producto_id: string
+        }
+        Update: {
+          actualizado_en?: string
+          costo?: number
+          producto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producto_costos_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: true
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       productos: {
         Row: {
           activo: boolean
@@ -816,6 +842,10 @@ export type Database = {
     }
     Functions: {
       abrir_turno: { Args: { p_base: number }; Returns: string }
+      actualizar_costo: {
+        Args: { p_costo: number; p_producto: string }
+        Returns: undefined
+      }
       anular_pedido: {
         Args: { p_motivo: string; p_pedido: string }
         Returns: undefined
@@ -847,6 +877,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["rol_usuario"]
       }
       recoger_pedido: { Args: { p_pedido: string }; Returns: undefined }
+      reporte_rentabilidad: { Args: { p_dias?: number }; Returns: Json }
       reporte_ventas: { Args: { p_dias?: number }; Returns: Json }
       registrar_cobro: {
         Args: {
@@ -883,6 +914,7 @@ export type Database = {
         | "pasarela"
         | "mesa"
       rol_usuario:
+        | "dueno"
         | "admin"
         | "cajero"
         | "mesero"
@@ -1016,6 +1048,7 @@ export const Constants = {
       ],
       medio_pago: ["efectivo", "transferencia", "datafono", "pasarela", "mesa"],
       rol_usuario: [
+        "dueno",
         "admin",
         "cajero",
         "mesero",

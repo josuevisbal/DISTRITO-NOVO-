@@ -35,6 +35,7 @@ export default async function PaginaAdminUsuarios() {
         usuarios={(usuarios ?? []) as UsuarioAdmin[]}
         estaciones={(estaciones ?? []) as EstacionOpcion[]}
         yoId={staff.id}
+        miRol={staff.rol}
       />
     </>
   )

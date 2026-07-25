@@ -3,6 +3,7 @@ import { NavAdmin } from '@/components/nav-admin'
 import { exigirRol } from '@/lib/sesion'
 import { formatearPesos } from '@/lib/formato'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { Rentabilidad, type DatosRentabilidad } from './rentabilidad'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,14 @@ export default async function PaginaReportes() {
   const { data } = await supabase.rpc('reporte_ventas', { p_dias: 30 })
   const r = data as unknown as Reporte
 
+  // Rentabilidad: SOLO el dueño. Para cualquier otro rol ni se consulta;
+  // y aunque llamaran la función a mano, la base los rechaza.
+  let rentabilidad: DatosRentabilidad | null = null
+  if (staff.rol === 'dueno') {
+    const { data: rent } = await supabase.rpc('reporte_rentabilidad', { p_dias: 30 })
+    rentabilidad = rent as unknown as DatosRentabilidad
+  }
+
   return (
     <>
       <BarraStaff staff={staff} titulo="Reportes" />
@@ -38,6 +47,8 @@ export default async function PaginaReportes() {
 
       <main className="mx-auto max-w-3xl space-y-8 p-4 pb-16">
         <p className="text-sm text-marca-texto-suave">Últimos {r.dias} días.</p>
+
+        {rentabilidad ? <Rentabilidad datos={rentabilidad} /> : null}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Kpi titulo="Ventas" valor={formatearPesos(r.total_ventas)} />

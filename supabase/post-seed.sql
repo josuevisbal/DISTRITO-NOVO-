@@ -13,17 +13,17 @@ on conflict (id) do nothing;
 drop policy if exists productos_admin_insert on storage.objects;
 create policy productos_admin_insert on storage.objects for insert to authenticated
   with check (bucket_id = 'productos'
-    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol = 'admin' and u.activo));
+    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol in ('admin','dueno') and u.activo));
 
 drop policy if exists productos_admin_update on storage.objects;
 create policy productos_admin_update on storage.objects for update to authenticated
   using (bucket_id = 'productos'
-    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol = 'admin' and u.activo));
+    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol in ('admin','dueno') and u.activo));
 
 drop policy if exists productos_admin_delete on storage.objects;
 create policy productos_admin_delete on storage.objects for delete to authenticated
   using (bucket_id = 'productos'
-    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol = 'admin' and u.activo));
+    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol in ('admin','dueno') and u.activo));
 
 drop policy if exists productos_lectura_publica on storage.objects;
 create policy productos_lectura_publica on storage.objects for select to public

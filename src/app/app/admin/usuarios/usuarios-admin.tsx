@@ -23,15 +23,24 @@ export function UsuariosAdmin({
   usuarios,
   estaciones,
   yoId,
+  miRol,
 }: {
   usuarios: UsuarioAdmin[]
   estaciones: EstacionOpcion[]
   yoId: string
+  miRol: Rol
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-3 p-4 pb-16">
       {usuarios.map((u, i) => (
-        <FilaUsuario key={u.id} usuario={u} estaciones={estaciones} esYo={u.id === yoId} indice={i} />
+        <FilaUsuario
+          key={u.id}
+          usuario={u}
+          estaciones={estaciones}
+          esYo={u.id === yoId}
+          miRol={miRol}
+          indice={i}
+        />
       ))}
     </div>
   )
@@ -41,11 +50,13 @@ function FilaUsuario({
   usuario,
   estaciones,
   esYo,
+  miRol,
   indice,
 }: {
   usuario: UsuarioAdmin
   estaciones: EstacionOpcion[]
   esYo: boolean
+  miRol: Rol
   indice: number
 }) {
   const [rol, setRol] = useState<Rol>(usuario.rol)
@@ -57,6 +68,29 @@ function FilaUsuario({
     setError(null)
     const r = await actualizarUsuario(usuario.id, cambios)
     if (!r.ok) setError(r.error)
+  }
+
+  // La cuenta del dueño solo la toca el propio dueño (la base también lo impone).
+  const esDueno = usuario.rol === 'dueno'
+  const bloqueada = esDueno && miRol !== 'dueno'
+  // Solo el dueño puede otorgar el rol de dueño.
+  const rolesDisponibles: Rol[] = miRol === 'dueno' ? ['dueno', ...ROLES] : ROLES
+
+  if (bloqueada) {
+    return (
+      <div
+        className="entra flex flex-wrap items-center gap-3 rounded-xl border border-marca-borde bg-marca-superficie p-3 opacity-70"
+        style={{ '--i': indice } as CSSProperties}
+      >
+        <p className="min-w-32 flex-1 font-medium text-marca-texto">{usuario.nombre}</p>
+        <span className="rounded-full border border-marca-acento px-3 py-1 text-sm font-medium text-marca-acento-fuerte">
+          Dueño
+        </span>
+        <span className="w-full text-xs text-marca-texto-suave">
+          Solo el dueño puede modificar esta cuenta.
+        </span>
+      </div>
+    )
   }
 
   return (
@@ -82,9 +116,9 @@ function FilaUsuario({
           }}
           className="mt-1 min-h-11 rounded-lg border border-marca-borde bg-marca-fondo px-2 text-marca-texto"
         >
-          {ROLES.map((r) => (
+          {rolesDisponibles.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {r === 'dueno' ? 'dueño' : r}
             </option>
           ))}
         </select>

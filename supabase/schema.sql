@@ -8,7 +8,7 @@ create extension if not exists "pgcrypto";
 
 -- ---------- TIPOS ----------
 do $$ begin
-  create type rol_usuario   as enum ('admin','cajero','mesero','cocina','pase','domiciliario');
+  create type rol_usuario   as enum ('dueno','admin','cajero','mesero','cocina','pase','domiciliario');
   create type canal_pedido  as enum ('mesa','whatsapp','domicilio','recoger','mostrador');
   create type estado_pedido as enum ('esperando_pago','pendiente','en_cocina','listo','en_despacho','en_camino','entregado','cerrado','anulado');
   create type estado_comanda as enum ('pendiente','preparando','listo','cancelada');
@@ -399,7 +399,7 @@ returns void
 language plpgsql security definer set search_path = public as $$
 declare v_turno uuid; v_monto bigint; v_rest uuid;
 begin
-  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  if mi_rol() not in ('cajero','admin','dueno') then raise exception 'Solo caja o administración'; end if;
 
   select restaurante_id, monto_exacto into v_rest, v_monto from pedidos where id = p_pedido;
   if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
@@ -443,7 +443,7 @@ create or replace function abrir_turno(p_base bigint) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare v_turno uuid;
 begin
-  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  if mi_rol() not in ('cajero','admin','dueno') then raise exception 'Solo caja o administración'; end if;
   if turno_abierto() is not null then raise exception 'Ya hay un turno abierto'; end if;
   if p_base < 0 then raise exception 'La base no puede ser negativa'; end if;
 
@@ -460,7 +460,7 @@ returns void
 language plpgsql security definer set search_path = public as $$
 declare v_turno uuid; v_rest uuid; v_total bigint; v_monto bigint;
 begin
-  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  if mi_rol() not in ('cajero','admin','dueno') then raise exception 'Solo caja o administración'; end if;
   v_turno := turno_abierto();
   if v_turno is null then raise exception 'Abre un turno antes de cobrar'; end if;
   if p_medio = 'mesa' then raise exception 'Escoge un medio de pago real'; end if;
@@ -486,7 +486,7 @@ create or replace function confirmar_contraentrega(p_pedido uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare v_rest uuid; v_estado estado_pedido;
 begin
-  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  if mi_rol() not in ('cajero','admin','dueno') then raise exception 'Solo caja o administración'; end if;
   select restaurante_id, estado into v_rest, v_estado from pedidos where id = p_pedido;
   if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
   if v_estado <> 'pendiente' then raise exception 'El pedido ya no está pendiente'; end if;
@@ -499,7 +499,7 @@ create or replace function anular_pedido(p_pedido uuid, p_motivo text) returns v
 language plpgsql security definer set search_path = public as $$
 declare v_rest uuid; v_estado estado_pedido;
 begin
-  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  if mi_rol() not in ('cajero','admin','dueno') then raise exception 'Solo caja o administración'; end if;
   if coalesce(trim(p_motivo),'') = '' then raise exception 'La anulación necesita un motivo'; end if;
 
   select restaurante_id, estado into v_rest, v_estado from pedidos where id = p_pedido;
@@ -518,7 +518,7 @@ declare
   v_turno uuid; v_base bigint; v_efectivo bigint; v_egreso bigint;
   v_esperado bigint; v_dif bigint; v_arqueo jsonb;
 begin
-  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  if mi_rol() not in ('cajero','admin','dueno') then raise exception 'Solo caja o administración'; end if;
   v_turno := turno_abierto();
   if v_turno is null then raise exception 'No hay turno abierto'; end if;
 
@@ -559,7 +559,7 @@ create or replace function asignar_domiciliario(p_pedido uuid, p_domi uuid) retu
 language plpgsql security definer set search_path = public as $$
 declare v_rest uuid; v_estado estado_pedido; v_domi_rest uuid; v_domi_rol rol_usuario;
 begin
-  if mi_rol() not in ('pase','admin') then raise exception 'Solo pase o administración'; end if;
+  if mi_rol() not in ('pase','admin','dueno') then raise exception 'Solo pase o administración'; end if;
 
   select restaurante_id, estado into v_rest, v_estado from pedidos where id = p_pedido;
   if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
@@ -624,7 +624,7 @@ create or replace function legalizar_domiciliario(p_domi uuid) returns bigint
 language plpgsql security definer set search_path = public as $$
 declare v_turno uuid; v_total bigint := 0; r record;
 begin
-  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  if mi_rol() not in ('cajero','admin','dueno') then raise exception 'Solo caja o administración'; end if;
   v_turno := turno_abierto();
   if v_turno is null then raise exception 'Abre un turno antes de legalizar'; end if;
 
@@ -656,7 +656,7 @@ declare
   v_rest uuid; v_desde timestamptz; v_res jsonb;
   v_total bigint; v_n int; v_ticket bigint;
 begin
-  if mi_rol() <> 'admin' then raise exception 'Solo administración'; end if;
+  if mi_rol() not in ('admin','dueno') then raise exception 'Solo administración'; end if;
   v_rest := mi_restaurante();
   v_desde := now() - make_interval(days => greatest(p_dias, 1));
 
@@ -694,6 +694,98 @@ revoke all on function reporte_ventas(int) from public, anon;
 grant execute on function reporte_ventas(int) to authenticated;
 
 -- =====================================================================
+-- DUEÑO · costos por plato y rentabilidad (SOLO el dueño)
+-- El costo vive en una tabla aparte para que la RLS lo proteja de verdad:
+-- 'productos' es de lectura pública; 'producto_costos' solo la ve el dueño.
+-- =====================================================================
+create table if not exists producto_costos (
+  producto_id uuid primary key references productos(id) on delete cascade,
+  costo bigint not null default 0 check (costo >= 0),
+  actualizado_en timestamptz not null default now()
+);
+
+-- Nadie toca al dueño salvo el propio dueño. Solo aplica a sesiones de la app
+-- (auth.uid() presente): el SQL Editor y el service role pueden administrar en emergencias.
+create or replace function _proteger_dueno() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null then
+    if tg_op in ('UPDATE','DELETE') and old.rol = 'dueno' and mi_rol() is distinct from 'dueno' then
+      raise exception 'Solo el dueño puede modificar la cuenta del dueño';
+    end if;
+    if tg_op in ('INSERT','UPDATE') and new.rol = 'dueno' and mi_rol() is distinct from 'dueno' then
+      raise exception 'Solo el dueño puede nombrar otro dueño';
+    end if;
+  end if;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end $$;
+
+drop trigger if exists tr_proteger_dueno on usuarios;
+create trigger tr_proteger_dueno before insert or update or delete on usuarios
+for each row execute function _proteger_dueno();
+
+create or replace function actualizar_costo(p_producto uuid, p_costo bigint) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if mi_rol() <> 'dueno' then raise exception 'Solo el dueño'; end if;
+  if p_costo < 0 then raise exception 'El costo no puede ser negativo'; end if;
+  if not exists (select 1 from productos where id = p_producto and restaurante_id = mi_restaurante()) then
+    raise exception 'Producto no encontrado';
+  end if;
+
+  insert into producto_costos (producto_id, costo, actualizado_en)
+  values (p_producto, p_costo, now())
+  on conflict (producto_id) do update set costo = excluded.costo, actualizado_en = now();
+end $$;
+
+create or replace function reporte_rentabilidad(p_dias int default 30)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_rest uuid; v_desde timestamptz; v_res jsonb;
+begin
+  if mi_rol() <> 'dueno' then raise exception 'Solo el dueño'; end if;
+  v_rest := mi_restaurante();
+  v_desde := now() - make_interval(days => greatest(p_dias, 1));
+
+  select jsonb_build_object(
+    'dias', greatest(p_dias,1),
+    'ventas', coalesce(sum(i.precio_snap * i.cantidad),0),
+    'costo', coalesce(sum(coalesce(c.costo,0) * i.cantidad),0),
+    'utilidad', coalesce(sum((i.precio_snap - coalesce(c.costo,0)) * i.cantidad),0),
+    'sin_costo', count(distinct i.producto_id) filter (where c.costo is null or c.costo = 0),
+    'por_producto', coalesce((
+      select jsonb_agg(x) from (
+        select jsonb_build_object(
+          'producto_id', i2.producto_id, 'nombre', i2.nombre_snap,
+          'unidades', sum(i2.cantidad),
+          'ventas', sum(i2.precio_snap * i2.cantidad),
+          'costo_unitario', coalesce(max(c2.costo),0),
+          'utilidad', sum((i2.precio_snap - coalesce(c2.costo,0)) * i2.cantidad)
+        ) x
+        from pedido_items i2
+        join pedidos p2 on p2.id = i2.pedido_id
+        left join producto_costos c2 on c2.producto_id = i2.producto_id
+        where p2.restaurante_id = v_rest and p2.estado <> 'anulado' and p2.creado_en >= v_desde
+        group by i2.producto_id, i2.nombre_snap
+        order by sum((i2.precio_snap - coalesce(c2.costo,0)) * i2.cantidad) desc
+      ) s), '[]'::jsonb)
+  ) into v_res
+  from pedido_items i
+  join pedidos p on p.id = i.pedido_id
+  left join producto_costos c on c.producto_id = i.producto_id
+  where p.restaurante_id = v_rest and p.estado <> 'anulado' and p.creado_en >= v_desde;
+
+  return v_res;
+end $$;
+
+revoke all on function actualizar_costo(uuid, bigint) from public, anon;
+revoke all on function reporte_rentabilidad(int) from public, anon;
+revoke all on function _proteger_dueno() from public, anon, authenticated;
+grant execute on function actualizar_costo(uuid, bigint) to authenticated;
+grant execute on function reporte_rentabilidad(int) to authenticated;
+
+-- =====================================================================
 -- RLS
 -- =====================================================================
 alter table restaurantes     enable row level security;
@@ -711,6 +803,18 @@ alter table comandas         enable row level security;
 alter table pagos            enable row level security;
 alter table caja_turnos      enable row level security;
 alter table caja_movimientos enable row level security;
+alter table producto_costos  enable row level security;
+
+-- costos: SOLO el dueño, y solo de su restaurante
+create policy costos_dueno on producto_costos for all to authenticated
+  using (
+    mi_rol() = 'dueno'
+    and exists (select 1 from productos p where p.id = producto_id and p.restaurante_id = mi_restaurante())
+  )
+  with check (
+    mi_rol() = 'dueno'
+    and exists (select 1 from productos p where p.id = producto_id and p.restaurante_id = mi_restaurante())
+  );
 
 -- --- lectura pública de la carta (el comensal no tiene cuenta) ---
 create policy pub_rest  on restaurantes    for select using (activo);
@@ -746,13 +850,13 @@ create policy staff_rest on restaurantes for all to authenticated
 create policy staff_usuarios on usuarios for select to authenticated
   using (restaurante_id = mi_restaurante());
 create policy admin_usuarios on usuarios for all to authenticated
-  using (restaurante_id = mi_restaurante() and mi_rol() = 'admin')
-  with check (restaurante_id = mi_restaurante() and mi_rol() = 'admin');
+  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'))
+  with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'));
 
 create policy staff_ped on pedidos for select to authenticated
   using (restaurante_id = mi_restaurante());
 create policy staff_ped_upd on pedidos for update to authenticated
-  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','cajero','mesero','pase'));
+  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cajero','mesero','pase'));
 
 create policy staff_items on pedido_items for select to authenticated
   using (exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante()));
@@ -764,7 +868,7 @@ create policy cocina_comandas on comandas for select to authenticated using (
 );
 create policy cocina_comandas_upd on comandas for update to authenticated using (
   exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante())
-  and (mi_rol() in ('admin','pase') or (mi_rol() = 'cocina' and estacion_id = mi_estacion()))
+  and (mi_rol() in ('admin','dueno','pase') or (mi_rol() = 'cocina' and estacion_id = mi_estacion()))
 );
 
 -- domiciliario: SOLO los pedidos que le asignaron
@@ -776,26 +880,26 @@ create policy domi_ped_upd on pedidos for update to authenticated
 -- caja
 create policy caja_pagos on pagos for all to authenticated
   using (exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante())
-         and mi_rol() in ('admin','cajero'));
+         and mi_rol() in ('admin','dueno','cajero'));
 create policy caja_turnos_p on caja_turnos for all to authenticated
-  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','cajero'))
-  with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','cajero'));
+  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cajero'))
+  with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cajero'));
 create policy caja_mov_p on caja_movimientos for all to authenticated
   using (exists (select 1 from caja_turnos t where t.id = turno_id and t.restaurante_id = mi_restaurante()));
 
 -- catálogo: escribe el admin; 'disponible' también lo cambia cocina
 create policy admin_prod on productos for all to authenticated
-  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','cocina'))
-  with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','cocina'));
+  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cocina'))
+  with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cocina'));
 create policy admin_cat on categorias for all to authenticated
-  using (restaurante_id = mi_restaurante() and mi_rol() = 'admin')
-  with check (restaurante_id = mi_restaurante() and mi_rol() = 'admin');
+  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'))
+  with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'));
 create policy admin_promo on promociones for all to authenticated
-  using (restaurante_id = mi_restaurante() and mi_rol() = 'admin')
-  with check (restaurante_id = mi_restaurante() and mi_rol() = 'admin');
+  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'))
+  with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'));
 create policy admin_zona on zonas_domicilio for all to authenticated
-  using (restaurante_id = mi_restaurante() and mi_rol() = 'admin')
-  with check (restaurante_id = mi_restaurante() and mi_rol() = 'admin');
+  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'))
+  with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'));
 
 -- permisos de ejecución
 grant execute on function crear_pedido(text, jsonb) to anon, authenticated;

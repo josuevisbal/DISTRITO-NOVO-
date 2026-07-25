@@ -15,9 +15,14 @@ export async function actualizarUsuario(
 ): Promise<Resultado> {
   const staff = await exigirRol('admin')
 
-  // Un admin no puede desactivarse ni quitarse el rol a sí mismo: evita quedar sin acceso.
-  if (id === staff.id && (cambios.activo === false || (cambios.rol && cambios.rol !== 'admin'))) {
+  // Nadie puede desactivarse ni bajarse de rol a sí mismo: evita quedar sin acceso.
+  if (id === staff.id && (cambios.activo === false || (cambios.rol && cambios.rol !== staff.rol))) {
     return { ok: false, error: 'No puedes quitarte a ti mismo el acceso.' }
+  }
+
+  // Solo el dueño nombra dueños. (La base lo impone también con un disparador.)
+  if (cambios.rol === 'dueno' && staff.rol !== 'dueno') {
+    return { ok: false, error: 'Solo el dueño puede nombrar otro dueño.' }
   }
 
   const supabase = await crearClienteServidor()

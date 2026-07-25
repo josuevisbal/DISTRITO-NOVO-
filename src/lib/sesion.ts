@@ -35,12 +35,13 @@ export async function staffActual(): Promise<Staff | null> {
  * Exige sesión y, si se pasan roles, que el rol esté entre ellos. Si no cumple, redirige:
  * al login si no hay sesión, o a `/app` (que reparte según el rol) si el rol no aplica.
  *
- * La guarda de verdad es la RLS; esto es la capa de interfaz para no mostrarle a alguien una
- * pantalla que su rol no puede usar.
+ * El dueño pasa todas las guardas: ve absolutamente todo. La diferencia dueño/admin se
+ * decide en cada pantalla (p. ej. rentabilidad) y en la RLS, que es la guarda de verdad.
  */
 export async function exigirRol(...roles: Rol[]): Promise<Staff> {
   const staff = await staffActual()
   if (!staff) redirect('/app/login')
+  if (staff.rol === 'dueno') return staff
   if (roles.length > 0 && !roles.includes(staff.rol)) redirect('/app')
   return staff
 }
@@ -48,6 +49,8 @@ export async function exigirRol(...roles: Rol[]): Promise<Staff> {
 /** A dónde mandar a cada rol al entrar. */
 export function inicioDeRol(rol: Rol): string {
   switch (rol) {
+    case 'dueno':
+      return '/app/admin/reportes'
     case 'admin':
       return '/app/admin/carta'
     case 'cajero':
