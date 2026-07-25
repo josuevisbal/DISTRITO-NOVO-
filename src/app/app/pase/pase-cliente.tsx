@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck, IconoMoto, IconoReloj } from '@/components/iconos'
 import { useRefrescarEnCambios } from '@/lib/realtime'
@@ -63,8 +63,8 @@ export function PaseCliente({
           <p className="text-marca-texto-suave">No hay pedidos en cocina.</p>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {pedidos.map((p) => (
-              <Tarjeta key={p.id} pedido={p} />
+            {pedidos.map((p, i) => (
+              <Tarjeta key={p.id} pedido={p} indice={i} />
             ))}
           </ul>
         )}
@@ -79,8 +79,8 @@ export function PaseCliente({
           <p className="text-marca-texto-suave">Nada por despachar.</p>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {despachos.map((d) => (
-              <TarjetaDespacho key={d.id} despacho={d} domiciliarios={domiciliarios} />
+            {despachos.map((d, i) => (
+              <TarjetaDespacho key={d.id} despacho={d} domiciliarios={domiciliarios} indice={i} />
             ))}
           </ul>
         )}
@@ -89,7 +89,7 @@ export function PaseCliente({
   )
 }
 
-function Tarjeta({ pedido }: { pedido: PedidoPase }) {
+function Tarjeta({ pedido, indice }: { pedido: PedidoPase; indice: number }) {
   const [ocupado, setOcupado] = useState(false)
 
   async function liberar() {
@@ -99,7 +99,10 @@ function Tarjeta({ pedido }: { pedido: PedidoPase }) {
   }
 
   return (
-    <li className="flex flex-col rounded-2xl border border-marca-borde bg-marca-superficie p-4">
+    <li
+      className="entra flex flex-col rounded-2xl border border-marca-borde bg-marca-superficie p-4 shadow-sm"
+      style={{ '--i': indice } as CSSProperties}
+    >
       <div className="flex items-center justify-between">
         <p className="font-titulo text-2xl font-bold text-marca-texto">
           {pedido.mesa ? `Mesa ${pedido.mesa}` : `#${pedido.numero}`}
@@ -165,9 +168,11 @@ function Tarjeta({ pedido }: { pedido: PedidoPase }) {
 function TarjetaDespacho({
   despacho,
   domiciliarios,
+  indice,
 }: {
   despacho: Despacho
   domiciliarios: Domiciliario[]
+  indice: number
 }) {
   const [domi, setDomi] = useState(despacho.domiciliario_id ?? '')
   const [ocupado, setOcupado] = useState(false)
@@ -185,7 +190,10 @@ function TarjetaDespacho({
   }
 
   return (
-    <li className="flex flex-col rounded-2xl border border-marca-borde bg-marca-superficie p-4">
+    <li
+      className="entra flex flex-col rounded-2xl border border-marca-borde bg-marca-superficie p-4 shadow-sm"
+      style={{ '--i': indice } as CSSProperties}
+    >
       <div className="flex items-center justify-between">
         <p className="font-titulo text-lg text-marca-texto">#{despacho.numero}</p>
         {despacho.domiciliario_nombre ? (

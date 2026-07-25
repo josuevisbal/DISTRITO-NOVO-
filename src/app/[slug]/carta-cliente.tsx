@@ -323,13 +323,21 @@ function ItemProducto({
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <h3
-          className={`font-titulo text-lg font-semibold leading-tight ${
-            producto.disponible ? 'text-marca-texto' : 'text-marca-texto-suave'
-          }`}
-        >
-          {producto.nombre}
-        </h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3
+            className={`font-titulo text-lg font-semibold leading-tight ${
+              producto.disponible ? 'text-marca-texto' : 'text-marca-texto-suave'
+            }`}
+          >
+            {producto.nombre}
+          </h3>
+          {producto.destacado ? (
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-marca-acento px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-marca-acento-fuerte">
+              <IconoDestello className="size-3" />
+              Popular
+            </span>
+          ) : null}
+        </div>
         {producto.descripcion ? (
           <p className="mt-0.5 text-sm leading-snug text-marca-texto-suave">
             {producto.descripcion}

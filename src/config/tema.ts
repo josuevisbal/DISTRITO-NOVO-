@@ -41,12 +41,42 @@ const TEMA_BASE: Tema = {
   fuenteTexto: 'var(--fuente-texto)',
 }
 
+/**
+ * Distrito Novo · carta del cliente, negro y dorado premium.
+ * La carta es la cara al comensal: el negro con dorado se ve elegante (como la carta
+ * impresa), no informal. Los módulos internos usan el tema claro corporativo.
+ * El dorado va más brillante porque vive sobre negro.
+ */
+const TEMA_CARTA: Tema = {
+  fondo: '#0B0B0C',
+  superficie: '#16151A',
+  superficieTenue: '#201E24',
+  borde: '#34313B',
+  texto: '#F4EFE4',
+  textoSuave: '#A9A294',
+  acento: '#D8AC4E', // dorado metálico brillante
+  acentoFuerte: '#ECCB79', // dorado claro para TEXTO sobre negro (alto contraste)
+  acentoTexto: '#0B0B0C', // texto sobre botón dorado
+  fuenteTitulo: 'var(--fuente-titulo)',
+  fuenteTexto: 'var(--fuente-texto)',
+}
+
 const TEMAS: Record<string, Tema> = {
   'distrito-novo': TEMA_BASE,
 }
 
+const TEMAS_CARTA: Record<string, Tema> = {
+  'distrito-novo': TEMA_CARTA,
+}
+
+/** Tema de los módulos internos (staff): blanco y dorado corporativo. */
 export function obtenerTema(slug: string): Tema {
   return TEMAS[slug] ?? TEMA_BASE
+}
+
+/** Tema de la carta pública del comensal: negro y dorado premium. */
+export function obtenerTemaCarta(slug: string): Tema {
+  return TEMAS_CARTA[slug] ?? TEMA_CARTA
 }
 
 /** Convierte el tema en variables CSS para colgarlas de un contenedor. */

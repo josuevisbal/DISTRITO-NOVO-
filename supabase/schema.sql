@@ -75,6 +75,7 @@ create table if not exists productos (
   foto_url text,
   disponible boolean not null default true,   -- lo apaga la cocina cuando se agota
   activo boolean not null default true,       -- lo apaga el admin
+  destacado boolean not null default false,   -- sello "POPULAR" en la carta
   orden int not null default 1
 );
 create index if not exists ix_productos_rest on productos(restaurante_id, categoria_id);

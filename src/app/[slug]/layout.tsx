@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-import { obtenerTema, variablesTema } from '@/config/tema'
+import { obtenerTemaCarta, variablesTema } from '@/config/tema'
 import { restaurantePorSlug } from '@/lib/datos/restaurante'
 
 type Props = {
@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function MarcoComensal({ children, params }: Props) {
   const { slug } = await params
-  const tema = obtenerTema(slug)
+  const tema = obtenerTemaCarta(slug)
 
   return (
     <div style={variablesTema(tema)} className="min-h-screen bg-marca-fondo text-marca-texto">

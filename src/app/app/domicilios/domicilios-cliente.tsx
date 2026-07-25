@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck, IconoMoto } from '@/components/iconos'
 import { formatearPesos } from '@/lib/formato'
@@ -36,14 +36,14 @@ export function DomiciliosCliente({ entregas }: { entregas: Entrega[] }) {
 
   return (
     <ul className="mx-auto max-w-xl space-y-4 p-4">
-      {entregas.map((e) => (
-        <TarjetaEntrega key={e.pedido_id} entrega={e} />
+      {entregas.map((e, i) => (
+        <TarjetaEntrega key={e.pedido_id} entrega={e} indice={i} />
       ))}
     </ul>
   )
 }
 
-function TarjetaEntrega({ entrega }: { entrega: Entrega }) {
+function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,7 +58,10 @@ function TarjetaEntrega({ entrega }: { entrega: Entrega }) {
   }
 
   return (
-    <li className="rounded-2xl border border-marca-borde bg-marca-superficie p-4">
+    <li
+      className="entra rounded-2xl border border-marca-borde bg-marca-superficie p-4 shadow-sm"
+      style={{ '--i': indice } as CSSProperties}
+    >
       <div className="flex items-center justify-between">
         <p className="font-titulo text-xl text-marca-texto">Pedido #{entrega.numero}</p>
         <span className="flex items-center gap-1.5 rounded-full border border-marca-borde px-2.5 py-1 text-xs text-marca-texto-suave">

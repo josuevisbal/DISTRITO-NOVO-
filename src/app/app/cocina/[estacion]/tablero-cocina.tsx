@@ -95,12 +95,13 @@ export function TableroCocina({ tickets, color, servidorAhoraISO }: Props) {
         </p>
       ) : (
         <ul className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
-          {tickets.map((ticket) => (
+          {tickets.map((ticket, i) => (
             <TicketCocina
               key={ticket.comanda_id}
               ticket={ticket}
               color={color}
               desfaseRef={desfaseRef}
+              indice={i}
             />
           ))}
         </ul>
@@ -113,10 +114,12 @@ function TicketCocina({
   ticket,
   color,
   desfaseRef,
+  indice,
 }: {
   ticket: Ticket
   color: string
   desfaseRef: React.RefObject<number>
+  indice: number
 }) {
   const [ocupado, setOcupado] = useState(false)
 
@@ -143,8 +146,8 @@ function TicketCocina({
 
   return (
     <li
-      className="flex flex-col rounded-2xl border-2 bg-marca-superficie"
-      style={{ borderColor: color }}
+      className="entra flex flex-col rounded-2xl border-2 bg-marca-superficie shadow-sm"
+      style={{ borderColor: color, '--i': indice } as React.CSSProperties}
     >
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
         <p className="font-titulo text-2xl font-bold text-marca-texto">

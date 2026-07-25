@@ -10,6 +10,7 @@ export type ProductoCarta = {
   estacion_id: string
   disponible: boolean
   foto_url: string | null
+  destacado: boolean
 }
 
 export type CategoriaCarta = { id: string; nombre: string; slug: string }
@@ -63,7 +64,7 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
         .order('orden'),
       supabase
         .from('productos')
-        .select('id, nombre, descripcion, precio, categoria_id, estacion_id, disponible, foto_url')
+        .select('id, nombre, descripcion, precio, categoria_id, estacion_id, disponible, foto_url, destacado')
         .eq('restaurante_id', restaurante.id)
         .eq('activo', true)
         .order('orden'),

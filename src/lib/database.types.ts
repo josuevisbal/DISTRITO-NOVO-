@@ -534,6 +534,7 @@ export type Database = {
           activo: boolean
           categoria_id: string
           descripcion: string | null
+          destacado: boolean
           disponible: boolean
           estacion_id: string
           foto_url: string | null
@@ -548,6 +549,7 @@ export type Database = {
           activo?: boolean
           categoria_id: string
           descripcion?: string | null
+          destacado?: boolean
           disponible?: boolean
           estacion_id: string
           foto_url?: string | null
@@ -562,6 +564,7 @@ export type Database = {
           activo?: boolean
           categoria_id?: string
           descripcion?: string | null
+          destacado?: boolean
           disponible?: boolean
           estacion_id?: string
           foto_url?: string | null

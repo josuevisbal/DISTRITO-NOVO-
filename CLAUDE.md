@@ -36,7 +36,10 @@ El comensal no tiene cuenta: entra por `slug`, pide, y sigue su pedido con un `t
 
 - Todo en español: interfaz, esquema, mensajes, commits.
 - Dinero colombiano sin decimales: `$32.000`.
-- Marca de Distrito Novo: negro `#0B0B0C`, dorado `#D4A64A`, títulos en Cinzel.
+- Dos temas por tokens (`src/config/tema.ts`): la **carta del cliente** va negro `#0B0B0C`
+  y dorado `#D8AC4E` (premium, `obtenerTemaCarta`); los **módulos internos** van blanco y
+  dorado corporativo (`obtenerTema`). Los componentes solo usan `--marca-*`; nunca colores
+  quemados. Títulos en Cinzel; el logotipo de la carta en Cinzel Decorative.
 - Colores de estación: rápida `#E0872B`, asados `#C2452F`, bebidas `#2E9E8F`.
 - Áreas táctiles ≥ 44 px. Íconos SVG, nunca emojis. Contraste ≥ 4.5:1.
 - Nada de `localStorage` para datos del negocio.

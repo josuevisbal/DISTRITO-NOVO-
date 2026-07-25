@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck, IconoReloj } from '@/components/iconos'
 import { useRefrescarEnCambios } from '@/lib/realtime'
@@ -29,14 +29,14 @@ export function MeseroCliente({ pendientes }: { pendientes: PedidoMesa[] }) {
 
   return (
     <ul className="mx-auto max-w-2xl space-y-4 p-4">
-      {pendientes.map((pedido) => (
-        <Tarjeta key={pedido.id} pedido={pedido} />
+      {pendientes.map((pedido, i) => (
+        <Tarjeta key={pedido.id} pedido={pedido} indice={i} />
       ))}
     </ul>
   )
 }
 
-function Tarjeta({ pedido }: { pedido: PedidoMesa }) {
+function Tarjeta({ pedido, indice }: { pedido: PedidoMesa; indice: number }) {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -52,7 +52,10 @@ function Tarjeta({ pedido }: { pedido: PedidoMesa }) {
   }
 
   return (
-    <li className="rounded-xl border border-marca-borde bg-marca-superficie p-4">
+    <li
+      className="entra rounded-xl border border-marca-borde bg-marca-superficie p-4"
+      style={{ '--i': indice } as CSSProperties}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-titulo text-xl text-marca-texto">
