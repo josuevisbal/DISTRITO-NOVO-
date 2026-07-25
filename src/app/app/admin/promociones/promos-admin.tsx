@@ -4,6 +4,7 @@ import { useRef, useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck } from '@/components/iconos'
 import { Interruptor } from '@/components/interruptor'
+import { useToast } from '@/components/toast'
 import { alternarPromo, guardarPromo, quitarFotoPromo, subirFotoPromo } from './acciones'
 
 export type PromoAdmin = {
@@ -49,6 +50,7 @@ function TarjetaPromo({ promo, indice }: { promo: PromoAdmin; indice: number }) 
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
 
   async function guardar() {
     setGuardando(true)
@@ -62,6 +64,7 @@ function TarjetaPromo({ promo, indice }: { promo: PromoAdmin; indice: number }) 
     setGuardando(false)
     if (!r.ok) setError(r.error)
     else {
+      mostrar('Promoción guardada')
       setGuardado(true)
       setTimeout(() => setGuardado(false), 1500)
     }

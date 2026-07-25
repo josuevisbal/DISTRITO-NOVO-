@@ -13,6 +13,7 @@ import {
   IconoReloj,
   IconoTarjeta,
 } from '@/components/iconos'
+import { useToast } from '@/components/toast'
 import { formatearPesos } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
 import { useRefrescarEnCambios } from '@/lib/realtime'
@@ -306,6 +307,7 @@ function FilaPedido({ fila, ahora, indice }: { fila: FilaCaja; ahora: number; in
 function FilaVerificar({ t, ahora, indice }: { t: Transferencia; ahora: number; indice: number }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
 
   async function verificar(ok: boolean) {
     setOcupado(true)
@@ -318,6 +320,8 @@ function FilaVerificar({ t, ahora, indice }: { t: Transferencia; ahora: number; 
     if (!r.ok) {
       setError(r.error)
       setOcupado(false)
+    } else {
+      mostrar(ok ? `Pedido #${t.numero} verificado, a cocina` : `Pedido #${t.numero} anulado`)
     }
   }
 
@@ -344,6 +348,7 @@ function FilaConfirmar({ c, ahora, indice }: { c: Contraentrega; ahora: number; 
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [anulando, setAnulando] = useState(false)
+  const { mostrar } = useToast()
 
   async function confirmar() {
     setOcupado(true)
@@ -352,6 +357,8 @@ function FilaConfirmar({ c, ahora, indice }: { c: Contraentrega; ahora: number; 
     if (!r.ok) {
       setError(r.error)
       setOcupado(false)
+    } else {
+      mostrar(`Pedido #${c.numero} confirmado, a cocina`)
     }
   }
   async function anular(motivo: string) {
@@ -360,6 +367,8 @@ function FilaConfirmar({ c, ahora, indice }: { c: Contraentrega; ahora: number; 
     if (!r.ok) {
       setError(r.error)
       setOcupado(false)
+    } else {
+      mostrar(`Pedido #${c.numero} anulado`)
     }
   }
 
@@ -398,6 +407,7 @@ function FilaCobrar({ p, indice }: { p: PorCobrar; indice: number }) {
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
 
   async function cobrar() {
     setOcupado(true)
@@ -406,6 +416,8 @@ function FilaCobrar({ p, indice }: { p: PorCobrar; indice: number }) {
     if (!r.ok) {
       setError(r.error)
       setOcupado(false)
+    } else {
+      mostrar(`Cobrado ${formatearPesos(p.total)} · ${NOMBRE_MEDIO[medio]}`)
     }
   }
 

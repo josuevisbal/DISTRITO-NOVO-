@@ -3,6 +3,8 @@
 import { useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck, IconoMas } from '@/components/iconos'
+import { Modal } from '@/components/modal'
+import { useToast } from '@/components/toast'
 import type { Database } from '@/lib/database.types'
 import { actualizarUsuario, crearUsuario, eliminarUsuario } from './acciones'
 
@@ -42,6 +44,7 @@ export function UsuariosAdmin({
   miRol: Rol
 }) {
   const [creando, setCreando] = useState(false)
+  const [origen, setOrigen] = useState<{ x: number; y: number } | null>(null)
 
   // El dueño otorga cualquier rol; el admin solo roles de operación.
   const rolesDisponibles: Rol[] =
@@ -52,7 +55,10 @@ export function UsuariosAdmin({
       <div className="flex justify-end">
         <button
           type="button"
-          onClick={() => setCreando((v) => !v)}
+          onClick={(e) => {
+            setOrigen({ x: e.clientX, y: e.clientY })
+            setCreando(true)
+          }}
           className="flex min-h-11 items-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto"
         >
           <IconoMas className="size-4" />
@@ -61,11 +67,13 @@ export function UsuariosAdmin({
       </div>
 
       {creando ? (
-        <FormularioCrear
-          estaciones={estaciones}
-          roles={rolesDisponibles}
-          onListo={() => setCreando(false)}
-        />
+        <Modal titulo="Nuevo usuario" origen={origen} onCerrar={() => setCreando(false)}>
+          <FormularioCrear
+            estaciones={estaciones}
+            roles={rolesDisponibles}
+            onListo={() => setCreando(false)}
+          />
+        </Modal>
       ) : null}
 
       {/* Encabezado de columnas (pantallas medianas en adelante). */}
@@ -110,6 +118,7 @@ function FormularioCrear({
   const [estacion, setEstacion] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
 
   async function crear() {
     setEnviando(true)
@@ -126,13 +135,12 @@ function FormularioCrear({
       setError(r.error)
       return
     }
+    mostrar(`Usuario "${nombre.trim()}" creado`)
     onListo()
   }
 
   return (
-    <div className="tarjeta entra space-y-3 p-4">
-      <h2 className="font-semibold text-marca-texto">Nuevo usuario</h2>
-
+    <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <Campo etiqueta="Nombre" valor={nombre} onChange={setNombre} marcador="Nombre y apellido" />
         <Campo
@@ -235,11 +243,13 @@ function FilaUsuario({
   const [eliminado, setEliminado] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
 
   async function aplicar(cambios: Parameters<typeof actualizarUsuario>[1]) {
     setError(null)
     const r = await actualizarUsuario(usuario.id, cambios)
     if (!r.ok) setError(r.error)
+    else mostrar('Cambio guardado')
   }
 
   async function eliminar() {
@@ -253,6 +263,7 @@ function FilaUsuario({
       return
     }
     // Respuesta inmediata: la fila se va ya; el refresco confirma detrás.
+    mostrar(`Usuario "${usuario.nombre}" eliminado`)
     setEliminado(true)
   }
 

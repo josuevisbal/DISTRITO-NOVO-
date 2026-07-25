@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck, IconoMas } from '@/components/iconos'
+import { useToast } from '@/components/toast'
 import { formatearPesos } from '@/lib/formato'
 import { alternarZona, guardarZona } from './acciones'
 
@@ -33,6 +34,7 @@ function FilaZona({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [guardado, setGuardado] = useState(false)
+  const { mostrar } = useToast()
 
   async function guardar() {
     setGuardando(true)
@@ -41,6 +43,7 @@ function FilaZona({
     setGuardando(false)
     if (!r.ok) setError(r.error)
     else {
+      mostrar(nueva ? `Barrio "${nombre.trim()}" agregado` : 'Barrio guardado')
       setGuardado(true)
       setTimeout(() => setGuardado(false), 1500)
       if (nueva) {

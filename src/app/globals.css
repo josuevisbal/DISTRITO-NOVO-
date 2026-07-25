@@ -80,6 +80,29 @@ body {
   from { opacity: 0; transform: translateX(110%); }
   to { opacity: 1; transform: translateX(0); }
 }
+/* Toast: sube y aparece; sale más rápido (la salida la maneja el estado). */
+@keyframes toast-entra {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toast-sale {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(10px) scale(0.98); }
+}
+/* Check que se dibuja solo (confirmación). */
+@keyframes dibujar-check {
+  from { stroke-dashoffset: 26; }
+  to { stroke-dashoffset: 0; }
+}
+/* Modal: escala y aparece desde su origen; el fondo oscurece suave. */
+@keyframes modal-entra {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes fondo-entra {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 /* ---------- Utilidades compartidas ---------- */
 /* Entrada escalonada de tarjetas: se le pasa --i (índice). */
@@ -101,6 +124,24 @@ body {
 /* Pastilla-alerta que llama la atención con un pulso apenas perceptible. */
 .pulso-suave {
   animation: pulso 1.8s var(--mov-estado) infinite;
+}
+
+.toast-entra {
+  animation: toast-entra var(--mov-media) var(--mov-entrar) both;
+}
+.toast-sale {
+  animation: toast-sale var(--mov-rapida) var(--mov-salir) both;
+}
+.modal-caja {
+  animation: modal-entra var(--mov-media) var(--mov-entrar) both;
+  transform-origin: var(--origen, center);
+}
+.modal-fondo {
+  animation: fondo-entra var(--mov-media) var(--mov-estado) both;
+}
+.check-anim path {
+  stroke-dasharray: 26;
+  animation: dibujar-check var(--mov-lenta) var(--mov-entrar) both;
 }
 
 /* Pastilla de estado: al cambiar de estado, transición suave de color (no un salto seco). */
@@ -154,6 +195,11 @@ body {
   .entra-pastilla,
   .notifica,
   .pulso-suave,
+  .toast-entra,
+  .toast-sale,
+  .modal-caja,
+  .modal-fondo,
+  .check-anim path,
   [class*="animate-"] {
     animation: none !important;
   }
