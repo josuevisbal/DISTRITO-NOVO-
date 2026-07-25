@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Cinzel, Cinzel_Decorative, Inter } from 'next/font/google'
 
 import './globals.css'
@@ -25,6 +25,11 @@ const fuenteTexto = Inter({
 export const metadata: Metadata = {
   title: 'Sistema de pedidos',
   description: 'Pedidos multicocina con disparo escalonado por estación',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Pedidos' },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#B8862B',
 }
 
 export default function RootLayout({

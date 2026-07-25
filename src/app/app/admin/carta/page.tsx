@@ -1,4 +1,5 @@
 import { BarraStaff } from '@/components/barra-staff'
+import { NavAdmin } from '@/components/nav-admin'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { CartaAdmin, type CategoriaAdmin } from './carta-admin'
@@ -44,6 +45,7 @@ export default async function PaginaAdminCarta() {
   return (
     <>
       <BarraStaff staff={staff} titulo="Carta · fotos y disponibilidad" />
+      <NavAdmin />
       <p className="mx-auto max-w-3xl px-4 pt-4 text-sm text-marca-texto-suave">
         Sube una foto por plato, márcalo como POPULAR o agótalo. La foto se ve al instante en
         la carta del cliente.

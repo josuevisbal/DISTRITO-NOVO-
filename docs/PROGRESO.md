@@ -373,3 +373,48 @@ También se verificó el recuadro **verde "Ya está pago · No cobrar"** con el 
 
 - Admin: CRUD de carta, promociones, zonas y usuarios; reportes; PWA y despliegue — Fase 6.
 - El webhook de pasarela dejará su ingreso en el arqueo — Fase 6.
+
+---
+
+## Rediseño visual y fotos (a pedido del cliente)
+
+- **Dos temas por tokens** (`src/config/tema.ts`): la **carta del cliente** quedó negra y
+  dorada premium (`obtenerTemaCarta`, como la carta impresa) y los **módulos internos**
+  blancos y dorados corporativos (`obtenerTema`). Cada layout aplica el suyo. Un cambio de
+  tokens repinta todo; los componentes nunca llevan color quemado.
+- **Carta premium**: logotipo en Cinzel Decorative con degradado, encabezados de sección
+  enmarcados, placas de precio doradas, **portada** de comidas detrás del logo, **foto por
+  producto**, **sello POPULAR** (columna `destacado`) y **fondo de imagen** en la promo de
+  domicilio. Animaciones de entrada (`globals.css`, clase `.entra`).
+- **Admin de carta** (`/app/admin/carta`): sube, cambia y quita la foto de cada plato, y
+  alterna POPULAR y disponible. La subida usa la **sesión del admin** con **RLS de Storage**
+  (bucket `productos`), sin exponer `service_role` (la variable de entorno de ese key está
+  inválida en este proyecto; se evitó por completo).
+- **Fotos de referencia** cargadas a Storage (14 imágenes) para que la carta se vea poblada;
+  el admin las reemplaza por las reales cuando quiera.
+- Animaciones de entrada escalonadas en mesero, cocina, pase y domicilios.
+
+---
+
+## Fase 6 — Administración y despliegue (en curso)
+
+**Hecho**
+- **Reportes** (`/app/admin/reportes` + función `reporte_ventas`): ventas totales, número de
+  pedidos, ticket promedio, ventas por canal, por hora, productos más vendidos y tiempo
+  promedio por estación (últimos 30 días). Verificado con datos reales.
+- **Promociones** (`/app/admin/promociones`): encender/apagar cada promo y editar
+  etiqueta, título, descripción y el monto de envío gratis. Verificado.
+- **Zonas** (`/app/admin/zonas`): editar el valor por barrio, activar/desactivar y agregar
+  barrios nuevos.
+- **Usuarios** (`/app/admin/usuarios`): cambiar rol, estación de cocina y acceso de cada
+  persona (un admin no puede quitarse el acceso a sí mismo).
+- **Carta** (`/app/admin/carta`): fotos, POPULAR y disponibilidad (arriba).
+- **Navegación de admin** por pestañas (`NavAdmin`).
+- **PWA**: `manifest.webmanifest` (`display: standalone`), ícono y `theme-color` para
+  instalar en las tablets de cocina y el celular del domiciliario.
+
+**Pendiente**
+- Alta de nuevos logins desde el admin: requiere `service_role` válida o la API de auth;
+  hoy la variable está inválida, así que los usuarios se crean por SQL/consola de Supabase.
+- Webhook de pasarela (ingreso automático en el arqueo).
+- Despliegue en Vercel (necesita la cuenta del cliente y conectar el repo de GitHub).

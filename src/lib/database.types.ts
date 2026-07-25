@@ -847,6 +847,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["rol_usuario"]
       }
       recoger_pedido: { Args: { p_pedido: string }; Returns: undefined }
+      reporte_ventas: { Args: { p_dias?: number }; Returns: Json }
       registrar_cobro: {
         Args: {
           p_medio: Database["public"]["Enums"]["medio_pago"]

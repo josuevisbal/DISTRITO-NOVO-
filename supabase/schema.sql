@@ -647,6 +647,53 @@ begin
 end $$;
 
 -- =====================================================================
+-- REPORTES · métricas del restaurante (solo admin)
+-- =====================================================================
+create or replace function reporte_ventas(p_dias int default 30)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_rest uuid; v_desde timestamptz; v_res jsonb;
+  v_total bigint; v_n int; v_ticket bigint;
+begin
+  if mi_rol() <> 'admin' then raise exception 'Solo administración'; end if;
+  v_rest := mi_restaurante();
+  v_desde := now() - make_interval(days => greatest(p_dias, 1));
+
+  select coalesce(sum(total),0), count(*) into v_total, v_n
+    from pedidos where restaurante_id = v_rest and estado <> 'anulado' and creado_en >= v_desde;
+  v_ticket := case when v_n > 0 then (v_total / v_n) else 0 end;
+
+  select jsonb_build_object(
+    'dias', greatest(p_dias,1),
+    'total_ventas', v_total, 'num_pedidos', v_n, 'ticket_promedio', v_ticket,
+    'por_canal', coalesce((select jsonb_agg(x order by x->>'canal') from (
+        select jsonb_build_object('canal', canal, 'total', sum(total), 'n', count(*)) x
+        from pedidos where restaurante_id = v_rest and estado <> 'anulado' and creado_en >= v_desde
+        group by canal) s), '[]'::jsonb),
+    'por_hora', coalesce((select jsonb_agg(x order by (x->>'hora')::int) from (
+        select jsonb_build_object('hora', extract(hour from creado_en)::int, 'total', sum(total)) x
+        from pedidos where restaurante_id = v_rest and estado <> 'anulado' and creado_en >= v_desde
+        group by extract(hour from creado_en)) s), '[]'::jsonb),
+    'top_productos', coalesce((select jsonb_agg(x) from (
+        select jsonb_build_object('nombre', i.nombre_snap, 'cantidad', sum(i.cantidad)) x
+        from pedido_items i join pedidos p on p.id = i.pedido_id
+        where p.restaurante_id = v_rest and p.estado <> 'anulado' and p.creado_en >= v_desde
+        group by i.nombre_snap order by sum(i.cantidad) desc limit 10) s), '[]'::jsonb),
+    'tiempos_estacion', coalesce((select jsonb_agg(x order by x->>'estacion') from (
+        select jsonb_build_object('estacion', e.nombre,
+                 'minutos', round(avg(extract(epoch from (c.listo_en - c.iniciado_en))/60)::numeric, 1)) x
+        from comandas c join estaciones e on e.id = c.estacion_id join pedidos p on p.id = c.pedido_id
+        where p.restaurante_id = v_rest and c.listo_en is not null and c.iniciado_en is not null
+          and p.creado_en >= v_desde group by e.nombre) s), '[]'::jsonb)
+  ) into v_res;
+  return v_res;
+end $$;
+
+revoke all on function reporte_ventas(int) from public, anon;
+grant execute on function reporte_ventas(int) to authenticated;
+
+-- =====================================================================
 -- RLS
 -- =====================================================================
 alter table restaurantes     enable row level security;
