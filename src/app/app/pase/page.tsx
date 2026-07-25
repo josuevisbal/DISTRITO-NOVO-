@@ -28,7 +28,7 @@ export default async function PaginaPase() {
   // Todo lo que está en cocina o ya listo, con sus comandas por estación.
   const { data: pedidos } = await supabase
     .from('pedidos')
-    .select('id, numero, canal, estado, mesas(numero), comandas(estacion_id, estado)')
+    .select('id, numero, canal, estado, mesas(numero), zonas_domicilio(nombre), comandas(estacion_id, estado), pedido_items(nombre_snap)')
     .eq('restaurante_id', staff.restaurante_id)
     .in('estado', ['en_cocina', 'listo'])
     .order('objetivo_en', { nullsFirst: false })
@@ -49,8 +49,12 @@ export default async function PaginaPase() {
       numero: p.numero,
       mesa: p.mesas?.numero ?? null,
       canal: p.canal,
+      zona: p.zonas_domicilio?.nombre ?? null,
       estado: p.estado,
       listo: p.estado === 'listo',
+      productos:
+        [...new Set((p.pedido_items ?? []).map((i) => i.nombre_snap))].slice(0, 3).join(' · ') ||
+        null,
       // Una barra por cada estación del restaurante; en gris la que este pedido no toca.
       barras: (estaciones ?? []).map((e) => ({
         estacion_id: e.id,

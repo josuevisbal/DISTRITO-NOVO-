@@ -50,14 +50,14 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     // Transferencias por verificar: alerta persistente hasta que caja actúe.
     supabase
       .from('pedidos')
-      .select('id, numero, cliente_nombre, monto_exacto, total, creado_en')
+      .select('id, numero, cliente_nombre, cliente_tel, monto_exacto, total, creado_en, zonas_domicilio(nombre)')
       .eq('restaurante_id', restauranteId)
       .eq('estado', 'esperando_pago')
       .order('creado_en'),
     // Contraentrega: efectivo pendiente de confirmar.
     supabase
       .from('pedidos')
-      .select('id, numero, canal, cliente_nombre, total, direccion')
+      .select('id, numero, canal, cliente_nombre, cliente_tel, total, direccion, creado_en, zonas_domicilio(nombre)')
       .eq('restaurante_id', restauranteId)
       .eq('estado', 'pendiente')
       .eq('medio_pago', 'efectivo')
@@ -65,7 +65,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     // Por cobrar en mostrador: mesa/recoger/mostrador en marcha y sin pago verificado.
     supabase
       .from('pedidos')
-      .select('id, numero, canal, total, mesas(numero), pagos(estado)')
+      .select('id, numero, canal, total, mesas(numero), pagos(estado), pedido_items(nombre_snap, cantidad)')
       .eq('restaurante_id', restauranteId)
       .in('canal', ['mesa', 'recoger', 'mostrador'])
       .in('estado', ['en_cocina', 'listo', 'en_despacho'])
@@ -83,6 +83,8 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     pedido_id: p.id,
     numero: p.numero,
     cliente: p.cliente_nombre,
+    telefono: p.cliente_tel,
+    zona: p.zonas_domicilio?.nombre ?? null,
     monto_exacto: p.monto_exacto ?? p.total,
     creado_en: p.creado_en,
   }))
@@ -92,8 +94,11 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     numero: p.numero,
     canal: p.canal,
     cliente: p.cliente_nombre,
+    telefono: p.cliente_tel,
+    zona: p.zonas_domicilio?.nombre ?? null,
     total: p.total,
     direccion: p.direccion,
+    creado_en: p.creado_en,
   }))
 
   const porCobrar: PorCobrar[] = (cobrarRes.data ?? [])
@@ -103,6 +108,8 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       numero: p.numero,
       canal: p.canal,
       mesa: p.mesas?.numero ?? null,
+      productos:
+        (p.pedido_items ?? []).map((i) => i.nombre_snap).slice(0, 3).join(', ') || null,
       total: p.total,
     }))
 
