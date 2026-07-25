@@ -630,3 +630,12 @@ reportes limpios, y el menú mostrando una familia a la vez (pedido del dueño).
   porque su comanda dispara 8 min después — escalonado y RLS intactos.
 - **Producción**: correr `supabase/limpieza.sql` (una vez, antes de operar) borra pedidos,
   comandas, pagos y caja de prueba sin tocar carta, zonas, mesas, promociones ni usuarios.
+
+## Fase 1 (pulido) — Tipografía: Inter adentro, Cinzel solo en la carta
+
+- El cambio se hizo **en los temas, no en los componentes**: `TEMA_BASE` (panel y pantallas
+  claras) y el nuevo `TEMA_OPERACION` (cocina/domiciliario oscuros) declaran
+  `fuenteTitulo: var(--fuente-texto)` → todos los `font-titulo` internos resuelven a Inter
+  con sus pesos 600–700 ya existentes. `TEMA_CARTA` conserva la serif.
+- Verificado con estilos computados: cocina en Inter (título y tickets); carta pública con
+  logo en Cinzel Decorative, encabezado de familia y nombres de plato en Cinzel.

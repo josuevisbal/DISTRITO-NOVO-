@@ -42,7 +42,9 @@ const TEMA_BASE: Tema = {
   acento: '#B8862B', // dorado de marca (bordes, rellenos, titulares)
   acentoFuerte: '#7C5E15', // dorado oscuro para texto sobre claro (contraste ≥ 4.5)
   acentoTexto: '#211D15', // texto sobre botón dorado
-  fuenteTitulo: 'var(--fuente-titulo)',
+  // Sans-serif también en títulos: la serif solo es de la carta pública. Adentro (panel,
+  // caja, cocina) la serif se ve informal, como de Word.
+  fuenteTitulo: 'var(--fuente-texto)',
   fuenteTexto: 'var(--fuente-texto)',
   panelLateral: '#0B0B0C', // barra lateral oscura del panel
   panelLateralTexto: '#F1EDE3',
@@ -93,11 +95,16 @@ export function obtenerTemaCarta(slug: string): Tema {
 }
 
 /**
- * Tema de las pantallas de operación de pie (cocina y domiciliario): fondo oscuro para
- * leerse de lejos y con prisa. Reutiliza la paleta oscura de la carta.
+ * Tema de las pantallas de operación de pie (cocina y domiciliario): la paleta oscura de
+ * la carta pero con tipografía de interfaz — la serif es solo de cara al comensal.
  */
+const TEMA_OPERACION: Tema = {
+  ...TEMA_CARTA,
+  fuenteTitulo: 'var(--fuente-texto)',
+}
+
 export function obtenerTemaOperacion(): Tema {
-  return TEMA_CARTA
+  return TEMA_OPERACION
 }
 
 /** Convierte el tema en variables CSS para colgarlas de un contenedor. */
