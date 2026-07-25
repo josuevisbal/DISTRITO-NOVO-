@@ -34,6 +34,7 @@ const MODULOS: Modulo[] = [
   { href: '/app/admin/carta', titulo: 'Carta', Icono: IconoCarta },
   { href: '/app/admin/promociones', titulo: 'Promociones', Icono: IconoPorcentaje },
   { href: '/app/admin/zonas', titulo: 'Zonas', Icono: IconoPin },
+  { href: '/app/admin/mesas', titulo: 'Mesas · QR', Icono: IconoTablero },
   { href: '/app/admin/caja', titulo: 'Caja y finanzas', Icono: IconoCaja },
   { href: '/app/admin/usuarios', titulo: 'Equipo', Icono: IconoEquipo },
   { href: '/app/admin/reportes', titulo: 'Reportes', Icono: IconoGrafica },
@@ -99,7 +100,7 @@ export function PanelArmazon({ staff, nombreRestaurante, children }: Props) {
   return (
     <div className="flex min-h-screen">
       {/* ----- Barra lateral (escritorio) ----- */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-panel-lateral lg:flex">
+      <aside data-imprimir="no" className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-panel-lateral lg:flex">
         <ContenidoLateral nombre={nombreRestaurante} ruta={ruta} enVivo={enVivo} />
       </aside>
 

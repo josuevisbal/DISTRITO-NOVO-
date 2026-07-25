@@ -169,3 +169,15 @@ body {
     radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--marca-acento) 8%, transparent), transparent 45%),
     radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--marca-acento) 6%, transparent), transparent 40%);
 }
+
+/* ---------- Impresión (hoja de QRs) ---------- */
+@media print {
+  .no-imprimir,
+  aside,
+  [data-imprimir="no"],
+  body [class*="lg:pl-60"] > header {
+    display: none !important;
+  }
+  main { padding: 0 !important; max-width: none !important; }
+  [class*="lg:pl-60"] { padding-left: 0 !important; }
+}

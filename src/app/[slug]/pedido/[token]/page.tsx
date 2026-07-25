@@ -24,7 +24,7 @@ export default async function PaginaSeguimiento({
     <SeguimientoCliente
       token={token}
       inicial={pedido}
-      pago={{ llave: restaurante.llave_pago, cuenta: restaurante.cuenta_pago }}
+      pago={{ llave: restaurante.llave_pago, cuenta: restaurante.cuenta_pago, whatsapp: restaurante.whatsapp }}
     />
   )
 }

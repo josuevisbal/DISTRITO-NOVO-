@@ -187,8 +187,9 @@ export function Checkout({
           <p className="flex gap-2.5 rounded-lg border border-marca-borde bg-marca-superficie p-3.5 text-sm text-marca-texto-suave">
             <IconoAlerta className="size-5 shrink-0 text-marca-acento-fuerte" />
             <span>
-              Tu pedido no entra a cocina hasta que alguien de caja vea la transferencia en
-              el banco. Por eso el valor lleva un código al final: para poder ubicarla.
+              Pagas exactamente el valor de tus platos y el domicilio, sin un peso de más.
+              Tras transferir, envía el pantallazo por WhatsApp: cuando caja lo verifique,
+              tu pedido entra a cocina.
             </span>
           </p>
         ) : null}

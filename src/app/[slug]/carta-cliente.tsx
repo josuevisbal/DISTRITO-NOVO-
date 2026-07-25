@@ -117,6 +117,7 @@ export function CartaCliente({ carta, mesa }: Props) {
         nombre={carta.restaurante.nombre}
         portada={carta.restaurante.portada_url}
         mesa={mesa}
+        slug={carta.restaurante.slug}
       />
 
       <BannerPromociones
@@ -156,10 +157,12 @@ function Encabezado({
   nombre,
   portada,
   mesa,
+  slug,
 }: {
   nombre: string
   portada?: string | null
   mesa?: { numero: number }
+  slug: string
 }) {
   return (
     <header className="fondo-papel relative overflow-hidden px-5 pb-8 pt-12 text-center sm:px-8">
@@ -210,6 +213,12 @@ function Encabezado({
       <p className="animate-aparecer mt-4 text-marca-texto-suave">
         {mesa ? 'Arma tu pedido y el mesero lo confirma.' : 'Pide desde aquí, sin cuenta.'}
       </p>
+      <a
+        href={`/${slug}/consulta`}
+        className="animate-aparecer mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-marca-acento px-4 text-sm font-medium text-marca-acento-fuerte"
+      >
+        Consultar mi pedido
+      </a>
       </div>
     </header>
   )

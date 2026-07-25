@@ -878,6 +878,10 @@ export type Database = {
         Returns: string
       }
       eliminar_usuario: { Args: { p_id: string }; Returns: undefined }
+      estado_pedido_publico: {
+        Args: { p_numero: number; p_slug: string; p_tel: string }
+        Returns: Json
+      }
       entregar_pedido: { Args: { p_pedido: string }; Returns: undefined }
       fallo_entrega: {
         Args: { p_motivo: string; p_pedido: string }

@@ -252,7 +252,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   v_rest uuid; v_pedido uuid; v_sub bigint := 0; v_dom bigint := 0;
   v_umbral bigint; v_zona_valor bigint := 0; v_canal canal_pedido;
-  v_medio medio_pago; v_total bigint; v_cod int; v_exacto bigint;
+  v_medio medio_pago; v_total bigint;
   v_estado estado_pedido; v_num bigint; v_token uuid;
 begin
   select id into v_rest from restaurantes where slug = p_slug and activo;
@@ -311,27 +311,20 @@ begin
 
   v_total := v_sub + v_dom;
 
-  -- codigo de 3 cifras: hace unico el valor a transferir para que caja lo ubique
-  v_cod := 100 + (v_num % 900)::int;
-  v_exacto := (v_total / 1000) * 1000 + v_cod;
-  if v_exacto < v_total then v_exacto := v_exacto + 1000; end if;
-
+  -- Sin código sumado: se transfiere exactamente el total (platos + domicilio).
   update pedidos set subtotal = v_sub, domicilio = v_dom, total = v_total,
-         codigo_pago = v_cod, monto_exacto = v_exacto
+         codigo_pago = null, monto_exacto = v_total
   where id = v_pedido;
 
   if v_medio is not null and v_medio <> 'mesa' then
-    insert into pagos (pedido_id, medio, monto,
-                       estado)
-    values (v_pedido, v_medio,
-            case when v_medio = 'transferencia' then v_exacto else v_total end,
-            'pendiente');
+    insert into pagos (pedido_id, medio, monto, estado)
+    values (v_pedido, v_medio, v_total, 'pendiente');
   end if;
 
   return jsonb_build_object(
     'id', v_pedido, 'numero', v_num, 'token', v_token,
     'subtotal', v_sub, 'domicilio', v_dom, 'total', v_total,
-    'codigo_pago', v_cod, 'monto_exacto', v_exacto, 'estado', v_estado
+    'codigo_pago', null, 'monto_exacto', v_total, 'estado', v_estado
   );
 end $$;
 
@@ -746,6 +739,29 @@ end $$;
 
 revoke all on function reporte_rango(timestamptz, timestamptz, text) from public, anon;
 grant execute on function reporte_rango(timestamptz, timestamptz, text) to authenticated;
+
+-- Consulta pública del estado de UN pedido: número + teléfono (los dos los sabe solo el
+-- cliente). Devuelve SOLO el estado; una fila por consulta, por índice.
+create or replace function estado_pedido_publico(p_slug text, p_numero bigint, p_tel text)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare v jsonb;
+begin
+  select jsonb_build_object('numero', p.numero, 'estado', p.estado, 'creado_en', p.creado_en)
+    into v
+  from pedidos p
+  join restaurantes r on r.id = p.restaurante_id
+  where r.slug = p_slug
+    and p.numero = p_numero
+    and regexp_replace(coalesce(p.cliente_tel,''), '\D', '', 'g')
+        = regexp_replace(coalesce(p_tel,''), '\D', '', 'g')
+    and regexp_replace(coalesce(p_tel,''), '\D', '', 'g') <> '';
+  return v;
+end $$;
+
+revoke all on function estado_pedido_publico(text, bigint, text) from public;
+grant execute on function estado_pedido_publico(text, bigint, text) to anon, authenticated;
+
 
 -- =====================================================================
 -- EQUIPO · crear y eliminar usuarios sin llave de servicio

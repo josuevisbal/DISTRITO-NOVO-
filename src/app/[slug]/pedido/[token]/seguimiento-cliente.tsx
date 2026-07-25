@@ -7,11 +7,12 @@ import type { PedidoSeguimiento } from '@/lib/datos/pedido'
 import { pasoDe, pasosVisibles, type EstadoPedido } from '@/lib/estados'
 import { formatearPesos } from '@/lib/formato'
 import { crearClienteConToken } from '@/lib/supabase/token'
+import { enlaceWhatsApp } from '@/lib/telefono'
 
 type Props = {
   token: string
   inicial: PedidoSeguimiento
-  pago: { llave: string | null; cuenta: string | null }
+  pago: { llave: string | null; cuenta: string | null; whatsapp: string | null }
 }
 
 export function SeguimientoCliente({ token, inicial, pago }: Props) {
@@ -77,7 +78,7 @@ function PanelTransferencia({
   pago,
 }: {
   pedido: PedidoSeguimiento
-  pago: { llave: string | null; cuenta: string | null }
+  pago: { llave: string | null; cuenta: string | null; whatsapp: string | null }
 }) {
   return (
     <section className="mt-6 rounded-xl border border-marca-acento bg-marca-superficie p-5">
@@ -86,25 +87,36 @@ function PanelTransferencia({
         <span className="font-medium">Tu pedido aún no entra a cocina</span>
       </p>
       <p className="mt-2 text-sm text-marca-texto-suave">
-        Transfiere el <strong className="text-marca-texto">valor exacto</strong> de abajo.
-        Alguien verifica el movimiento en el banco y ahí arranca tu pedido. Los 3 números del
-        final nos ayudan a encontrar tu pago.
+        Transfiere el <strong className="text-marca-texto">valor exacto</strong> de abajo y{' '}
+        <strong className="text-marca-texto">envía el pantallazo por WhatsApp</strong> con tu
+        número de pedido. Apenas caja lo verifique, tu pedido entra a cocina.
       </p>
 
       <div className="mt-4 rounded-lg border border-marca-borde bg-marca-fondo p-4 text-center">
         <p className="text-sm text-marca-texto-suave">Valor exacto a transferir</p>
         <p className="mt-1 font-titulo text-4xl font-bold text-marca-acento-fuerte">
-          {formatearPesos(pedido.monto_exacto ?? pedido.total)}
+          {formatearPesos(pedido.total)}
         </p>
-        {pedido.codigo_pago !== null ? (
-          <p className="mt-1 text-xs text-marca-texto-suave">
-            No cambies los últimos 3 dígitos: {String(pedido.codigo_pago).padStart(3, '0')}
-          </p>
-        ) : null}
+        <p className="mt-1 text-xs text-marca-texto-suave">
+          Es el valor de tus platos y el domicilio, sin un peso de más.
+        </p>
       </div>
 
       {pago.llave ? <DatoCopiable etiqueta="Llave / Nequi" valor={pago.llave} /> : null}
       {pago.cuenta ? <DatoCopiable etiqueta="Cuenta" valor={pago.cuenta} /> : null}
+
+      {pago.whatsapp ? (
+        <a
+          href={`${enlaceWhatsApp(pago.whatsapp)}?text=${encodeURIComponent(
+            `Hola, pagué el pedido #${pedido.numero} por ${formatearPesos(pedido.total)}. Adjunto el comprobante.`,
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento font-semibold text-marca-acento-texto"
+        >
+          Enviar el pantallazo por WhatsApp
+        </a>
+      ) : null}
     </section>
   )
 }
