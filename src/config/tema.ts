@@ -20,6 +20,11 @@ export type Tema = {
   acentoTexto: string
   fuenteTitulo: string
   fuenteTexto: string
+  /** Barra lateral del panel (fondo oscuro de marca) y su acento. */
+  panelLateral: string
+  panelLateralTexto: string
+  panelLateralTextoSuave: string
+  panelLateralBorde: string
 }
 
 /**
@@ -28,10 +33,10 @@ export type Tema = {
  * precio) pero en clave clara: se ve premium sin el tono oscuro que lucía informal.
  */
 const TEMA_BASE: Tema = {
-  fondo: '#F6F3EC', // marfil cálido
+  fondo: '#FAFAFB', // gris muy claro del área de contenido del panel
   superficie: '#FFFFFF', // tarjetas
-  superficieTenue: '#FBF9F3',
-  borde: '#E6DFCE',
+  superficieTenue: '#F4F4F6',
+  borde: '#E7E5E0',
   texto: '#211D15', // casi negro, cálido
   textoSuave: '#635B4B',
   acento: '#B8862B', // dorado de marca (bordes, rellenos, titulares)
@@ -39,6 +44,10 @@ const TEMA_BASE: Tema = {
   acentoTexto: '#211D15', // texto sobre botón dorado
   fuenteTitulo: 'var(--fuente-titulo)',
   fuenteTexto: 'var(--fuente-texto)',
+  panelLateral: '#0B0B0C', // barra lateral oscura del panel
+  panelLateralTexto: '#F1EDE3',
+  panelLateralTextoSuave: '#A39C8D',
+  panelLateralBorde: '#26242B',
 }
 
 /**
@@ -59,6 +68,10 @@ const TEMA_CARTA: Tema = {
   acentoTexto: '#0B0B0C', // texto sobre botón dorado
   fuenteTitulo: 'var(--fuente-titulo)',
   fuenteTexto: 'var(--fuente-texto)',
+  panelLateral: '#0B0B0C',
+  panelLateralTexto: '#F1EDE3',
+  panelLateralTextoSuave: '#A39C8D',
+  panelLateralBorde: '#26242B',
 }
 
 const TEMAS: Record<string, Tema> = {
@@ -93,5 +106,9 @@ export function variablesTema(tema: Tema): CSSProperties {
     '--marca-acento-texto': tema.acentoTexto,
     '--marca-fuente-titulo': tema.fuenteTitulo,
     '--marca-fuente-texto': tema.fuenteTexto,
+    '--panel-lateral': tema.panelLateral,
+    '--panel-lateral-texto': tema.panelLateralTexto,
+    '--panel-lateral-texto-suave': tema.panelLateralTextoSuave,
+    '--panel-lateral-borde': tema.panelLateralBorde,
   } as CSSProperties
 }

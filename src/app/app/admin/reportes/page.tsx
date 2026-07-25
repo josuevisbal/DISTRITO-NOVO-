@@ -1,5 +1,3 @@
-import { BarraStaff } from '@/components/barra-staff'
-import { NavAdmin } from '@/components/nav-admin'
 import { exigirRol } from '@/lib/sesion'
 import { formatearPesos } from '@/lib/formato'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
@@ -29,8 +27,16 @@ type Reporte = {
 export default async function PaginaReportes() {
   const staff = await exigirRol('admin')
   const supabase = await crearClienteServidor()
-  const { data } = await supabase.rpc('reporte_ventas', { p_dias: 30 })
-  const r = data as unknown as Reporte
+  const { data, error } = await supabase.rpc('reporte_ventas', { p_dias: 30 })
+  const r = data as unknown as Reporte | null
+
+  if (!r) {
+    return (
+      <p className="text-sm text-marca-texto-suave">
+        No se pudo cargar el reporte{error ? `: ${error.message}` : '.'}
+      </p>
+    )
+  }
 
   // Rentabilidad: SOLO el dueño. Para cualquier otro rol ni se consulta;
   // y aunque llamaran la función a mano, la base los rechaza.
@@ -42,10 +48,7 @@ export default async function PaginaReportes() {
 
   return (
     <>
-      <BarraStaff staff={staff} titulo="Reportes" />
-      <NavAdmin />
-
-      <main className="mx-auto max-w-3xl space-y-8 p-4 pb-16">
+      <div className="space-y-8">
         <p className="text-sm text-marca-texto-suave">Últimos {r.dias} días.</p>
 
         {rentabilidad ? <Rentabilidad datos={rentabilidad} /> : null}
@@ -114,7 +117,7 @@ export default async function PaginaReportes() {
             </ul>
           )}
         </Panel>
-      </main>
+      </div>
     </>
   )
 }

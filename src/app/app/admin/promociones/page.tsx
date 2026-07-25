@@ -1,5 +1,3 @@
-import { BarraStaff } from '@/components/barra-staff'
-import { NavAdmin } from '@/components/nav-admin'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { PromosAdmin, type PromoAdmin } from './promos-admin'
@@ -20,9 +18,7 @@ export default async function PaginaAdminPromos() {
 
   return (
     <>
-      <BarraStaff staff={staff} titulo="Promociones" />
-      <NavAdmin />
-      <p className="mx-auto max-w-2xl px-4 pt-4 text-sm text-marca-texto-suave">
+      <p className="text-sm text-marca-texto-suave">
         Enciende o apaga cada promoción y edita su texto. Aparecen arriba en la carta del
         cliente.
       </p>

@@ -113,6 +113,109 @@ export function IconoMoto(props: Props) {
   )
 }
 
+/* ---------- Íconos del panel de administración ---------- */
+
+export function IconoTablero(props: Props) {
+  return (
+    <Svg {...props}>
+      <rect x="4" y="4" width="7" height="7" rx="1.5" />
+      <rect x="13" y="4" width="7" height="7" rx="1.5" />
+      <rect x="4" y="13" width="7" height="7" rx="1.5" />
+      <rect x="13" y="13" width="7" height="7" rx="1.5" />
+    </Svg>
+  )
+}
+
+export function IconoCampana(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6" />
+      <path d="M10 19a2 2 0 0 0 4 0" />
+    </Svg>
+  )
+}
+
+export function IconoCarta(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z" />
+      <path d="M8 7h8M8 11h8M8 15h5" />
+    </Svg>
+  )
+}
+
+export function IconoPorcentaje(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="m6 18 12-12" />
+      <circle cx="7.5" cy="7.5" r="2.25" />
+      <circle cx="16.5" cy="16.5" r="2.25" />
+    </Svg>
+  )
+}
+
+export function IconoPin(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </Svg>
+  )
+}
+
+export function IconoCaja(props: Props) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M3 11h18M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </Svg>
+  )
+}
+
+export function IconoEquipo(props: Props) {
+  return (
+    <Svg {...props}>
+      <circle cx="9" cy="8.5" r="3.25" />
+      <path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <path d="M15.5 5.8a3.25 3.25 0 0 1 0 5.4M17.5 14.9c1.8.8 3 2.4 3 4.6" />
+    </Svg>
+  )
+}
+
+export function IconoGrafica(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 4v16h16" />
+      <path d="M8 16v-5M12 16V8M16 16v-8" />
+    </Svg>
+  )
+}
+
+export function IconoMenu(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </Svg>
+  )
+}
+
+export function IconoCerrar(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="m6 6 12 12M18 6 6 18" />
+    </Svg>
+  )
+}
+
+export function IconoSalir(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
+      <path d="m15 16 4-4-4-4M19 12H9" />
+    </Svg>
+  )
+}
+
 /** Rombo con trazos, adorno para encabezados de sección (estilo carta impresa). */
 export function IconoFloritura({ className }: Props) {
   return (

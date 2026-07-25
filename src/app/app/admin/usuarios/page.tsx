@@ -1,5 +1,3 @@
-import { BarraStaff } from '@/components/barra-staff'
-import { NavAdmin } from '@/components/nav-admin'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { UsuariosAdmin, type EstacionOpcion, type UsuarioAdmin } from './usuarios-admin'
@@ -26,9 +24,7 @@ export default async function PaginaAdminUsuarios() {
 
   return (
     <>
-      <BarraStaff staff={staff} titulo="Usuarios del equipo" />
-      <NavAdmin />
-      <p className="mx-auto max-w-2xl px-4 pt-4 text-sm text-marca-texto-suave">
+      <p className="text-sm text-marca-texto-suave">
         Cambia el rol, la estación de cocina o el acceso de cada persona del equipo.
       </p>
       <UsuariosAdmin

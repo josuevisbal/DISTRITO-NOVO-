@@ -1,5 +1,3 @@
-import { BarraStaff } from '@/components/barra-staff'
-import { NavAdmin } from '@/components/nav-admin'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { ZonasAdmin, type ZonaAdmin } from './zonas-admin'
@@ -20,9 +18,7 @@ export default async function PaginaAdminZonas() {
 
   return (
     <>
-      <BarraStaff staff={staff} titulo="Zonas de domicilio" />
-      <NavAdmin />
-      <p className="mx-auto max-w-2xl px-4 pt-4 text-sm text-marca-texto-suave">
+      <p className="text-sm text-marca-texto-suave">
         El domicilio se cobra por barrio. Cambia un valor y guarda, o agrega un barrio nuevo.
       </p>
       <ZonasAdmin zonas={zonas} />

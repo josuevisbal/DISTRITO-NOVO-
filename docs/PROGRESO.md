@@ -465,3 +465,36 @@ el día a día, sin plata sensible), aplicado en RLS y no solo en la interfaz.
 > Nota operativa: la base de desarrollo se pausó (plan gratis) y al restaurarla volvió con
 > el respaldo completo. En producción, la migración es `supabase/roles-dueno.sql` en dos
 > pasos, pendiente de que el cliente la corra en su SQL Editor.
+
+## Fase R2 — Armazón del panel con barra lateral y animaciones
+
+**Objetivo:** navegar los módulos existentes dentro de una barra lateral fija con
+transiciones, sin perder nada de lo que ya funcionaba.
+
+### Hecho
+
+- **`PanelArmazon`** (`src/components/panel/panel-armazon.tsx`) + layout de `/app/admin`:
+  - Barra lateral fija a la izquierda, oscura, con el logo (iniciales del restaurante,
+    leídas de la base), los 6 módulos con ícono SVG y el activo resaltado en dorado.
+  - En celular se colapsa a hamburguesa con cajón lateral (se cierra al navegar).
+  - Encabezado con el nombre del módulo, el usuario conectado y su rol, y Salir.
+  - Contenido con **transición de módulo** (fundido + deslizamiento, 220 ms) al navegar;
+    tarjetas con `.tarjeta`/`.tarjeta-hover` (12 px, borde fino, sombra suave, elevación).
+    Todo respeta `prefers-reduced-motion`.
+- **Colores por tokens nuevos** (`--panel-lateral*` en `tema.ts`): nada quemado en los
+  componentes; el área de contenido pasó a `#FAFAFB` (gris muy claro corporativo).
+- **Módulos movidos adentro**: Carta, Promociones, Zonas, **Caja y finanzas** (nueva ruta
+  `/app/admin/caja` que reutiliza `cargarCaja()` compartida con la pantalla del cajero),
+  Equipo (usuarios) y Reportes. Se eliminó la vieja `NavAdmin` de pestañas.
+- La pantalla del cajero (`/app/caja`) quedó intacta, fuera del panel.
+- Blindado: Reportes ya no revienta si la RPC devuelve null (muestra el error).
+
+### Verificado (en el navegador)
+
+- Como dueño: la lateral muestra los 6 módulos, "Reportes" activo en dorado, header con
+  "Admin · Dueño", Rentabilidad presente. Navegación a **Caja y finanzas** dentro del panel
+  con el turno real ($74.500). Carta/Promos/Zonas/Equipo cargan dentro del armazón (200).
+- Transición de módulo activa (`animation: modulo 0.22s` en el main).
+- **Móvil (375px)**: lateral oculta, hamburguesa abre el cajón con los 6 módulos, navegar
+  cierra el cajón y cambia el módulo.
+- `tsc`, `eslint` y `npm run build` limpios.

@@ -10,12 +10,17 @@
   --color-marca-acento: var(--marca-acento);
   --color-marca-acento-fuerte: var(--marca-acento-fuerte);
   --color-marca-acento-texto: var(--marca-acento-texto);
+  --color-panel-lateral: var(--panel-lateral);
+  --color-panel-lateral-texto: var(--panel-lateral-texto);
+  --color-panel-lateral-texto-suave: var(--panel-lateral-texto-suave);
+  --color-panel-lateral-borde: var(--panel-lateral-borde);
   --font-titulo: var(--marca-fuente-titulo);
   --font-texto: var(--marca-fuente-texto);
 
   --animate-aparecer: aparecer 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-subir: subir 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-escala: escala 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-modulo: modulo 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 body {
@@ -34,6 +39,11 @@ body {
 @keyframes escala {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
+}
+/* Cambio de módulo en el panel: fundido + leve deslizamiento (~200 ms). */
+@keyframes modulo {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes brillo {
   0% { background-position: -160% 0; }
@@ -91,6 +101,22 @@ body {
 .marco-oro {
   border: 1.5px solid var(--marca-acento);
   box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--marca-acento) 22%, transparent);
+}
+
+/* Tarjeta del panel: blanca, 12px, borde fino, sombra suave; se eleva al pasar el mouse. */
+.tarjeta {
+  background: var(--marca-superficie);
+  border: 1px solid var(--marca-borde);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(17, 15, 10, 0.05);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.tarjeta-hover:hover {
+  box-shadow: 0 6px 18px rgba(17, 15, 10, 0.08);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta, .tarjeta-hover:hover { transition: none; transform: none; }
 }
 
 /* Sutil textura de papel para el fondo claro (nada de tono plano). */
