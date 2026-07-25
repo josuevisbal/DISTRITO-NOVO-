@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, type CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck } from '@/components/iconos'
-import { alternarPromo, guardarPromo } from './acciones'
+import { alternarPromo, guardarPromo, quitarFotoPromo, subirFotoPromo } from './acciones'
 
 export type PromoAdmin = {
   id: string
@@ -12,6 +12,7 @@ export type PromoAdmin = {
   titulo: string
   descripcion: string | null
   monto_minimo: number | null
+  imagen_url: string | null
   activa: boolean
 }
 
@@ -74,18 +75,10 @@ function TarjetaPromo({ promo, indice }: { promo: PromoAdmin; indice: number }) 
         <span className="rounded-full border border-marca-borde px-2.5 py-0.5 text-xs text-marca-texto-suave">
           {NOMBRE_TIPO[promo.tipo] ?? promo.tipo}
         </span>
-        <button
-          type="button"
-          onClick={() => alternarPromo(promo.id, !promo.activa)}
-          className={`min-h-10 rounded-lg border px-3 text-sm font-medium ${
-            promo.activa
-              ? 'border-marca-acento bg-marca-acento text-marca-acento-texto'
-              : 'border-marca-borde text-marca-texto-suave'
-          }`}
-        >
-          {promo.activa ? 'Activa' : 'Inactiva'}
-        </button>
+        <Interruptor activa={promo.activa} onCambiar={(v) => alternarPromo(promo.id, v)} />
       </div>
+
+      <FotoPromo promo={promo} />
 
       <div className="space-y-2">
         <Campo etiqueta="Etiqueta" valor={etiqueta} onChange={setEtiqueta} marcador="Solo por hoy" />
@@ -121,6 +114,154 @@ function TarjetaPromo({ promo, indice }: { promo: PromoAdmin; indice: number }) 
         {guardando ? 'Guardando…' : guardado ? 'Guardado' : 'Guardar cambios'}
       </button>
     </article>
+  )
+}
+
+/** Interruptor animado: la perilla se desliza y el riel cambia de color. */
+function Interruptor({ activa, onCambiar }: { activa: boolean; onCambiar: (v: boolean) => void }) {
+  const [encendida, setEncendida] = useState(activa)
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={encendida}
+      onClick={() => {
+        const v = !encendida
+        setEncendida(v)
+        onCambiar(v)
+      }}
+      className="flex min-h-11 items-center gap-2"
+    >
+      <span
+        className={`relative h-7 w-12 rounded-full transition-colors duration-200 ${
+          encendida ? 'bg-marca-acento' : 'bg-marca-borde'
+        }`}
+      >
+        <span
+          className={`absolute top-1 size-5 rounded-full bg-white shadow transition-[left] duration-200 motion-reduce:transition-none ${
+            encendida ? 'left-6' : 'left-1'
+          }`}
+        />
+      </span>
+      <span className={`text-sm font-medium ${encendida ? 'text-marca-texto' : 'text-marca-texto-suave'}`}>
+        {encendida ? 'Activa' : 'Inactiva'}
+      </span>
+    </button>
+  )
+}
+
+/** Foto de fondo de la promoción, con vista previa local antes de guardar. */
+function FotoPromo({ promo }: { promo: PromoAdmin }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [pendiente, setPendiente] = useState<File | null>(null)
+  const [previa, setPrevia] = useState<string | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function elegir(archivo: File) {
+    setPendiente(archivo)
+    setPrevia(URL.createObjectURL(archivo))
+  }
+
+  function limpiar() {
+    if (previa) URL.revokeObjectURL(previa)
+    setPendiente(null)
+    setPrevia(null)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  async function guardarFoto() {
+    if (!pendiente) return
+    setOcupado(true)
+    setError(null)
+    const form = new FormData()
+    form.set('foto', pendiente)
+    const r = await subirFotoPromo(promo.id, form)
+    setOcupado(false)
+    if (!r.ok) setError(r.error)
+    else limpiar()
+  }
+
+  const mostrada = previa ?? promo.imagen_url
+
+  return (
+    <div className="mb-3 rounded-xl border border-marca-borde p-3">
+      <div className="flex items-center gap-3">
+        <div className="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-marca-superficie-tenue">
+          {mostrada ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={mostrada} alt="" className="size-full object-cover" />
+          ) : (
+            <span className="flex size-full items-center justify-center text-xs text-marca-texto-suave">
+              Sin foto
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) elegir(f)
+            }}
+          />
+          {pendiente ? (
+            <>
+              <button
+                type="button"
+                onClick={guardarFoto}
+                disabled={ocupado}
+                className="min-h-11 rounded-lg bg-marca-acento px-3 text-sm font-medium text-marca-acento-texto disabled:opacity-60"
+              >
+                {ocupado ? 'Subiendo…' : 'Guardar foto'}
+              </button>
+              <button
+                type="button"
+                onClick={limpiar}
+                disabled={ocupado}
+                className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave"
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto"
+              >
+                {promo.imagen_url ? 'Cambiar foto' : 'Subir foto de fondo'}
+              </button>
+              {promo.imagen_url ? (
+                <button
+                  type="button"
+                  onClick={() => quitarFotoPromo(promo.id)}
+                  className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave"
+                >
+                  Quitar
+                </button>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+      {pendiente ? (
+        <p className="mt-2 text-xs text-marca-texto-suave">
+          Vista previa: aún no se guarda hasta que toques “Guardar foto”.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-2 flex items-center gap-2 text-sm text-marca-acento-fuerte">
+          <IconoAlerta className="size-4 shrink-0" />
+          {error}
+        </p>
+      ) : null}
+    </div>
   )
 }
 

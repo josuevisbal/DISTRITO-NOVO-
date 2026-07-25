@@ -731,3 +731,16 @@ pedido pasando a `listo` por el disparador. De ~1 s (o recarga manual) a instant
   califica `extensions.crypt(...)`.
 - Verificado E2E: creado "Mesero Dos" desde el formulario → inició sesión con su clave →
   eliminado desde la lista → sin rastro en `auth.users` ni `usuarios`.
+
+## Pulido · Fases 6 y 7 — Promociones con foto y marca
+
+- **Promociones**: cargador de **foto de fondo** con vista previa local antes de guardar
+  (Storage vía sesión del admin), botón Quitar, e **interruptor animado** activa/inactiva.
+  La carta ya pintaba `imagen_url` de fondo. Verificado E2E: elegir → vista previa →
+  guardar → la imagen queda en Storage y en la tarjeta.
+- **Marca**: `public/icono.svg` ahora es el monograma DN (negro + dorado) usado por el
+  manifest PWA; para el logo real basta reemplazar ese archivo y `favicon.ico`, sin tocar
+  código.
+- **`supabase/actualizar-equipo.sql`**: script consolidado para producción con la columna
+  `correo`, `crear_usuario`/`eliminar_usuario` y `reporte_rango` (correr una vez, después
+  de `roles-dueno.sql`).

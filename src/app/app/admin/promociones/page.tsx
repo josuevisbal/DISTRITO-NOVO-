@@ -10,7 +10,7 @@ export default async function PaginaAdminPromos() {
 
   const { data } = await supabase
     .from('promociones')
-    .select('id, tipo, etiqueta, titulo, descripcion, monto_minimo, activa')
+    .select('id, tipo, etiqueta, titulo, descripcion, monto_minimo, imagen_url, activa')
     .eq('restaurante_id', staff.restaurante_id)
     .order('orden')
 
