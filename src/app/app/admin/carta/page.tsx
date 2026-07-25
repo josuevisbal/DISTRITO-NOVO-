@@ -8,7 +8,7 @@ export default async function PaginaAdminCarta() {
   const staff = await exigirRol('admin')
   const supabase = await crearClienteServidor()
 
-  const [{ data: categorias }, { data: productos }] = await Promise.all([
+  const [{ data: categorias }, { data: productos }, { data: estaciones }] = await Promise.all([
     supabase
       .from('categorias')
       .select('id, nombre')
@@ -17,11 +17,17 @@ export default async function PaginaAdminCarta() {
       .order('orden'),
     supabase
       .from('productos')
-      .select('id, nombre, precio, foto_url, destacado, disponible, categoria_id')
+      .select('id, nombre, precio, foto_url, destacado, disponible, categoria_id, estacion_id')
       .eq('restaurante_id', staff.restaurante_id)
       .eq('activo', true)
       .order('orden'),
+    supabase
+      .from('estaciones')
+      .select('id, color')
+      .eq('restaurante_id', staff.restaurante_id),
   ])
+
+  const colorEstacion = new Map((estaciones ?? []).map((e) => [e.id, e.color]))
 
   const grupos: CategoriaAdmin[] = (categorias ?? [])
     .map((c) => ({
@@ -36,6 +42,7 @@ export default async function PaginaAdminCarta() {
           foto_url: p.foto_url,
           destacado: p.destacado,
           disponible: p.disponible,
+          color_estacion: colorEstacion.get(p.estacion_id) ?? '#888888',
         })),
     }))
     .filter((c) => c.productos.length > 0)

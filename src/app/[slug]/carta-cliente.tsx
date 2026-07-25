@@ -224,7 +224,6 @@ function Menu({
   lineas: Linea[]
   onAgregar: (p: ProductoCarta) => void
 }) {
-  const [activa, setActiva] = useState<string | null>(null)
   const contenedorChips = useRef<HTMLDivElement>(null)
 
   const conProductos = useMemo(
@@ -235,33 +234,25 @@ function Menu({
     [carta],
   )
 
-  // Marca el chip de la categoría que se está viendo. Sin esto, en una carta de 84
-  // productos el comensal pierde de vista en qué parte del menú va.
-  useEffect(() => {
-    const observador = new IntersectionObserver(
-      (entradas) => {
-        const visible = entradas.find((e) => e.isIntersecting)
-        if (visible) setActiva(visible.target.id.replace('categoria-', ''))
-      },
-      { rootMargin: '-96px 0px -70% 0px' },
-    )
+  // Una familia a la vez: la categoría seleccionada es la única que se muestra.
+  const [activa, setActiva] = useState<string | null>(null)
+  const seleccionada = conProductos.find((c) => c.id === activa) ?? conProductos[0]
 
-    for (const c of conProductos) {
-      const nodo = document.getElementById(`categoria-${c.id}`)
-      if (nodo) observador.observe(nodo)
-    }
-    return () => observador.disconnect()
-  }, [conProductos])
-
-  // Mantiene el chip activo dentro de la tira, que en móvil no cabe entera.
+  // Mantiene el chip activo a la vista en la tira, que en móvil no cabe entera.
   useEffect(() => {
-    if (!activa) return
+    if (!seleccionada) return
     contenedorChips.current
-      ?.querySelector(`[data-chip="${activa}"]`)
+      ?.querySelector(`[data-chip="${seleccionada.id}"]`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
-  }, [activa])
+  }, [seleccionada])
 
   const cantidadDe = (id: string) => lineas.find((l) => l.producto.id === id)?.cantidad ?? 0
+  const colorEstacion = useMemo(
+    () => new Map(carta.estaciones.map((e) => [e.id, e.color])),
+    [carta.estaciones],
+  )
+
+  if (!seleccionada) return null
 
   return (
     <>
@@ -271,20 +262,16 @@ function Menu({
       >
         <div ref={contenedorChips} className="flex gap-2 overflow-x-auto px-5 py-3 sm:px-8">
           {conProductos.map((c) => {
-            const seleccionada = activa === c.id
+            const esta = seleccionada.id === c.id
             return (
               <button
                 key={c.id}
                 type="button"
                 data-chip={c.id}
-                aria-current={seleccionada ? 'true' : undefined}
-                onClick={() =>
-                  document
-                    .getElementById(`categoria-${c.id}`)
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }
+                aria-pressed={esta}
+                onClick={() => setActiva(c.id)}
                 className={`min-h-11 shrink-0 rounded-full border px-4 text-sm transition-all duration-200 ${
-                  seleccionada
+                  esta
                     ? 'border-marca-acento bg-marca-acento font-semibold text-marca-acento-texto shadow-sm'
                     : 'border-marca-borde bg-marca-superficie text-marca-texto hover:border-marca-acento'
                 }`}
@@ -296,24 +283,24 @@ function Menu({
         </div>
       </nav>
 
-      <div className="mx-auto max-w-3xl px-5 pb-40 sm:px-8">
-        {conProductos.map((categoria) => (
-          <section key={categoria.id} id={`categoria-${categoria.id}`} className="scroll-mt-24 pt-12">
-            <EncabezadoSeccion titulo={categoria.nombre} />
+      {/* key=categoría reinicia la animación de entrada al cambiar de familia */}
+      <div key={seleccionada.id} className="mx-auto max-w-3xl px-5 pb-40 sm:px-8">
+        <section className="pt-10">
+          <EncabezadoSeccion titulo={seleccionada.nombre} />
 
-            <ul className="mt-6 grid gap-3">
-              {categoria.items.map((producto, i) => (
-                <ItemProducto
-                  key={producto.id}
-                  producto={producto}
-                  cantidad={cantidadDe(producto.id)}
-                  indice={i}
-                  onAgregar={onAgregar}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
+          <ul className="mt-6 grid gap-3">
+            {seleccionada.items.map((producto, i) => (
+              <ItemProducto
+                key={producto.id}
+                producto={producto}
+                cantidad={cantidadDe(producto.id)}
+                indice={Math.min(i, 10)}
+                colorEstacion={colorEstacion.get(producto.estacion_id) ?? '#888888'}
+                onAgregar={onAgregar}
+              />
+            ))}
+          </ul>
+        </section>
       </div>
     </>
   )
@@ -336,32 +323,26 @@ function ItemProducto({
   producto,
   cantidad,
   indice,
+  colorEstacion,
   onAgregar,
 }: {
   producto: ProductoCarta
   cantidad: number
   indice: number
+  colorEstacion: string
   onAgregar: (p: ProductoCarta) => void
 }) {
   return (
     <li
-      className="entra flex items-stretch gap-4 rounded-xl border border-marca-borde bg-marca-superficie p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-md"
+      className="entra flex items-center gap-4 rounded-2xl border border-marca-borde bg-marca-superficie p-4 shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-shadow hover:shadow-lg sm:gap-6 sm:p-5"
       style={{ '--i': indice } as CSSProperties}
     >
-      {producto.foto_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={producto.foto_url}
-          alt=""
-          className="size-20 shrink-0 rounded-lg object-cover sm:size-24"
-        />
-      ) : null}
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-start justify-between gap-2">
+      {/* Texto a la izquierda, plato a la derecha (estilo carta de restaurante). */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
           <h3
-            className={`font-titulo text-lg font-semibold leading-tight ${
-              producto.disponible ? 'text-marca-texto' : 'text-marca-texto-suave'
+            className={`font-titulo text-lg font-bold leading-tight ${
+              producto.disponible ? 'text-marca-acento-fuerte' : 'text-marca-texto-suave'
             }`}
           >
             {producto.nombre}
@@ -373,34 +354,56 @@ function ItemProducto({
             </span>
           ) : null}
         </div>
+
         {producto.descripcion ? (
-          <p className="mt-0.5 text-sm leading-snug text-marca-texto-suave">
+          <p className="mt-1 text-sm leading-snug text-marca-texto-suave">
             {producto.descripcion}
           </p>
         ) : null}
 
-        <div className="mt-auto flex items-center justify-between gap-3 pt-2.5">
-          <span className="marco-oro inline-flex items-center rounded-lg bg-marca-superficie-tenue px-3 py-1 font-titulo text-base font-bold tabular-nums text-marca-acento-fuerte">
-            {formatearPesos(producto.precio)}
-          </span>
+        <p className="mt-3 font-titulo text-2xl font-bold tabular-nums text-marca-acento">
+          {formatearPesos(producto.precio)}
+        </p>
 
+        <div className="mt-3">
           {producto.disponible ? (
             <button
               type="button"
               onClick={() => onAgregar(producto)}
               aria-label={`Agregar ${producto.nombre}`}
-              className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto shadow-sm transition-transform active:scale-95"
+              className="flex min-h-11 items-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto shadow-sm transition-transform active:scale-95"
             >
               <IconoMas className="size-4 shrink-0" />
-              {cantidad > 0 ? cantidad : 'Agregar'}
+              {cantidad > 0 ? `Agregar · ${cantidad}` : 'Agregar'}
             </button>
           ) : (
-            <span className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-3 py-2.5 text-sm text-marca-texto-suave">
+            <span className="inline-block rounded-lg border border-marca-borde px-3 py-2.5 text-sm text-marca-texto-suave">
               Agotado
             </span>
           )}
         </div>
       </div>
+
+      {producto.foto_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={producto.foto_url}
+          alt=""
+          className="size-24 shrink-0 rounded-full border-2 border-marca-borde object-cover shadow-lg sm:size-32"
+        />
+      ) : (
+        // Sin foto real: marcador elegante con la inicial sobre el color de su estación.
+        // El admin sube la foto desde el panel y aparece aquí al instante.
+        <span
+          aria-hidden
+          className="flex size-24 shrink-0 items-center justify-center rounded-full border-2 border-marca-borde font-titulo text-4xl font-bold text-white shadow-lg sm:size-32"
+          style={{
+            background: `linear-gradient(135deg, ${colorEstacion}, color-mix(in srgb, ${colorEstacion} 45%, #000))`,
+          }}
+        >
+          {producto.nombre.trim().charAt(0).toUpperCase()}
+        </span>
+      )}
     </li>
   )
 }

@@ -584,3 +584,32 @@ resto y respeten los roles.
 - `/app/domicilios`: tema oscuro aplicado. `/app/pase`, `/app/mesero`, `/app/caja`: fondo
   claro `#FAFAFB` y tarjetas `.tarjeta`.
 - `tsc`, `eslint` y `npm run build` limpios.
+
+## Fase R6 — Fotos, limpieza y menú por familias
+
+**Objetivo:** carta sin fotos de relleno (marcador elegante donde no haya foto real),
+reportes limpios, y el menú mostrando una familia a la vez (pedido del dueño).
+
+### Hecho
+
+- **Menú por familias** (rediseño a pedido, estilo referencia): los chips de categoría ya
+  no hacen scroll — **seleccionan la familia** y se ve solo esa, con animación de entrada
+  al cambiar. Tarjetas estilo carta de restaurante: nombre en dorado, descripción, precio
+  grande, botón Agregar, y el **plato redondo a la derecha**.
+- **Marcador elegante sin foto**: círculo con la inicial del plato sobre un degradado del
+  color de su estación (también en el admin de Carta). Cuando el admin sube la foto real,
+  la reemplaza al instante; el flujo de subir/cambiar/quitar quedó intacto.
+- **Fotos de relleno eliminadas** (base de desarrollo): `foto_url` en null y los 12
+  `cat-*.jpg` borrados del bucket vía Storage API (SQL directo está prohibido por
+  Supabase). La **portada y la imagen de la promo se conservan** (pedidas expresamente).
+- **Datos de prueba borrados** (desarrollo): pedidos, items, comandas, pagos y caja en
+  ceros; la numeración volvió a 1000.
+- **`supabase/limpieza.sql`** para producción: mismas dos limpiezas, para correr una vez
+  antes de operar de verdad (con nota de cómo borrar los archivos del bucket).
+
+### Verificado (en el navegador)
+
+- Entradas visible sola (4 tarjetas); clic en "Hamburguesas" → cambia la familia y solo se
+  ve esa (5 tarjetas). Marcadores circulares con inicial ("C", "H") sobre el color de la
+  estación. Precio grande dorado y Agregar en cada tarjeta.
+- Tablero y Pedidos en vivo en ceros tras la limpieza. `tsc`, `eslint` y build limpios.

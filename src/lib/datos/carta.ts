@@ -15,6 +15,7 @@ export type ProductoCarta = {
 
 export type CategoriaCarta = { id: string; nombre: string; slug: string }
 export type ZonaCarta = { id: string; nombre: string; valor: number }
+export type EstacionCarta = { id: string; nombre: string; color: string }
 
 export type PromocionCarta = {
   id: string
@@ -40,6 +41,7 @@ export type Carta = {
   productos: ProductoCarta[]
   promociones: PromocionCarta[]
   zonas: ZonaCarta[]
+  estaciones: EstacionCarta[]
 }
 
 /**
@@ -61,8 +63,13 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
 
   const ahora = new Date().toISOString()
 
-  const [{ data: categorias }, { data: productos }, { data: promociones }, { data: zonas }] =
-    await Promise.all([
+  const [
+    { data: categorias },
+    { data: productos },
+    { data: promociones },
+    { data: zonas },
+    { data: estaciones },
+  ] = await Promise.all([
       supabase
         .from('categorias')
         .select('id, nombre, slug')
@@ -89,6 +96,12 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
         .eq('restaurante_id', restaurante.id)
         .eq('activa', true)
         .order('valor'),
+      supabase
+        .from('estaciones')
+        .select('id, nombre, color')
+        .eq('restaurante_id', restaurante.id)
+        .eq('activa', true)
+        .order('orden'),
     ])
 
   return {
@@ -96,6 +109,7 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
     categorias: categorias ?? [],
     productos: productos ?? [],
     zonas: zonas ?? [],
+    estaciones: estaciones ?? [],
     promociones: (promociones ?? []).map((p) => ({
       id: p.id,
       tipo: p.tipo,

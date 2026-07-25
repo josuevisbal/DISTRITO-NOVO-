@@ -13,6 +13,7 @@ export type ProductoAdmin = {
   foto_url: string | null
   destacado: boolean
   disponible: boolean
+  color_estacion: string
 }
 
 export type CategoriaAdmin = { id: string; nombre: string; productos: ProductoAdmin[] }
@@ -72,8 +73,15 @@ function FilaProducto({ producto, indice }: { producto: ProductoAdmin; indice: n
             // eslint-disable-next-line @next/next/no-img-element
             <img src={producto.foto_url} alt="" className="size-full object-cover" />
           ) : (
-            <span className="flex size-full items-center justify-center text-xs text-marca-texto-suave">
-              Sin foto
+            // Mismo marcador que ve el comensal: inicial sobre el color de la estación.
+            <span
+              aria-hidden
+              className="flex size-full items-center justify-center font-titulo text-xl font-bold text-white"
+              style={{
+                background: `linear-gradient(135deg, ${producto.color_estacion}, color-mix(in srgb, ${producto.color_estacion} 55%, #000))`,
+              }}
+            >
+              {producto.nombre.trim().charAt(0).toUpperCase()}
             </span>
           )}
           {subiendo ? (
