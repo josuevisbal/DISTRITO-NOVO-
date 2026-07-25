@@ -42,16 +42,17 @@ begin
   select id into v_rest from restaurantes where slug = 'distrito-novo';
   if v_rest is null then raise exception 'Corre primero schema.sql y el seed'; end if;
 
-  for r in (
-    values
-      ('admin@distrito.test',    'Admin',        'admin',        null),
-      ('cajero@distrito.test',   'Cajero',       'cajero',       null),
-      ('mesero@distrito.test',   'Mesero',       'mesero',       null),
-      ('pase@distrito.test',     'Pase',         'pase',         null),
-      ('domi@distrito.test',     'Domiciliario', 'domiciliario', null),
-      ('rapida@distrito.test',   'Cocina Rápida','cocina',       'rapida'),
-      ('asados@distrito.test',   'Cocina Asados','cocina',       'asados'),
-      ('bebidas@distrito.test',  'Cocina Bebidas','cocina',      'bebidas')
+  for r in
+    select email, nombre, rol, est_slug from (
+      values
+        ('admin@distrito.test',    'Admin',         'admin',        null::text),
+        ('cajero@distrito.test',   'Cajero',        'cajero',       null::text),
+        ('mesero@distrito.test',   'Mesero',        'mesero',       null::text),
+        ('pase@distrito.test',     'Pase',          'pase',         null::text),
+        ('domi@distrito.test',     'Domiciliario',  'domiciliario', null::text),
+        ('rapida@distrito.test',   'Cocina Rápida', 'cocina',       'rapida'),
+        ('asados@distrito.test',   'Cocina Asados', 'cocina',       'asados'),
+        ('bebidas@distrito.test',  'Cocina Bebidas','cocina',       'bebidas')
     ) as t(email, nombre, rol, est_slug)
   loop
     if exists (select 1 from auth.users where email = r.email) then continue; end if;
