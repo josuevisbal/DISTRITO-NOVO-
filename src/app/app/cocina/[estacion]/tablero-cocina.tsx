@@ -1,9 +1,17 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 
-import { IconoAlerta, IconoCheck, IconoReloj } from '@/components/iconos'
+import {
+  IconoAlerta,
+  IconoCheck,
+  IconoFuego,
+  IconoLuna,
+  IconoNota,
+  IconoSol,
+} from '@/components/iconos'
+import { obtenerTema, obtenerTemaOperacion, variablesTema } from '@/config/tema'
 import { calcularCronometro, formatearRestante, type Semaforo } from '@/lib/cronometro'
 import { crearClienteNavegador } from '@/lib/supabase/navegador'
 import { cambiarDisponibilidad, cambiarEstadoComanda } from '../../acciones'
@@ -23,45 +31,89 @@ export type Ticket = {
   estado: 'pendiente' | 'preparando' | 'listo' | 'cancelada'
   disparo_en: string
   objetivo_en: string
+  minutos: number
   items: ItemComanda[]
 }
 
 type Props = {
   tickets: Ticket[]
+  nombreEstacion: string
   color: string
   /** Hora del servidor al armar la página, para corregir el desfase del reloj local. */
   servidorAhoraISO: string
+  /** Barra de sesión (server component) que se pinta dentro del tema elegido. */
+  barraStaff: ReactNode
 }
 
-/** Colores del semáforo: fijos del sistema (no de marca), con texto e ícono que acompañan.
- *  La cocina es oscura (se lee de lejos): relleno profundo y texto claro de alto contraste. */
-const SEMAFORO: Record<Semaforo, { fondo: string; borde: string; texto: string }> = {
-  verde: { fondo: '#0f2e22', borde: '#2E9E8F', texto: '#7ee3cf' },
-  amarillo: { fondo: '#3a2f05', borde: '#E0B02B', texto: '#f4d873' },
-  rojo: { fondo: '#3a1010', borde: '#E0552B', texto: '#f6a58c' },
+const NOMBRE_CANAL: Record<string, string> = {
+  mesa: 'Mesa',
+  domicilio: 'Domicilio',
+  recoger: 'Recoger',
+  mostrador: 'Mostrador',
+  whatsapp: 'WhatsApp',
 }
 
-export function TableroCocina({ tickets, color, servidorAhoraISO }: Props) {
+/**
+ * Semáforo del KDS: color en el borde superior del ticket y en el chip del tiempo,
+ * siempre acompañado de texto. Paleta por tema (claro/oscuro), fija del sistema.
+ */
+const SEMAFORO: Record<
+  'claro' | 'oscuro',
+  Record<Semaforo, { acento: string; chipFondo: string; chipTexto: string }>
+> = {
+  claro: {
+    verde: { acento: '#1E9E6A', chipFondo: '#E7F6EE', chipTexto: '#116B47' },
+    amarillo: { acento: '#D99A06', chipFondo: '#FBF1D4', chipTexto: '#7A5A0F' },
+    rojo: { acento: '#D64533', chipFondo: '#FBE6DE', chipTexto: '#9A3320' },
+  },
+  oscuro: {
+    verde: { acento: '#2E9E8F', chipFondo: '#0f2e22', chipTexto: '#7ee3cf' },
+    amarillo: { acento: '#E0B02B', chipFondo: '#3a2f05', chipTexto: '#f4d873' },
+    rojo: { acento: '#E0552B', chipFondo: '#3a1010', chipTexto: '#f6a58c' },
+  },
+}
+
+/** Preferencia de tema del cocinero. Es preferencia de interfaz, no dato del negocio. */
+const LLAVE_TEMA = 'kds-tema'
+
+export function TableroCocina({
+  tickets,
+  nombreEstacion,
+  color,
+  servidorAhoraISO,
+  barraStaff,
+}: Props) {
   const router = useRouter()
 
-  // Desfase entre el reloj del servidor y el del navegador, medido una vez al montar.
-  // Todos los cronómetros se calculan con la hora corregida, no con la del navegador.
+  // Claro por defecto; el cocinero puede preferir oscuro (grasa, reflejo de parrilla).
+  const [oscuro, setOscuro] = useState(false)
+  useEffect(() => {
+    setOscuro(localStorage.getItem(LLAVE_TEMA) === 'oscuro')
+  }, [])
+  function alternarTema() {
+    const v = !oscuro
+    setOscuro(v)
+    localStorage.setItem(LLAVE_TEMA, v ? 'oscuro' : 'claro')
+  }
+
+  // Desfase entre el reloj del servidor y el del navegador, medido al montar: los
+  // cronómetros y el reloj de la barra usan la hora corregida, nunca la local a secas.
   const desfaseRef = useRef(0)
   useEffect(() => {
     desfaseRef.current = new Date(servidorAhoraISO).getTime() - Date.now()
   }, [servidorAhoraISO])
 
-  // Un tic por segundo mueve los cronómetros; los datos vienen del servidor por Realtime.
-  const [, setTic] = useState(0)
+  const [tic, setTic] = useState(0)
   useEffect(() => {
     const id = setInterval(() => setTic((n) => n + 1), 1000)
     return () => clearInterval(id)
   }, [])
+  void tic
 
   const [enLinea, setEnLinea] = useState(true)
 
-  // Realtime + reintento periódico: así una comanda con disparo futuro aparece sola cuando
-  // su hora pasa, sin cron. Si la conexión se cae, se avisa y se sigue reintentando.
+  // Realtime + reintento periódico: una comanda con disparo futuro aparece sola cuando su
+  // hora pasa, sin cron. Si la conexión se cae, se avisa y se sigue reintentando.
   useEffect(() => {
     const supabase = crearClienteNavegador()
     const canal = supabase
@@ -80,10 +132,60 @@ export function TableroCocina({ tickets, color, servidorAhoraISO }: Props) {
     }
   }, [router])
 
+  const ahora = Date.now() + desfaseRef.current
+  const paleta = SEMAFORO[oscuro ? 'oscuro' : 'claro']
+  const reloj = new Date(ahora).toLocaleTimeString('es-CO', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+
   return (
-    <>
+    <div
+      style={variablesTema(oscuro ? obtenerTemaOperacion() : obtenerTema(''))}
+      className="min-h-screen bg-marca-fondo text-marca-texto"
+    >
+      {barraStaff}
+
+      {/* Barra de la estación: identidad, cola y reloj. */}
+      <header className="sticky top-0 z-20 border-b border-marca-borde bg-marca-superficie">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <span
+            aria-hidden
+            className="flex size-11 items-center justify-center rounded-xl text-white"
+            style={{ backgroundColor: color }}
+          >
+            <IconoFuego className="size-6" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold leading-tight">{nombreEstacion}</h1>
+            <p className="text-xs text-marca-texto-suave">Estación de cocina</p>
+          </div>
+
+          <div className="ml-auto flex items-center gap-4">
+            <p className="text-right">
+              <span className="block text-[10px] uppercase tracking-wider text-marca-texto-suave">
+                En cola
+              </span>
+              <span className="block text-xl font-bold leading-none" style={{ color }}>
+                {tickets.length}
+              </span>
+            </p>
+            <p className="text-2xl font-bold tabular-nums">{reloj}</p>
+            <button
+              type="button"
+              onClick={alternarTema}
+              aria-label={oscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+              className="flex size-12 items-center justify-center rounded-xl border border-marca-borde text-marca-texto"
+            >
+              {oscuro ? <IconoSol className="size-5" /> : <IconoLuna className="size-5" />}
+            </button>
+          </div>
+        </div>
+      </header>
+
       {!enLinea ? (
-        <p className="flex items-center justify-center gap-2 bg-marca-superficie px-4 py-2 text-sm text-marca-texto">
+        <p className="flex items-center justify-center gap-2 bg-marca-superficie-tenue px-4 py-2 text-sm">
           <IconoAlerta className="size-5 shrink-0 text-marca-acento-fuerte" />
           Sin conexión. Reintentando… se muestra el último estado conocido.
         </p>
@@ -96,46 +198,57 @@ export function TableroCocina({ tickets, color, servidorAhoraISO }: Props) {
       ) : (
         <ul className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
           {tickets.map((ticket, i) => (
-            <TicketCocina
+            <TicketKds
               key={ticket.comanda_id}
               ticket={ticket}
-              color={color}
-              desfaseRef={desfaseRef}
+              colorEstacion={color}
+              paleta={paleta}
+              ahora={ahora}
               indice={i}
             />
           ))}
         </ul>
       )}
-    </>
+
+      <p className="px-4 pb-6 pt-2 text-center text-xs text-marca-texto-suave">
+        El tiempo cuenta desde que la comanda entra a la estación ·{' '}
+        <span style={{ color: paleta.verde.acento }}>verde en tiempo</span> ·{' '}
+        <span style={{ color: paleta.amarillo.acento }}>ámbar cerca del objetivo</span> ·{' '}
+        <span style={{ color: paleta.rojo.acento }}>rojo pasado</span>
+      </p>
+    </div>
   )
 }
 
-function TicketCocina({
+function TicketKds({
   ticket,
-  color,
-  desfaseRef,
+  colorEstacion,
+  paleta,
+  ahora,
   indice,
 }: {
   ticket: Ticket
-  color: string
-  desfaseRef: React.RefObject<number>
+  colorEstacion: string
+  paleta: Record<Semaforo, { acento: string; chipFondo: string; chipTexto: string }>
+  ahora: number
   indice: number
 }) {
   const [ocupado, setOcupado] = useState(false)
 
-  const ahora = Date.now() + desfaseRef.current
-  const crono = calcularCronometro(
-    new Date(ticket.disparo_en).getTime(),
-    new Date(ticket.objetivo_en).getTime(),
-    ahora,
-  )
-  const c = SEMAFORO[crono.semaforo]
+  const disparo = new Date(ticket.disparo_en).getTime()
+  const objetivo = new Date(ticket.objetivo_en).getTime()
+  const crono = calcularCronometro(disparo, objetivo, ahora)
+  const c = paleta[crono.semaforo]
+
+  // Avance hacia el objetivo, para la barra del estado "preparando".
+  const avance = Math.min(1, Math.max(0, (ahora - disparo) / Math.max(1, objetivo - disparo)))
+  const quedanMin = Math.max(0, Math.ceil((objetivo - ahora) / 60000))
 
   async function marcar(estado: 'preparando' | 'listo') {
     setOcupado(true)
     const r = await cambiarEstadoComanda(ticket.comanda_id, estado)
     if (!r.ok) setOcupado(false)
-    // El refresco de Realtime reordena/retira el ticket; no apagamos `ocupado` en el éxito.
+    // El refresco de Realtime retira o reordena el ticket; no se apaga `ocupado` al éxito.
   }
 
   async function agotar(productoId: string) {
@@ -146,46 +259,74 @@ function TicketCocina({
 
   return (
     <li
-      className="entra flex flex-col rounded-2xl border-2 bg-marca-superficie shadow-sm"
-      style={{ borderColor: color, '--i': indice } as React.CSSProperties}
+      className="entra flex flex-col overflow-hidden rounded-2xl bg-marca-superficie shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+      style={{ '--i': indice, borderTop: `4px solid ${c.acento}` } as CSSProperties}
     >
-      <div className="flex items-center justify-between gap-2 px-4 pt-4">
-        <p className="font-titulo text-2xl font-bold text-marca-texto">
-          {ticket.mesa ? `Mesa ${ticket.mesa}` : `#${ticket.numero}`}
-        </p>
+      <div className="flex items-center gap-2 px-4 pt-3">
+        <p className="text-2xl font-bold tabular-nums">#{ticket.numero}</p>
+        <span className="rounded-full bg-marca-superficie-tenue px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-marca-texto-suave">
+          {ticket.mesa ? `Mesa ${ticket.mesa}` : (NOMBRE_CANAL[ticket.canal] ?? ticket.canal)}
+        </span>
 
-        {/* Semáforo: color + ícono + texto + tiempo. Nunca solo el color. */}
+        {/* Chip del tiempo: color + punto + cuenta. Nunca solo color. */}
         <span
-          className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm font-semibold tabular-nums"
-          style={{ backgroundColor: c.fondo, borderColor: c.borde, color: c.texto }}
+          className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-bold tabular-nums"
+          style={{ backgroundColor: c.chipFondo, color: c.chipTexto }}
         >
-          <IconoReloj className="size-4 shrink-0" />
-          {crono.etiqueta} · {formatearRestante(crono.restanteSeg)}
+          <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: c.acento }} />
+          {formatearRestante(crono.restanteSeg)}
         </span>
       </div>
 
-      <ul className="flex-1 space-y-2 px-4 py-3">
+      <ul className="flex-1 space-y-2.5 px-4 py-3">
         {ticket.items.map((item) => (
-          <li key={item.producto_id} className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-lg text-marca-texto">
-                <span className="font-bold">{item.cantidad}×</span> {item.nombre}
+          <li key={item.producto_id}>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-lg font-semibold leading-snug">
+                <span className="mr-1.5 text-2xl font-bold" style={{ color: colorEstacion }}>
+                  {item.cantidad}
+                </span>
+                {item.nombre}
               </p>
-              {item.notas ? (
-                <p className="text-sm font-medium text-marca-acento-fuerte">{item.notas}</p>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => agotar(item.producto_id)}
+                disabled={ocupado}
+                className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-2.5 text-xs text-marca-texto-suave disabled:opacity-50"
+              >
+                Agotar
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => agotar(item.producto_id)}
-              disabled={ocupado}
-              className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-2.5 text-xs text-marca-texto-suave disabled:opacity-50"
-            >
-              Agotar
-            </button>
+            {item.notas ? (
+              <p
+                className="mt-1.5 flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium"
+                style={{
+                  backgroundColor: paleta.amarillo.chipFondo,
+                  color: paleta.amarillo.chipTexto,
+                }}
+              >
+                <IconoNota className="mt-0.5 size-4 shrink-0" />
+                {item.notas}
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>
+
+      {ticket.estado === 'preparando' ? (
+        <div className="px-4 pb-2">
+          <div className="h-1.5 overflow-hidden rounded-full bg-marca-superficie-tenue">
+            <div
+              className="h-full rounded-full transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
+              style={{ width: `${avance * 100}%`, backgroundColor: c.acento }}
+            />
+          </div>
+          <p className="mt-1 text-xs text-marca-texto-suave">
+            Objetivo {ticket.minutos} min ·{' '}
+            {crono.semaforo === 'rojo' ? crono.etiqueta : `quedan ${quedanMin}`}
+          </p>
+        </div>
+      ) : null}
 
       <div className="p-3">
         {ticket.estado === 'pendiente' ? (
@@ -193,19 +334,20 @@ function TicketCocina({
             type="button"
             onClick={() => marcar('preparando')}
             disabled={ocupado}
-            className="min-h-14 w-full rounded-xl border-2 border-marca-acento text-lg font-semibold text-marca-acento-fuerte disabled:opacity-60"
+            className="min-h-14 w-full rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto disabled:opacity-60"
           >
-            Empezar
+            Empezar a preparar
           </button>
         ) : (
           <button
             type="button"
             onClick={() => marcar('listo')}
             disabled={ocupado}
-            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto disabled:opacity-60"
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-bold text-white disabled:opacity-60"
+            style={{ backgroundColor: paleta.verde.acento }}
           >
             <IconoCheck className="size-6 shrink-0" />
-            Listo
+            Marcar listo
           </button>
         )}
       </div>

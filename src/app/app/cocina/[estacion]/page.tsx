@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 
 import { BarraStaff } from '@/components/barra-staff'
-import { MarcoOscuro } from '@/components/marco-oscuro'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { TableroCocina, type Ticket } from './tablero-cocina'
@@ -68,13 +67,19 @@ export default async function PaginaEstacion({
     estado: c.estado,
     disparo_en: c.disparo_en,
     objetivo_en: new Date(new Date(c.disparo_en).getTime() + c.minutos * 60000).toISOString(),
+    minutos: c.minutos,
     items: itemsPorPedido.get(c.pedido_id) ?? [],
   }))
 
+  // El tema (claro/oscuro) lo elige el cocinero dentro del tablero; la barra de sesión se
+  // pasa como slot para que se pinte con el tema elegido.
   return (
-    <MarcoOscuro>
-      <BarraStaff staff={staff} titulo={`Cocina · ${est.nombre}`} />
-      <TableroCocina tickets={tickets} color={est.color} servidorAhoraISO={ahora.toISOString()} />
-    </MarcoOscuro>
+    <TableroCocina
+      tickets={tickets}
+      nombreEstacion={est.nombre}
+      color={est.color}
+      servidorAhoraISO={ahora.toISOString()}
+      barraStaff={<BarraStaff staff={staff} titulo={`Cocina · ${est.nombre}`} />}
+    />
   )
 }

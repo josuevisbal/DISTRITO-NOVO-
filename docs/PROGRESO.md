@@ -639,3 +639,20 @@ reportes limpios, y el menú mostrando una familia a la vez (pedido del dueño).
   con sus pesos 600–700 ya existentes. `TEMA_CARTA` conserva la serif.
 - Verificado con estilos computados: cocina en Inter (título y tickets); carta pública con
   logo en Cinzel Decorative, encabezado de familia y nombres de plato en Cinzel.
+
+## Fase 2 (pulido) — Cocina como KDS profesional
+
+- **Tema claro por defecto** (coherente con el panel) con **botón sol/luna**: el cocinero
+  elige y la preferencia se recuerda en el dispositivo (`localStorage`, preferencia de
+  interfaz, no dato del negocio). Verificado: cambia a oscuro y sobrevive la recarga.
+- **Barra de estación**: ícono de llama sobre el color de la estación, nombre, contador
+  EN COLA y reloj en vivo (con el desfase del servidor corregido).
+- **Tickets KDS**: borde superior de 4 px del color del semáforo y chip del tiempo con
+  punto + cuenta (`1:27`, y atrasos humanizados `1 h 05 min`); número de pedido grande;
+  chip de origen (MESA 7 / DOMICILIO / MOSTRADOR); cantidades grandes en el color de la
+  estación; **notas del cliente en recuadro ámbar** con ícono; en preparación, **barra de
+  avance** hacia el objetivo ("Objetivo 18 min · quedan 1"); botones de 56 px
+  "Empezar a preparar" → "Marcar listo" (verde).
+- Leyenda al pie explicando el semáforo. Realtime, reintento y aviso sin conexión intactos.
+- Verificado en vivo con el ticket #1000: ámbar al 80 % del objetivo, barra de avance al
+  empezar, toggle y persistencia del tema.

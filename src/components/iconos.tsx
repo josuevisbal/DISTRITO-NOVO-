@@ -216,6 +216,41 @@ export function IconoSalir(props: Props) {
   )
 }
 
+export function IconoSol(props: Props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
+    </Svg>
+  )
+}
+
+export function IconoLuna(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5Z" />
+    </Svg>
+  )
+}
+
+/** Llama, para la cabecera de la estación en el KDS. */
+export function IconoFuego(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3c1 3-3 4.5-3 8a3 3 0 0 0 6 0c0-1.5-.8-2.5-.8-2.5S17 10 17 13a5 5 0 0 1-10 0c0-4.5 4-6 5-10Z" />
+    </Svg>
+  )
+}
+
+/** Globo de nota, para las indicaciones del cliente en el ticket. */
+export function IconoNota(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4V6Z" />
+    </Svg>
+  )
+}
+
 /** Rombo con trazos, adorno para encabezados de sección (estilo carta impresa). */
 export function IconoFloritura({ className }: Props) {
   return (

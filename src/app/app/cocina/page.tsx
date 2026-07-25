@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 import { BarraStaff } from '@/components/barra-staff'
-import { MarcoOscuro } from '@/components/marco-oscuro'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
@@ -33,7 +32,7 @@ export default async function PaginaCocina() {
   }
 
   return (
-    <MarcoOscuro>
+    <>
       <BarraStaff staff={staff} titulo="Cocina" />
       <main className="mx-auto max-w-2xl p-4">
         <p className="mb-4 text-sm text-marca-texto-suave">Escoge la estación de esta pantalla:</p>
@@ -56,6 +55,6 @@ export default async function PaginaCocina() {
           ))}
         </ul>
       </main>
-    </MarcoOscuro>
+    </>
   )
 }
