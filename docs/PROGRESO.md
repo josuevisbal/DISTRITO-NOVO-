@@ -418,3 +418,50 @@ También se verificó el recuadro **verde "Ya está pago · No cobrar"** con el 
   hoy la variable está inválida, así que los usuarios se crean por SQL/consola de Supabase.
 - Webhook de pasarela (ingreso automático en el arqueo).
 - Despliegue en Vercel (necesita la cuenta del cliente y conectar el repo de GitHub).
+
+---
+
+# Reestructuración (panel del dueño + roles en dos niveles)
+
+## Fase R1 — Roles: dueño vs administrador
+
+**Objetivo:** separar `dueno` (ve todo, incluida rentabilidad y costos) de `admin` (opera
+el día a día, sin plata sensible), aplicado en RLS y no solo en la interfaz.
+
+### Hecho
+
+- **`supabase/roles-dueno.sql`** (2 pasos: el enum primero, el resto después):
+  - Enum `rol_usuario` gana `dueno`.
+  - **`producto_costos`** en tabla aparte con RLS solo-dueño: `productos` es de lectura
+    pública (la carta), así que el costo jamás podía vivir ahí.
+  - **`tr_proteger_dueno`**: ni admins ni nadie (salvo el propio dueño) puede tocar la
+    cuenta del dueño ni nombrar dueños. Solo aplica a sesiones de la app; el SQL Editor
+    queda libre para emergencias.
+  - Todas las políticas y funciones que aceptaban `admin` ahora aceptan también `dueno`
+    (caja, pase, catálogo, storage, reportes).
+  - **`reporte_rentabilidad(p_dias)`** y **`actualizar_costo(producto, costo)`**: solo el
+    dueño; cualquier otro rol recibe error de la base.
+  - `admin@distrito.test` pasa a ser `dueno`.
+- **Código**: `exigirRol` deja pasar al dueño a todo; `inicioDeRol('dueno')` → Reportes.
+  En **Reportes** aparece la sección **Rentabilidad y costos** (ventas, costo, utilidad,
+  margen, editor de costo por plato en línea) que solo se consulta y se monta si el rol es
+  `dueno`. En **Usuarios**, solo el dueño puede asignar el rol dueño, y las filas de dueño
+  se muestran bloqueadas para los admin.
+- `schema.sql` y `post-seed.sql` (plantilla) al día para instalaciones nuevas.
+
+### Verificado (extremo a extremo, base de desarrollo)
+
+1. **Como dueño** (`admin@distrito.test`): el login lo lleva directo a Reportes, la barra
+   dice "Dueño", y la sección **Rentabilidad y costos** aparece con datos reales. Se editó
+   el costo de la Chicharronada ($18.000 × 2 vendidas): la utilidad de la fila y los KPI
+   (costo $36.000, margen 83 %) se recalcularon al instante.
+2. **Como admin** (se convirtió temporalmente al cajero en admin): Reportes carga con sus
+   cuatro paneles pero **sin** Rentabilidad. Llamando la RPC a mano con su sesión, la base
+   respondió **"Solo el dueño"**; leyendo `producto_costos` directo, la RLS devolvió **0
+   filas** (el costo existe pero no lo ve). Intentando desactivar al dueño vía PATCH, el
+   disparador respondió **"Solo el dueño puede modificar la cuenta del dueño"**.
+3. El cajero volvió a su rol. `tsc`, `eslint` limpios.
+
+> Nota operativa: la base de desarrollo se pausó (plan gratis) y al restaurarla volvió con
+> el respaldo completo. En producción, la migración es `supabase/roles-dueno.sql` en dos
+> pasos, pendiente de que el cliente la corra en su SQL Editor.
