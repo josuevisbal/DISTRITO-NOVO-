@@ -17,30 +17,52 @@
   --font-titulo: var(--marca-fuente-titulo);
   --font-texto: var(--marca-fuente-texto);
 
-  --animate-aparecer: aparecer 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  --animate-subir: subir 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  --animate-escala: escala 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  --animate-modulo: modulo 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  /* Las utilidades animate-* de Tailwind salen del sistema central de abajo. */
+  --animate-aparecer: aparecer var(--mov-media) var(--mov-entrar) both;
+  --animate-subir: subir var(--mov-media) var(--mov-entrar) both;
+  --animate-escala: escala var(--mov-media) var(--mov-entrar) both;
+  --animate-modulo: modulo var(--mov-media) var(--mov-entrar) both;
+}
+
+/* =====================================================================
+   SISTEMA CENTRAL DE MOVIMIENTO
+   Un solo lugar define los tiempos y las curvas; todo el aplicativo los
+   usa. No se ponen valores sueltos por pantalla. Solo se anima transform
+   y opacity (nunca width/height/top/left). Se respeta prefers-reduced-motion.
+   ===================================================================== */
+:root {
+  /* Duraciones — nada supera 400 ms. */
+  --mov-rapida: 150ms; /* hover, press */
+  --mov-media: 220ms; /* entrada de elementos */
+  --mov-lenta: 300ms; /* transiciones de vista */
+
+  /* Curvas. La salida dura ~65% de la entrada (más ágil). */
+  --mov-entrar: cubic-bezier(0.16, 1, 0.3, 1);
+  --mov-salir: cubic-bezier(0.4, 0, 1, 1);
+  --mov-estado: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Paso del escalonado (stagger) entre tarjetas. */
+  --mov-stagger: 50ms;
 }
 
 body {
   font-family: var(--fuente-texto), system-ui, sans-serif;
 }
 
-/* ---------- Animaciones ---------- */
+/* ---------- Fotogramas (solo transform / opacity) ---------- */
 @keyframes aparecer {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 @keyframes subir {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes escala {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
-/* Cambio de módulo en el panel: fundido + leve deslizamiento (~200 ms). */
+/* Cambio de módulo en el panel: fundido + leve deslizamiento. */
 @keyframes modulo {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -49,45 +71,60 @@ body {
   0% { background-position: -160% 0; }
   100% { background-position: 260% 0; }
 }
-@keyframes latido {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
+/* Pulso muy sutil para pastillas que llaman a la acción (alertas). */
+@keyframes pulso {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
 }
 @keyframes deslizar-derecha {
-  from { opacity: 0; transform: translateX(120%); }
+  from { opacity: 0; transform: translateX(110%); }
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Notificación tipo mensaje: entra deslizándose desde la derecha. */
-.notifica {
-  animation: deslizar-derecha 0.25s ease-out both;
-}
-
-/* Entrada escalonada: se le pasa --i (índice) al elemento */
+/* ---------- Utilidades compartidas ---------- */
+/* Entrada escalonada de tarjetas: se le pasa --i (índice). */
 .entra {
-  animation: var(--animate-subir);
-  animation-delay: calc(var(--i, 0) * 55ms);
+  animation: subir var(--mov-media) var(--mov-entrar) both;
+  animation-delay: calc(var(--i, 0) * var(--mov-stagger));
 }
 
-/* ---------- Micro-interacciones globales ---------- */
-/* Todo botón y enlace responde al tacto: transición suave y "presión" al tocar. */
+/* Aparición de una pastilla/etiqueta: fade + leve scale. */
+.entra-pastilla {
+  animation: escala var(--mov-rapida) var(--mov-entrar) both;
+}
+
+/* Notificación tipo mensaje: entra deslizando desde la derecha. */
+.notifica {
+  animation: deslizar-derecha var(--mov-lenta) var(--mov-entrar) both;
+}
+
+/* Pastilla-alerta que llama la atención con un pulso apenas perceptible. */
+.pulso-suave {
+  animation: pulso 1.8s var(--mov-estado) infinite;
+}
+
+/* ---------- Micro-interacciones globales (todos los botones/enlaces) ---------- */
 @media (prefers-reduced-motion: no-preference) {
   button,
   a,
   select,
+  summary,
+  [role='switch'],
   label:has(> input[type='radio']),
   label:has(> input[type='checkbox']) {
     transition:
-      transform 0.12s ease,
-      background-color 0.15s ease,
-      border-color 0.15s ease,
-      color 0.15s ease,
-      box-shadow 0.15s ease,
-      opacity 0.15s ease,
-      filter 0.15s ease;
+      transform var(--mov-rapida) var(--mov-estado),
+      background-color var(--mov-rapida) var(--mov-estado),
+      border-color var(--mov-rapida) var(--mov-estado),
+      color var(--mov-rapida) var(--mov-estado),
+      box-shadow var(--mov-rapida) var(--mov-estado),
+      opacity var(--mov-rapida) var(--mov-estado),
+      filter var(--mov-rapida) var(--mov-estado);
   }
+  /* Presión: escala a 0.96 y vuelve al soltar (feedback táctil). */
   button:not(:disabled):active,
   a:active,
+  [role='switch']:active,
   label:has(> input[type='radio']):active,
   label:has(> input[type='checkbox']):active {
     transform: scale(0.96);
@@ -103,12 +140,17 @@ body {
   outline-offset: 2px;
 }
 
-/* Respeta a quien pide menos movimiento */
+/* Respeta a quien pide menos movimiento: el contenido se ve al instante. */
 @media (prefers-reduced-motion: reduce) {
   .entra,
+  .entra-pastilla,
   .notifica,
+  .pulso-suave,
   [class*="animate-"] {
     animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
   }
 }
 
@@ -153,7 +195,9 @@ body {
   border: 1px solid var(--marca-borde);
   border-radius: 12px;
   box-shadow: 0 1px 2px rgba(17, 15, 10, 0.05);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    box-shadow var(--mov-media) var(--mov-estado),
+    transform var(--mov-media) var(--mov-estado);
 }
 .tarjeta-hover:hover {
   box-shadow: 0 6px 18px rgba(17, 15, 10, 0.08);
