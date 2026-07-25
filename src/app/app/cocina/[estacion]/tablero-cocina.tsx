@@ -34,11 +34,11 @@ type Props = {
 }
 
 /** Colores del semáforo: fijos del sistema (no de marca), con texto e ícono que acompañan.
- *  Pensados para fondo claro: contraste alto de texto sobre relleno tenue. */
+ *  La cocina es oscura (se lee de lejos): relleno profundo y texto claro de alto contraste. */
 const SEMAFORO: Record<Semaforo, { fondo: string; borde: string; texto: string }> = {
-  verde: { fondo: '#E6F5EE', borde: '#2E9E8F', texto: '#12655A' },
-  amarillo: { fondo: '#FBF1D4', borde: '#C79A1E', texto: '#7A5A0F' },
-  rojo: { fondo: '#FBE6DE', borde: '#C2452F', texto: '#9A3320' },
+  verde: { fondo: '#0f2e22', borde: '#2E9E8F', texto: '#7ee3cf' },
+  amarillo: { fondo: '#3a2f05', borde: '#E0B02B', texto: '#f4d873' },
+  rojo: { fondo: '#3a1010', borde: '#E0552B', texto: '#f6a58c' },
 }
 
 export function TableroCocina({ tickets, color, servidorAhoraISO }: Props) {

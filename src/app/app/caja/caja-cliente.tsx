@@ -147,7 +147,7 @@ function TarjetaLegalizar({ liquidacion }: { liquidacion: PorLegalizar }) {
   }
 
   return (
-    <article className="rounded-xl border border-marca-borde bg-marca-superficie p-4">
+    <article className="tarjeta p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-titulo text-lg text-marca-texto">
           <IconoMoto className="size-5 text-marca-acento-fuerte" />
@@ -192,7 +192,7 @@ function SeccionTurno({
   const total = Object.values(arqueo).reduce((s, v) => s + v, 0)
 
   return (
-    <section className="rounded-xl border border-marca-borde bg-marca-superficie p-4">
+    <section className="tarjeta p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-titulo text-lg text-marca-texto">Turno abierto</h2>
@@ -468,7 +468,7 @@ function TarjetaContraentrega({ pedido }: { pedido: Contraentrega }) {
   }
 
   return (
-    <article className="rounded-xl border border-marca-borde bg-marca-superficie p-4">
+    <article className="tarjeta p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-titulo text-lg text-marca-texto">Pedido #{pedido.numero}</p>
@@ -518,7 +518,7 @@ function TarjetaCobro({ pedido }: { pedido: PorCobrar }) {
   }
 
   return (
-    <article className="rounded-xl border border-marca-borde bg-marca-superficie p-4">
+    <article className="tarjeta p-4">
       <div className="flex items-start justify-between gap-3">
         <p className="font-titulo text-lg text-marca-texto">
           {pedido.mesa ? `Mesa ${pedido.mesa}` : `Pedido #${pedido.numero}`}

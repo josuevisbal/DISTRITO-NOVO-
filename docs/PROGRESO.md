@@ -558,3 +558,29 @@ Con la vista abierta y sin recargar:
    Realtime, con su píldora "Por confirmar".
 2. Se confirmó vía `confirmar_pedido` → la píldora **cambió sola a "En cocina"**.
 La insignia de la lateral marcaba el conteo (4 → 5). `tsc`, `eslint` y build limpios.
+
+## Fase R5 — Pulido de las pantallas de operación
+
+**Objetivo:** que cocina, pase, mesero, caja y domiciliario se vean coherentes con el
+resto y respeten los roles.
+
+### Hecho
+
+- **Cocina y domiciliario vuelven a fondo oscuro** (se usan de pie, de lejos y con prisa):
+  `MarcoOscuro` aplica el tema oscuro por tokens (`obtenerTemaOperacion()` en `tema.ts`)
+  sobre el claro del área interna; ningún componente cambió sus clases.
+  - El **semáforo de cocina** volvió a su paleta oscura de alto contraste (relleno profundo
+    + texto claro), siempre con ícono y texto.
+  - El **recuadro de cobro del domiciliario** (amarillo cobrar / verde no cobrar) también.
+  - Sin animaciones nuevas en estas dos pantallas: solo la entrada única de los tickets.
+- **Mesero, pase y caja** (pantallas claras) adoptaron la tarjeta del panel (`.tarjeta`:
+  12 px, borde fino, sombra suave), quedando visualmente iguales a los módulos del armazón.
+- Los roles ya venían aplicados de la Fase R1 (dueño pasa a todas; cada rol solo la suya).
+
+### Verificado (en el navegador)
+
+- `/app/cocina/asados`: fondo `#0B0B0C`, ticket con semáforo rojo oscuro "Atrasado" (un
+  pedido viejo de pruebas, correctamente pasado de tiempo).
+- `/app/domicilios`: tema oscuro aplicado. `/app/pase`, `/app/mesero`, `/app/caja`: fondo
+  claro `#FAFAFB` y tarjetas `.tarjeta`.
+- `tsc`, `eslint` y `npm run build` limpios.

@@ -163,11 +163,11 @@ function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number 
 
 function CobroCaja({ pagado, total }: { pagado: boolean; total: number }) {
   if (pagado) {
-    // Verde: ya está pago, no cobrar. (Relleno tenue para fondo claro.)
+    // Verde: ya está pago, no cobrar. (Paleta oscura: se lee de lejos, en la calle.)
     return (
       <p
         className="mt-4 flex items-center justify-center gap-2 rounded-xl border-2 p-4 text-lg font-bold"
-        style={{ backgroundColor: '#E6F5EE', borderColor: '#2E9E8F', color: '#12655A' }}
+        style={{ backgroundColor: '#0f2e22', borderColor: '#2E9E8F', color: '#7ee3cf' }}
       >
         <IconoCheck className="size-6 shrink-0" />
         Ya está pago · No cobrar
@@ -179,7 +179,7 @@ function CobroCaja({ pagado, total }: { pagado: boolean; total: number }) {
   return (
     <div
       className="mt-4 rounded-xl border-2 p-4 text-center"
-      style={{ backgroundColor: '#FBF1D4', borderColor: '#C79A1E', color: '#7A5A0F' }}
+      style={{ backgroundColor: '#3a2f05', borderColor: '#E0B02B', color: '#f4d873' }}
     >
       <span className="block text-sm font-medium">Cobrar en efectivo</span>
       <span className="font-titulo text-3xl font-bold">{formatearPesos(total)}</span>

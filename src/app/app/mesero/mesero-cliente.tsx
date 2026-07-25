@@ -53,7 +53,7 @@ function Tarjeta({ pedido, indice }: { pedido: PedidoMesa; indice: number }) {
 
   return (
     <li
-      className="entra rounded-xl border border-marca-borde bg-marca-superficie p-4"
+      className="tarjeta entra p-4"
       style={{ '--i': indice } as CSSProperties}
     >
       <div className="flex items-start justify-between gap-3">

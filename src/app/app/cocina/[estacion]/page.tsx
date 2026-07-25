@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { BarraStaff } from '@/components/barra-staff'
+import { MarcoOscuro } from '@/components/marco-oscuro'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { TableroCocina, type Ticket } from './tablero-cocina'
@@ -71,9 +72,9 @@ export default async function PaginaEstacion({
   }))
 
   return (
-    <div className="min-h-screen bg-marca-fondo">
+    <MarcoOscuro>
       <BarraStaff staff={staff} titulo={`Cocina · ${est.nombre}`} />
       <TableroCocina tickets={tickets} color={est.color} servidorAhoraISO={ahora.toISOString()} />
-    </div>
+    </MarcoOscuro>
   )
 }

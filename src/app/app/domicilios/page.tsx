@@ -1,4 +1,5 @@
 import { BarraStaff } from '@/components/barra-staff'
+import { MarcoOscuro } from '@/components/marco-oscuro'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { DomiciliosCliente, type Entrega } from './domicilios-cliente'
@@ -42,9 +43,9 @@ export default async function PaginaDomicilios() {
   }))
 
   return (
-    <>
+    <MarcoOscuro>
       <BarraStaff staff={staff} titulo="Mis entregas" />
       <DomiciliosCliente entregas={entregas} />
-    </>
+    </MarcoOscuro>
   )
 }

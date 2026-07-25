@@ -100,7 +100,7 @@ function Tarjeta({ pedido, indice }: { pedido: PedidoPase; indice: number }) {
 
   return (
     <li
-      className="entra flex flex-col rounded-2xl border border-marca-borde bg-marca-superficie p-4 shadow-sm"
+      className="tarjeta entra flex flex-col p-4"
       style={{ '--i': indice } as CSSProperties}
     >
       <div className="flex items-center justify-between">
@@ -191,7 +191,7 @@ function TarjetaDespacho({
 
   return (
     <li
-      className="entra flex flex-col rounded-2xl border border-marca-borde bg-marca-superficie p-4 shadow-sm"
+      className="tarjeta entra flex flex-col p-4"
       style={{ '--i': indice } as CSSProperties}
     >
       <div className="flex items-center justify-between">

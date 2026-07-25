@@ -92,6 +92,14 @@ export function obtenerTemaCarta(slug: string): Tema {
   return TEMAS_CARTA[slug] ?? TEMA_CARTA
 }
 
+/**
+ * Tema de las pantallas de operación de pie (cocina y domiciliario): fondo oscuro para
+ * leerse de lejos y con prisa. Reutiliza la paleta oscura de la carta.
+ */
+export function obtenerTemaOperacion(): Tema {
+  return TEMA_CARTA
+}
+
 /** Convierte el tema en variables CSS para colgarlas de un contenedor. */
 export function variablesTema(tema: Tema): CSSProperties {
   return {
