@@ -23,6 +23,7 @@ create table if not exists restaurantes (
   nombre text not null,
   slug text not null unique,
   logo_url text,
+  portada_url text,         -- imagen de portada (hero) detrás del logo en la carta
   whatsapp text,
   llave_pago text,          -- llave Bre-B / Nequi
   cuenta_pago text,         -- cuenta bancaria mostrada al cliente

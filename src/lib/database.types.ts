@@ -701,6 +701,7 @@ export type Database = {
           llave_pago: string | null
           logo_url: string | null
           nombre: string
+          portada_url: string | null
           slug: string
           whatsapp: string | null
         }
@@ -713,6 +714,7 @@ export type Database = {
           llave_pago?: string | null
           logo_url?: string | null
           nombre: string
+          portada_url?: string | null
           slug: string
           whatsapp?: string | null
         }
@@ -725,6 +727,7 @@ export type Database = {
           llave_pago?: string | null
           logo_url?: string | null
           nombre?: string
+          portada_url?: string | null
           slug?: string
           whatsapp?: string | null
         }

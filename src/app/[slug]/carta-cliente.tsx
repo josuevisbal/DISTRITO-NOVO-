@@ -113,7 +113,11 @@ export function CartaCliente({ carta, mesa }: Props) {
 
   return (
     <>
-      <Encabezado nombre={carta.restaurante.nombre} mesa={mesa} />
+      <Encabezado
+        nombre={carta.restaurante.nombre}
+        portada={carta.restaurante.portada_url}
+        mesa={mesa}
+      />
 
       <BannerPromociones
         promociones={carta.promociones}
@@ -148,9 +152,39 @@ export function CartaCliente({ carta, mesa }: Props) {
   )
 }
 
-function Encabezado({ nombre, mesa }: { nombre: string; mesa?: { numero: number } }) {
+function Encabezado({
+  nombre,
+  portada,
+  mesa,
+}: {
+  nombre: string
+  portada?: string | null
+  mesa?: { numero: number }
+}) {
   return (
     <header className="fondo-papel relative overflow-hidden px-5 pb-8 pt-12 text-center sm:px-8">
+      {portada ? (
+        <>
+          {/* Portada de comidas detrás del logo. El degradado la funde con el fondo para
+              que el dorado del logotipo siga legible. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={portada}
+            alt=""
+            aria-hidden
+            className="animate-aparecer pointer-events-none absolute inset-0 size-full object-cover opacity-40"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(180deg, color-mix(in srgb, var(--marca-fondo) 55%, transparent), var(--marca-fondo))',
+            }}
+          />
+        </>
+      ) : null}
+      <div className="relative">
       {mesa ? (
         <p className="animate-escala mx-auto mb-4 inline-flex items-center gap-1.5 rounded-full border border-marca-acento bg-marca-superficie px-3 py-1 text-sm font-medium text-marca-acento-fuerte">
           <IconoDestello className="size-3.5" />
@@ -176,6 +210,7 @@ function Encabezado({ nombre, mesa }: { nombre: string; mesa?: { numero: number 
       <p className="animate-aparecer mt-4 text-marca-texto-suave">
         {mesa ? 'Arma tu pedido y el mesero lo confirma.' : 'Pide desde aquí, sin cuenta.'}
       </p>
+      </div>
     </header>
   )
 }

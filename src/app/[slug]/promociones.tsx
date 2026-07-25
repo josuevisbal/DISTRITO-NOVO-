@@ -45,12 +45,32 @@ export function BannerPromociones({ promociones, productos, onAgregarCombo }: Pr
               key={promo.id}
               className="entra relative w-[min(20rem,85vw)] shrink-0 snap-start overflow-hidden rounded-2xl border border-marca-acento/50 bg-gradient-to-br from-marca-superficie-tenue to-marca-superficie p-5 shadow-sm"
             >
-              <span
-                aria-hidden
-                className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full opacity-20"
-                style={{ backgroundColor: 'var(--marca-acento)' }}
-              />
-              <p className="flex items-center gap-2 text-marca-acento-fuerte">
+              {promo.imagen_url ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={promo.imagen_url}
+                    alt=""
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 size-full object-cover opacity-30"
+                  />
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background:
+                        'linear-gradient(120deg, var(--marca-superficie), color-mix(in srgb, var(--marca-superficie) 55%, transparent))',
+                    }}
+                  />
+                </>
+              ) : (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full opacity-20"
+                  style={{ backgroundColor: 'var(--marca-acento)' }}
+                />
+              )}
+              <p className="relative flex items-center gap-2 text-marca-acento-fuerte">
                 {promo.tipo === 'envio' ? (
                   <IconoMoto className="size-4 shrink-0" />
                 ) : promo.tipo === 'combo' ? (
@@ -65,17 +85,19 @@ export function BannerPromociones({ promociones, productos, onAgregarCombo }: Pr
                 ) : null}
               </p>
 
-              <h3 className="mt-2 font-titulo text-xl font-bold text-marca-texto">
+              <h3 className="relative mt-2 font-titulo text-xl font-bold text-marca-texto">
                 {promo.titulo}
               </h3>
 
               {promo.descripcion ? (
-                <p className="mt-1.5 text-sm text-marca-texto-suave">{promo.descripcion}</p>
+                <p className="relative mt-1.5 text-sm text-marca-texto-suave">
+                  {promo.descripcion}
+                </p>
               ) : null}
 
               {promo.tipo === 'combo' && items.length > 0 ? (
                 <>
-                  <ul className="mt-3 space-y-0.5 text-sm text-marca-texto-suave">
+                  <ul className="relative mt-3 space-y-0.5 text-sm text-marca-texto-suave">
                     {items.map((i) => (
                       <li key={i.producto.id}>
                         {i.cantidad} × {i.producto.nombre}
@@ -87,7 +109,7 @@ export function BannerPromociones({ promociones, productos, onAgregarCombo }: Pr
                     type="button"
                     disabled={!disponible}
                     onClick={() => onAgregarCombo(items)}
-                    className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto disabled:cursor-not-allowed disabled:bg-marca-borde disabled:text-marca-texto-suave"
+                    className="relative mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto disabled:cursor-not-allowed disabled:bg-marca-borde disabled:text-marca-texto-suave"
                   >
                     {disponible ? (
                       <>
