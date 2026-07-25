@@ -216,6 +216,42 @@ export function IconoSalir(props: Props) {
   )
 }
 
+export function IconoBillete(props: Props) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="7" width="18" height="11" rx="2" />
+      <circle cx="12" cy="12.5" r="2.5" />
+      <path d="M6.5 10.5h.01M17.5 14.5h.01" />
+    </Svg>
+  )
+}
+
+export function IconoIntercambio(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 8h13l-3-3M20 16H7l3 3" />
+    </Svg>
+  )
+}
+
+export function IconoTarjeta(props: Props) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path d="M3 10h18M7 15h4" />
+    </Svg>
+  )
+}
+
+export function IconoGlobo(props: Props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17-2.6-2.4-2.6-14.6 0-17Z" />
+    </Svg>
+  )
+}
+
 export function IconoSol(props: Props) {
   return (
     <Svg {...props}>

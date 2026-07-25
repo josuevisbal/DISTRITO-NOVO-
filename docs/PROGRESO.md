@@ -656,3 +656,19 @@ reportes limpios, y el menú mostrando una familia a la vez (pedido del dueño).
 - Leyenda al pie explicando el semáforo. Realtime, reintento y aviso sin conexión intactos.
 - Verificado en vivo con el ticket #1000: ámbar al 80 % del objetivo, barra de avance al
   empezar, toggle y persistencia del tema.
+
+## Fase 3 (pulido) — Caja profesional con notificaciones tipo mensaje
+
+- **Transferencias por verificar como notificaciones**: tarjeta fija arriba a la derecha
+  con franja ámbar, campana, "Nueva transferencia", pedido y hace cuánto, el **valor
+  exacto destacado** en recuadro punteado, y botones **Verifiqué** (verde) / **No llegó**
+  (con confirmación "¿Anular pedido?" antes de anular). Entran deslizándose desde la
+  derecha (250 ms, respeta `prefers-reduced-motion`), se apilan si hay varias y **solo se
+  quitan con acción humana**. Reemplazan a la antigua sección en flujo.
+- **Medios de pago como tarjetas con ícono de color** (billete verde, transferencia azul,
+  datáfono morado, pasarela dorada) en el arqueo del turno y en el resumen de cierre.
+- **Fade-up escalonado** de las secciones al cargar. Turno, contraentrega, cobros y
+  legalización en tarjetas limpias con la tipografía nueva.
+- Verificado **por uso real del dueño en el preview**: verificó las transferencias #1001 y
+  #1002 desde las notificaciones (entraron a cocina y el monto quedó en el arqueo), abrió
+  turno y cobró el #1000 en efectivo. `tsc` y `eslint` limpios.

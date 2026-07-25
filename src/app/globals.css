@@ -53,6 +53,15 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
 }
+@keyframes deslizar-derecha {
+  from { opacity: 0; transform: translateX(120%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Notificación tipo mensaje: entra deslizándose desde la derecha. */
+.notifica {
+  animation: deslizar-derecha 0.25s ease-out both;
+}
 
 /* Entrada escalonada: se le pasa --i (índice) al elemento */
 .entra {
@@ -63,6 +72,7 @@ body {
 /* Respeta a quien pide menos movimiento */
 @media (prefers-reduced-motion: reduce) {
   .entra,
+  .notifica,
   [class*="animate-"] {
     animation: none !important;
   }

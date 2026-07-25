@@ -1,8 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 
-import { IconoAlerta, IconoCheck, IconoReloj } from '@/components/iconos'
+import {
+  IconoAlerta,
+  IconoBillete,
+  IconoCampana,
+  IconoCheck,
+  IconoGlobo,
+  IconoIntercambio,
+  IconoMoto,
+  IconoTarjeta,
+} from '@/components/iconos'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
 import { haceCuanto } from '@/lib/tiempo'
@@ -16,7 +25,6 @@ import {
   verificarTransferencia,
   type ArqueoCierre,
 } from './acciones'
-import { IconoMoto } from '@/components/iconos'
 
 export type Turno = { id: string; base_inicial: number; abierto_en: string } | null
 export type Transferencia = {
@@ -61,6 +69,17 @@ const NOMBRE_MEDIO: Record<string, string> = {
   pasarela: 'Pasarela',
 }
 
+/** Identidad visual de cada medio de pago: ícono + color fijo del sistema. */
+const MEDIO_INFO: Record<
+  string,
+  { Icono: (p: { className?: string }) => React.ReactNode; color: string }
+> = {
+  efectivo: { Icono: IconoBillete, color: '#1E9E6A' },
+  transferencia: { Icono: IconoIntercambio, color: '#2563EB' },
+  datafono: { Icono: IconoTarjeta, color: '#7C3AED' },
+  pasarela: { Icono: IconoGlobo, color: '#D99A06' },
+}
+
 type Props = {
   turno: Turno
   arqueo: Record<string, number>
@@ -91,21 +110,17 @@ export function CajaCliente(props: Props) {
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 p-4 pb-24">
+      {/* Transferencias por verificar: notificaciones fijas tipo mensaje, arriba a la
+          derecha. No se quitan solas: solo con "Verifiqué" o "No llegó". */}
+      <PilaNotificaciones transferencias={transferencias} ahora={ahora} />
+
       {cierre ? <ResumenCierre arqueo={cierre} onCerrar={() => setCierre(null)} /> : null}
 
-      <SeccionTurno turno={turno} arqueo={arqueo} onCerrado={setCierre} />
+      <div className="entra" style={{ '--i': 0 } as CSSProperties}>
+        <SeccionTurno turno={turno} arqueo={arqueo} onCerrado={setCierre} />
+      </div>
 
-      <Seccion titulo="Transferencias por verificar" cantidad={transferencias.length}>
-        {transferencias.length === 0 ? (
-          <Vacio texto="No hay transferencias pendientes." />
-        ) : (
-          transferencias.map((t) => (
-            <AlertaTransferencia key={t.pedido_id} transferencia={t} ahora={ahora} />
-          ))
-        )}
-      </Seccion>
-
-      <Seccion titulo="Contraentrega por confirmar" cantidad={contraentregas.length}>
+      <Seccion titulo="Contraentrega por confirmar" cantidad={contraentregas.length} indice={1}>
         {contraentregas.length === 0 ? (
           <Vacio texto="Nada por confirmar." />
         ) : (
@@ -113,7 +128,7 @@ export function CajaCliente(props: Props) {
         )}
       </Seccion>
 
-      <Seccion titulo="Por cobrar" cantidad={porCobrar.length}>
+      <Seccion titulo="Por cobrar" cantidad={porCobrar.length} indice={2}>
         {porCobrar.length === 0 ? (
           <Vacio texto="No hay nada por cobrar." />
         ) : (
@@ -121,7 +136,11 @@ export function CajaCliente(props: Props) {
         )}
       </Seccion>
 
-      <Seccion titulo="Efectivo de domiciliarios por legalizar" cantidad={porLegalizar.length}>
+      <Seccion
+        titulo="Efectivo de domiciliarios por legalizar"
+        cantidad={porLegalizar.length}
+        indice={3}
+      >
         {porLegalizar.length === 0 ? (
           <Vacio texto="Ningún domiciliario tiene efectivo por entregar." />
         ) : (
@@ -129,6 +148,147 @@ export function CajaCliente(props: Props) {
         )}
       </Seccion>
     </main>
+  )
+}
+
+/* ---------- Notificaciones de transferencia (tipo mensaje) ---------- */
+
+function PilaNotificaciones({
+  transferencias,
+  ahora,
+}: {
+  transferencias: Transferencia[]
+  ahora: number
+}) {
+  if (transferencias.length === 0) return null
+
+  return (
+    <div
+      aria-label="Transferencias por verificar"
+      className="fixed right-4 top-4 z-50 flex max-h-[calc(100vh-2rem)] w-80 max-w-[calc(100vw-2rem)] flex-col gap-3 overflow-y-auto"
+    >
+      {transferencias.map((t) => (
+        <NotificacionTransferencia key={t.pedido_id} transferencia={t} ahora={ahora} />
+      ))}
+    </div>
+  )
+}
+
+function NotificacionTransferencia({
+  transferencia,
+  ahora,
+}: {
+  transferencia: Transferencia
+  ahora: number
+}) {
+  const [ocupado, setOcupado] = useState(false)
+  const [rechazando, setRechazando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function verificar(ok: boolean) {
+    setOcupado(true)
+    setError(null)
+    const r = await verificarTransferencia(
+      transferencia.pedido_id,
+      ok,
+      ok ? undefined : 'La transferencia no llegó al banco',
+    )
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+    }
+    // Al éxito, el refresco de Realtime retira la notificación.
+  }
+
+  return (
+    <article className="notifica overflow-hidden rounded-xl bg-marca-superficie shadow-[0_8px_24px_rgba(0,0,0,0.14)]">
+      {/* Franja de color arriba, como un mensaje entrante. */}
+      <div aria-hidden className="h-1.5" style={{ backgroundColor: '#D99A06' }} />
+
+      <div className="p-3.5">
+        <div className="flex items-center gap-2.5">
+          <span
+            className="flex size-9 shrink-0 items-center justify-center rounded-full"
+            style={{ backgroundColor: '#FBF1D4', color: '#7A5A0F' }}
+          >
+            <IconoCampana className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="font-semibold leading-tight text-marca-texto">Nueva transferencia</p>
+            <p className="text-xs text-marca-texto-suave">
+              Pedido #{transferencia.numero} ·{' '}
+              {haceCuanto(new Date(transferencia.creado_en).getTime(), ahora)}
+            </p>
+          </div>
+        </div>
+
+        <p
+          className="mt-3 rounded-lg border border-dashed px-3 py-2 text-center"
+          style={{ borderColor: '#D99A06', backgroundColor: '#FFFDF4' }}
+        >
+          <span className="block text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#7A5A0F' }}>
+            Verifica este valor en el banco
+          </span>
+          <span className="block text-2xl font-bold tabular-nums" style={{ color: '#7A5A0F' }}>
+            {formatearPesos(transferencia.monto_exacto)}
+          </span>
+        </p>
+
+        {error ? (
+          <p role="alert" className="mt-2 flex gap-1.5 text-xs text-marca-acento-fuerte">
+            <IconoAlerta className="size-4 shrink-0" />
+            {error}
+          </p>
+        ) : null}
+
+        {rechazando ? (
+          <div className="mt-3">
+            <p className="text-sm font-medium text-marca-texto">
+              ¿Anular el pedido #{transferencia.numero}?
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => verificar(false)}
+                disabled={ocupado}
+                className="min-h-11 flex-1 rounded-lg text-sm font-bold text-white disabled:opacity-60"
+                style={{ backgroundColor: '#D64533' }}
+              >
+                Sí, anular
+              </button>
+              <button
+                type="button"
+                onClick={() => setRechazando(false)}
+                disabled={ocupado}
+                className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave"
+              >
+                Volver
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => verificar(true)}
+              disabled={ocupado}
+              className="min-h-11 flex-1 rounded-lg text-sm font-bold text-white disabled:opacity-60"
+              style={{ backgroundColor: '#1E9E6A' }}
+            >
+              {ocupado ? 'Verificando…' : 'Verifiqué'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRechazando(true)}
+              disabled={ocupado}
+              className="min-h-11 rounded-lg bg-marca-superficie-tenue px-3 text-sm font-medium text-marca-texto-suave"
+            >
+              No llegó
+            </button>
+          </div>
+        )}
+      </div>
+    </article>
   )
 }
 
@@ -203,18 +363,37 @@ function SeccionTurno({
 
       <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m) => (
-          <div key={m} className="rounded-lg border border-marca-borde p-2.5">
-            <dt className="text-xs text-marca-texto-suave">{NOMBRE_MEDIO[m]}</dt>
-            <dd className="mt-0.5 font-medium tabular-nums text-marca-texto">
-              {formatearPesos(arqueo[m] ?? 0)}
-            </dd>
-          </div>
+          <TarjetaMedio key={m} medio={m} monto={arqueo[m] ?? 0} />
         ))}
       </dl>
       <p className="mt-3 text-right text-sm text-marca-texto-suave">
         Ventas del turno: <span className="font-medium text-marca-texto">{formatearPesos(total)}</span>
       </p>
     </section>
+  )
+}
+
+/** Tarjeta de un medio de pago: ícono con su color + nombre + monto. */
+function TarjetaMedio({ medio, monto }: { medio: string; monto: number }) {
+  const info = MEDIO_INFO[medio]
+  return (
+    <div className="rounded-xl border border-marca-borde bg-marca-superficie p-2.5">
+      <dt className="flex items-center gap-1.5 text-xs text-marca-texto-suave">
+        {info ? (
+          <span
+            aria-hidden
+            className="flex size-6 items-center justify-center rounded-md"
+            style={{ backgroundColor: `${info.color}1A`, color: info.color }}
+          >
+            <info.Icono className="size-3.5" />
+          </span>
+        ) : null}
+        {NOMBRE_MEDIO[medio]}
+      </dt>
+      <dd className="mt-1.5 text-lg font-bold tabular-nums text-marca-texto">
+        {formatearPesos(monto)}
+      </dd>
+    </div>
   )
 }
 
@@ -351,12 +530,7 @@ function ResumenCierre({
 
       <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m) => (
-          <div key={m} className="rounded-lg border border-marca-borde p-2.5">
-            <dt className="text-xs text-marca-texto-suave">{NOMBRE_MEDIO[m]}</dt>
-            <dd className="mt-0.5 font-medium tabular-nums text-marca-texto">
-              {formatearPesos(arqueo.por_medio[m] ?? 0)}
-            </dd>
-          </div>
+          <TarjetaMedio key={m} medio={m} monto={arqueo.por_medio[m] ?? 0} />
         ))}
       </dl>
 
@@ -377,77 +551,6 @@ function ResumenCierre({
         </div>
       </dl>
     </section>
-  )
-}
-
-/* ---------- Transferencias ---------- */
-
-function AlertaTransferencia({
-  transferencia,
-  ahora,
-}: {
-  transferencia: Transferencia
-  ahora: number
-}) {
-  const [ocupado, setOcupado] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function verificar(ok: boolean, motivo?: string) {
-    setOcupado(true)
-    setError(null)
-    const r = await verificarTransferencia(transferencia.pedido_id, ok, motivo)
-    if (!r.ok) {
-      setError(r.error)
-      setOcupado(false)
-    }
-  }
-
-  return (
-    <article className="rounded-xl border-2 border-marca-acento bg-marca-superficie p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-titulo text-xl text-marca-texto">Pedido #{transferencia.numero}</p>
-          <p className="text-sm text-marca-texto-suave">{transferencia.cliente ?? 'Sin nombre'}</p>
-        </div>
-        <span className="flex items-center gap-1 rounded-full border border-marca-acento px-2.5 py-1 text-xs text-marca-acento-fuerte">
-          <IconoReloj className="size-3.5" />
-          Esperando {haceCuanto(new Date(transferencia.creado_en).getTime(), ahora)}
-        </span>
-      </div>
-
-      <p className="mt-3 rounded-lg border border-marca-borde bg-marca-fondo p-3 text-center">
-        <span className="block text-xs text-marca-texto-suave">Debe llegar exactamente</span>
-        <span className="font-titulo text-2xl font-bold text-marca-acento-fuerte">
-          {formatearPesos(transferencia.monto_exacto)}
-        </span>
-      </p>
-
-      <p className="mt-2 flex gap-2 text-xs text-marca-texto-suave">
-        <IconoAlerta className="size-4 shrink-0 text-marca-acento-fuerte" />
-        El pantallazo del cliente es una pista. Confirma solo si viste el movimiento en el banco.
-      </p>
-
-      {error ? <Error texto={error} /> : null}
-
-      <div className="mt-3 flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => verificar(true)}
-          disabled={ocupado}
-          className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-marca-acento font-medium text-marca-acento-texto disabled:opacity-60"
-        >
-          <IconoCheck className="size-5" />
-          Verifiqué el pago
-        </button>
-        <AccionConMotivo
-          etiqueta="Rechazar"
-          etiquetaConfirmar="Rechazar transferencia"
-          marcador="¿Por qué se rechaza?"
-          disabled={ocupado}
-          onConfirmar={(motivo) => verificar(false, motivo)}
-        />
-      </div>
-    </article>
   )
 }
 
@@ -651,14 +754,16 @@ function AccionConMotivo({
 function Seccion({
   titulo,
   cantidad,
+  indice = 0,
   children,
 }: {
   titulo: string
   cantidad: number
+  indice?: number
   children: React.ReactNode
 }) {
   return (
-    <section>
+    <section className="entra" style={{ '--i': indice } as CSSProperties}>
       <h2 className="mb-3 flex items-center gap-2 font-titulo text-lg text-marca-texto">
         {titulo}
         {cantidad > 0 ? (
