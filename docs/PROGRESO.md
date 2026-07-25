@@ -716,3 +716,18 @@ visible dorado para teclado. Todo dentro de `prefers-reduced-motion: no-preferen
 ocultas que ensuciaba la primera medición): **Empezar → Marcar listo: 25 ms** ·
 **Marcar listo → el ticket sale: 20 ms**, y la comanda quedó `listo` en la base con el
 pedido pasando a `listo` por el disparador. De ~1 s (o recarga manual) a instantáneo.
+
+## Pulido · Fase 5 — Equipo completo
+
+- **Crear usuarios desde el panel** (sin llave de servicio): función `crear_usuario()`
+  security definer que valida (correo, contraseña ≥ 8, correo único), crea la cuenta de
+  acceso y la fila de `usuarios` en una operación. admin crea roles de operación; SOLO el
+  dueño crea admins. Columna nueva `usuarios.correo` (espejo del email) para la lista.
+- **Eliminar usuarios** con confirmación inline (`eliminar_usuario()`): nadie se elimina a
+  sí mismo, a los admins solo los toca el dueño, y la cuenta del dueño no se borra.
+- **Filas alineadas en columnas**: nombre, correo, rol/estación, acceso, eliminar. El admin
+  ve bloqueadas las cuentas de dueño y de otros admins (la base también lo impone).
+- Tropiezo resuelto: `gen_salt` vive en el esquema `extensions` de Supabase; la función
+  califica `extensions.crypt(...)`.
+- Verificado E2E: creado "Mesero Dos" desde el formulario → inició sesión con su clave →
+  eliminado desde la lista → sin rastro en `auth.users` ni `usuarios`.

@@ -36,6 +36,7 @@ create table if not exists usuarios (
   id uuid primary key references auth.users(id) on delete cascade,
   restaurante_id uuid not null references restaurantes(id) on delete cascade,
   nombre text not null,
+  correo text,                          -- espejo de auth.users.email para el panel de Equipo
   rol rol_usuario not null,
   estacion_id uuid,                     -- solo para rol 'cocina'
   activo boolean not null default true,
@@ -745,6 +746,86 @@ end $$;
 
 revoke all on function reporte_rango(timestamptz, timestamptz, text) from public, anon;
 grant execute on function reporte_rango(timestamptz, timestamptz, text) to authenticated;
+
+-- =====================================================================
+-- EQUIPO · crear y eliminar usuarios sin llave de servicio
+-- =====================================================================
+-- Crear un usuario del equipo: cuenta de acceso + fila en usuarios, en una sola operación.
+-- admin crea roles de operación; SOLO el dueño crea admins (o otro dueño).
+create or replace function crear_usuario(
+  p_nombre text, p_correo text, p_clave text, p_rol rol_usuario, p_estacion uuid default null
+) returns uuid
+language plpgsql security definer set search_path = public, extensions as $$
+declare v_uid uuid; v_rest uuid; v_correo text;
+begin
+  if mi_rol() not in ('admin','dueno') then raise exception 'Solo administración'; end if;
+  if p_rol in ('admin','dueno') and mi_rol() <> 'dueno' then
+    raise exception 'Solo el dueño puede crear administradores';
+  end if;
+  v_rest := mi_restaurante();
+  v_correo := lower(trim(p_correo));
+  if coalesce(trim(p_nombre),'') = '' then raise exception 'El nombre es obligatorio'; end if;
+  if v_correo !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'El correo no es válido'; end if;
+  if length(coalesce(p_clave,'')) < 8 then raise exception 'La contraseña necesita al menos 8 caracteres'; end if;
+  if exists (select 1 from auth.users where email = v_correo) then
+    raise exception 'Ya existe un usuario con ese correo';
+  end if;
+  if p_rol = 'cocina' and p_estacion is not null and not exists (
+    select 1 from estaciones e where e.id = p_estacion and e.restaurante_id = v_rest
+  ) then raise exception 'Estación no válida'; end if;
+
+  v_uid := gen_random_uuid();
+
+  insert into auth.users (
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
+    confirmation_token, recovery_token, email_change, email_change_token_new,
+    email_change_token_current, phone_change, phone_change_token, reauthentication_token
+  ) values (
+    '00000000-0000-0000-0000-000000000000', v_uid, 'authenticated', 'authenticated',
+    v_correo, extensions.crypt(p_clave, extensions.gen_salt('bf')),
+    now(), now(), now(), '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
+    '', '', '', '', '', '', '', ''
+  );
+
+  insert into auth.identities (
+    id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+  ) values (
+    gen_random_uuid(), v_uid, v_correo,
+    jsonb_build_object('sub', v_uid::text, 'email', v_correo, 'email_verified', true),
+    'email', now(), now(), now()
+  );
+
+  insert into usuarios (id, restaurante_id, nombre, rol, estacion_id, correo)
+  values (v_uid, v_rest, trim(p_nombre), p_rol,
+          case when p_rol = 'cocina' then p_estacion else null end, v_correo);
+
+  return v_uid;
+end $$;
+
+-- Eliminar un usuario del equipo (borra el acceso; usuarios cae en cascada).
+-- Nadie se elimina a sí mismo; admins solo los toca el dueño; el dueño no se borra.
+create or replace function eliminar_usuario(p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_rol rol_usuario; v_rest uuid;
+begin
+  if mi_rol() not in ('admin','dueno') then raise exception 'Solo administración'; end if;
+  if p_id = auth.uid() then raise exception 'No puedes eliminarte a ti mismo'; end if;
+
+  select rol, restaurante_id into v_rol, v_rest from usuarios where id = p_id;
+  if v_rol is null or v_rest <> mi_restaurante() then raise exception 'Usuario no encontrado'; end if;
+  if v_rol = 'dueno' then raise exception 'La cuenta del dueño no se puede eliminar'; end if;
+  if v_rol = 'admin' and mi_rol() <> 'dueno' then
+    raise exception 'Solo el dueño puede eliminar administradores';
+  end if;
+
+  delete from auth.users where id = p_id;
+end $$;
+
+revoke all on function crear_usuario(text, text, text, rol_usuario, uuid) from public, anon;
+revoke all on function eliminar_usuario(uuid) from public, anon;
+grant execute on function crear_usuario(text, text, text, rol_usuario, uuid) to authenticated;
+grant execute on function eliminar_usuario(uuid) to authenticated;
 
 -- =====================================================================
 -- DUEÑO · costos por plato y rentabilidad (SOLO el dueño)

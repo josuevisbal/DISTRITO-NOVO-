@@ -11,7 +11,7 @@ export default async function PaginaAdminUsuarios() {
   const [{ data: usuarios }, { data: estaciones }] = await Promise.all([
     supabase
       .from('usuarios')
-      .select('id, nombre, rol, estacion_id, activo')
+      .select('id, nombre, correo, rol, estacion_id, activo')
       .eq('restaurante_id', staff.restaurante_id)
       .order('nombre'),
     supabase
@@ -25,7 +25,7 @@ export default async function PaginaAdminUsuarios() {
   return (
     <>
       <p className="text-sm text-marca-texto-suave">
-        Cambia el rol, la estación de cocina o el acceso de cada persona del equipo.
+        Crea cuentas, cambia roles y estaciones, y retira accesos del equipo.
       </p>
       <UsuariosAdmin
         usuarios={(usuarios ?? []) as UsuarioAdmin[]}

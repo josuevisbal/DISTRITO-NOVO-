@@ -762,6 +762,7 @@ export type Database = {
       usuarios: {
         Row: {
           activo: boolean
+          correo: string | null
           creado_en: string
           estacion_id: string | null
           id: string
@@ -771,6 +772,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          correo?: string | null
           creado_en?: string
           estacion_id?: string | null
           id: string
@@ -780,6 +782,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          correo?: string | null
           creado_en?: string
           estacion_id?: string | null
           id?: string
@@ -864,6 +867,17 @@ export type Database = {
       }
       confirmar_pedido: { Args: { p_pedido: string }; Returns: undefined }
       crear_pedido: { Args: { p_payload: Json; p_slug: string }; Returns: Json }
+      crear_usuario: {
+        Args: {
+          p_clave: string
+          p_correo: string
+          p_estacion?: string | null
+          p_nombre: string
+          p_rol: Database["public"]["Enums"]["rol_usuario"]
+        }
+        Returns: string
+      }
+      eliminar_usuario: { Args: { p_id: string }; Returns: undefined }
       entregar_pedido: { Args: { p_pedido: string }; Returns: undefined }
       fallo_entrega: {
         Args: { p_motivo: string; p_pedido: string }
