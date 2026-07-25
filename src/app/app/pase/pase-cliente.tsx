@@ -91,12 +91,20 @@ export function PaseCliente({
 
 function Tarjeta({ pedido, indice }: { pedido: PedidoPase; indice: number }) {
   const [ocupado, setOcupado] = useState(false)
+  // Óptimista: la tarjeta sale al instante; si el servidor falla, vuelve.
+  const [oculto, setOculto] = useState(false)
 
   async function liberar() {
-    setOcupado(true)
+    navigator.vibrate?.(15)
+    setOculto(true)
     const r = await liberarPedido(pedido.id)
-    if (!r.ok) setOcupado(false)
+    if (!r.ok) {
+      setOculto(false)
+      setOcupado(false)
+    }
   }
+
+  if (oculto) return null
 
   return (
     <li

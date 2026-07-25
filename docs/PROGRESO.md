@@ -689,3 +689,30 @@ reportes limpios, y el menú mostrando una familia a la vez (pedido del dueño).
   fija directo (requestAnimationFrame no corre en pestañas ocultas y quedaba en 0).
 - Verificado: julio 2026 → $132.500 · 3 pedidos · ticket $44.166, punto en la gráfica,
   65/33/2 % por estación, ranking, y sección de rentabilidad solo para el dueño.
+
+## Fase de velocidad — Respuesta óptimista y micro-interacciones
+
+**El problema (reportado por el dueño):** en cocina, tocar "Empezar a preparar" o "Marcar
+listo" no cambiaba nada hasta recargar la página; igual en los demás módulos.
+
+**Las dos causas y sus arreglos:**
+1. `cambiarEstadoComanda` no revalidaba la ruta: la pantalla dependía solo de Realtime.
+   Ahora revalida `/app/cocina` (layout) y `/app/pase`, y las acciones de caja revalidan
+   también `/app/admin/caja`.
+2. Aun revalidando, la ida al servidor se sentía. Se agregó **respuesta óptimista**: el
+   estado cambia en el instante del toque y el servidor confirma detrás; si falla, se
+   revierte (y en las tarjetas, vuelve con el error visible).
+
+**Dónde aplica lo óptimista:** cocina (Empezar/Listo, el ticket cambia o sale al instante y
+el contador EN COLA baja de una), pase (liberar), mesero (confirmar), caja (cobrar,
+contraentrega, legalizar y las notificaciones de transferencia) y domiciliario (recogí /
+entregué). Con vibración corta en dispositivos que la soportan.
+
+**Micro-interacciones globales** (`globals.css`): todo botón, enlace y pastilla tiene
+transición suave y "presión" al tocar (scale 0.96, 120 ms), hover con brillo sutil, y foco
+visible dorado para teclado. Todo dentro de `prefers-reduced-motion: no-preference`.
+
+**Medido en vivo** (con MutationObserver, sin el estrangulamiento de timers de pestañas
+ocultas que ensuciaba la primera medición): **Empezar → Marcar listo: 25 ms** ·
+**Marcar listo → el ticket sale: 20 ms**, y la comanda quedó `listo` en la base con el
+pedido pasando a `listo` por el disparador. De ~1 s (o recarga manual) a instantáneo.

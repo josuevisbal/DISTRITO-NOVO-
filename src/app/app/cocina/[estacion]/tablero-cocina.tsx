@@ -132,6 +132,25 @@ export function TableroCocina({
     }
   }, [router])
 
+  // Respuesta óptimista: el estado local pisa al del servidor apenas el cocinero toca,
+  // y el servidor confirma detrás. Si la acción falla, se revierte y se reintenta a mano.
+  const [sombras, setSombras] = useState<Record<string, 'preparando' | 'listo'>>({})
+
+  async function marcar(comandaId: string, estado: 'preparando' | 'listo') {
+    navigator.vibrate?.(15)
+    setSombras((s) => ({ ...s, [comandaId]: estado }))
+    const r = await cambiarEstadoComanda(comandaId, estado)
+    if (!r.ok) {
+      setSombras((s) => {
+        const { [comandaId]: _, ...resto } = s
+        void _
+        return resto
+      })
+    } else {
+      router.refresh()
+    }
+  }
+
   const ahora = Date.now() + desfaseRef.current
   const paleta = SEMAFORO[oscuro ? 'oscuro' : 'claro']
   const reloj = new Date(ahora).toLocaleTimeString('es-CO', {
@@ -139,6 +158,14 @@ export function TableroCocina({
     minute: '2-digit',
     hour12: false,
   })
+
+  // Un ticket marcado listo sale de la pantalla al instante.
+  const visibles = tickets
+    .map((t) => ({
+      ...t,
+      estado: (sombras[t.comanda_id] as Ticket['estado'] | undefined) ?? t.estado,
+    }))
+    .filter((t) => t.estado === 'pendiente' || t.estado === 'preparando')
 
   return (
     <div
@@ -168,7 +195,7 @@ export function TableroCocina({
                 En cola
               </span>
               <span className="block text-xl font-bold leading-none" style={{ color }}>
-                {tickets.length}
+                {visibles.length}
               </span>
             </p>
             <p className="text-2xl font-bold tabular-nums">{reloj}</p>
@@ -191,13 +218,13 @@ export function TableroCocina({
         </p>
       ) : null}
 
-      {tickets.length === 0 ? (
+      {visibles.length === 0 ? (
         <p className="mx-auto mt-24 max-w-sm px-6 text-center text-lg text-marca-texto-suave">
           Nada en preparación por ahora.
         </p>
       ) : (
         <ul className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
-          {tickets.map((ticket, i) => (
+          {visibles.map((ticket, i) => (
             <TicketKds
               key={ticket.comanda_id}
               ticket={ticket}
@@ -205,6 +232,7 @@ export function TableroCocina({
               paleta={paleta}
               ahora={ahora}
               indice={i}
+              onMarcar={marcar}
             />
           ))}
         </ul>
@@ -226,12 +254,14 @@ function TicketKds({
   paleta,
   ahora,
   indice,
+  onMarcar,
 }: {
   ticket: Ticket
   colorEstacion: string
   paleta: Record<Semaforo, { acento: string; chipFondo: string; chipTexto: string }>
   ahora: number
   indice: number
+  onMarcar: (comandaId: string, estado: 'preparando' | 'listo') => void
 }) {
   const [ocupado, setOcupado] = useState(false)
 
@@ -243,13 +273,6 @@ function TicketKds({
   // Avance hacia el objetivo, para la barra del estado "preparando".
   const avance = Math.min(1, Math.max(0, (ahora - disparo) / Math.max(1, objetivo - disparo)))
   const quedanMin = Math.max(0, Math.ceil((objetivo - ahora) / 60000))
-
-  async function marcar(estado: 'preparando' | 'listo') {
-    setOcupado(true)
-    const r = await cambiarEstadoComanda(ticket.comanda_id, estado)
-    if (!r.ok) setOcupado(false)
-    // El refresco de Realtime retira o reordena el ticket; no se apaga `ocupado` al éxito.
-  }
 
   async function agotar(productoId: string) {
     setOcupado(true)
@@ -332,18 +355,16 @@ function TicketKds({
         {ticket.estado === 'pendiente' ? (
           <button
             type="button"
-            onClick={() => marcar('preparando')}
-            disabled={ocupado}
-            className="min-h-14 w-full rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto disabled:opacity-60"
+            onClick={() => onMarcar(ticket.comanda_id, 'preparando')}
+            className="min-h-14 w-full rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto"
           >
             Empezar a preparar
           </button>
         ) : (
           <button
             type="button"
-            onClick={() => marcar('listo')}
-            disabled={ocupado}
-            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-bold text-white disabled:opacity-60"
+            onClick={() => onMarcar(ticket.comanda_id, 'listo')}
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-bold text-white"
             style={{ backgroundColor: paleta.verde.acento }}
           >
             <IconoCheck className="size-6 shrink-0" />

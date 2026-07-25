@@ -39,17 +39,22 @@ export function MeseroCliente({ pendientes }: { pendientes: PedidoMesa[] }) {
 function Tarjeta({ pedido, indice }: { pedido: PedidoMesa; indice: number }) {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Óptimista: la tarjeta sale al instante; si el servidor falla, vuelve con el error.
+  const [oculto, setOculto] = useState(false)
 
   async function confirmar() {
-    setEnviando(true)
+    navigator.vibrate?.(15)
+    setOculto(true)
     setError(null)
     const r = await confirmarPedido(pedido.id)
     if (!r.ok) {
+      setOculto(false)
       setError(r.error)
       setEnviando(false)
     }
-    // Si sale bien, el refresco de Realtime quita la tarjeta; no apagamos `enviando`.
   }
+
+  if (oculto) return null
 
   return (
     <li

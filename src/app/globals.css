@@ -69,6 +69,40 @@ body {
   animation-delay: calc(var(--i, 0) * 55ms);
 }
 
+/* ---------- Micro-interacciones globales ---------- */
+/* Todo botón y enlace responde al tacto: transición suave y "presión" al tocar. */
+@media (prefers-reduced-motion: no-preference) {
+  button,
+  a,
+  select,
+  label:has(> input[type='radio']),
+  label:has(> input[type='checkbox']) {
+    transition:
+      transform 0.12s ease,
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease,
+      opacity 0.15s ease,
+      filter 0.15s ease;
+  }
+  button:not(:disabled):active,
+  a:active,
+  label:has(> input[type='radio']):active,
+  label:has(> input[type='checkbox']):active {
+    transform: scale(0.96);
+  }
+  button:not(:disabled):hover {
+    filter: brightness(1.04);
+  }
+}
+
+/* Foco visible con el dorado de marca, para teclado y accesibilidad. */
+:focus-visible {
+  outline: 2px solid var(--marca-acento);
+  outline-offset: 2px;
+}
+
 /* Respeta a quien pide menos movimiento */
 @media (prefers-reduced-motion: reduce) {
   .entra,

@@ -34,6 +34,10 @@ export async function cambiarEstadoComanda(
   const { error } = await supabase.from('comandas').update({ estado }).eq('id', comandaId)
   if (error) return { ok: false, error: error.message }
 
+  // La respuesta de la acción ya trae la pantalla actualizada: el tablero no depende de
+  // Realtime (ni de recargar) para reflejar el cambio.
+  revalidatePath('/app/cocina', 'layout')
+  revalidatePath('/app/pase')
   return { ok: true }
 }
 
@@ -51,6 +55,7 @@ export async function cambiarDisponibilidad(
     .eq('id', productoId)
   if (error) return { ok: false, error: error.message }
 
+  revalidatePath('/app/cocina', 'layout')
   return { ok: true }
 }
 

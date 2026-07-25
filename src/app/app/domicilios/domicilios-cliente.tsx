@@ -46,16 +46,37 @@ export function DomiciliosCliente({ entregas }: { entregas: Entrega[] }) {
 function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Óptimista: el estado cambia o la tarjeta sale apenas el domiciliario toca.
+  const [estadoLocal, setEstadoLocal] = useState<Entrega['estado'] | null>(null)
+  const [oculta, setOculta] = useState(false)
+
+  const estado = estadoLocal ?? entrega.estado
 
   async function correr(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setOcupado(true)
     setError(null)
     const r = await fn()
     if (!r.ok) {
+      setEstadoLocal(null)
+      setOculta(false)
       setError(r.error ?? 'No se pudo')
-      setOcupado(false)
     }
+    setOcupado(false)
   }
+
+  function recoger() {
+    navigator.vibrate?.(15)
+    setEstadoLocal('en_camino')
+    void correr(() => recogerPedido(entrega.pedido_id))
+  }
+
+  function entregar() {
+    navigator.vibrate?.(15)
+    setOculta(true)
+    void correr(() => entregarPedido(entrega.pedido_id))
+  }
+
+  if (oculta) return null
 
   return (
     <li
@@ -66,7 +87,7 @@ function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number 
         <p className="font-titulo text-xl text-marca-texto">Pedido #{entrega.numero}</p>
         <span className="flex items-center gap-1.5 rounded-full border border-marca-borde px-2.5 py-1 text-xs text-marca-texto-suave">
           <IconoMoto className="size-3.5" />
-          {entrega.estado === 'en_despacho' ? 'Por recoger' : 'En camino'}
+          {estado === 'en_despacho' ? 'Por recoger' : 'En camino'}
         </span>
       </div>
 
@@ -129,12 +150,11 @@ function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number 
       ) : null}
 
       <div className="mt-4 flex flex-col gap-2">
-        {entrega.estado === 'en_despacho' ? (
+        {estado === 'en_despacho' ? (
           <button
             type="button"
-            onClick={() => correr(() => recogerPedido(entrega.pedido_id))}
-            disabled={ocupado}
-            className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto disabled:opacity-60"
+            onClick={recoger}
+            className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto"
           >
             <IconoMoto className="size-5" />
             Recogí, voy en camino
@@ -143,9 +163,8 @@ function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number 
           <>
             <button
               type="button"
-              onClick={() => correr(() => entregarPedido(entrega.pedido_id))}
-              disabled={ocupado}
-              className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto disabled:opacity-60"
+              onClick={entregar}
+              className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto"
             >
               <IconoCheck className="size-6" />
               Entregué

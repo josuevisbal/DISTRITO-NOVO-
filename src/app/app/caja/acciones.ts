@@ -15,6 +15,7 @@ export async function abrirTurno(base: number): Promise<Resultado> {
   const { error } = await supabase.rpc('abrir_turno', { p_base: Math.max(0, Math.trunc(base)) })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
   return { ok: true }
 }
 
@@ -32,6 +33,7 @@ export async function verificarTransferencia(
   })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
   return { ok: true }
 }
 
@@ -41,6 +43,7 @@ export async function registrarCobro(pedidoId: string, medio: MedioReal): Promis
   const { error } = await supabase.rpc('registrar_cobro', { p_pedido: pedidoId, p_medio: medio })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
   return { ok: true }
 }
 
@@ -50,6 +53,7 @@ export async function confirmarContraentrega(pedidoId: string): Promise<Resultad
   const { error } = await supabase.rpc('confirmar_contraentrega', { p_pedido: pedidoId })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
   return { ok: true }
 }
 
@@ -59,6 +63,7 @@ export async function anularPedido(pedidoId: string, motivo: string): Promise<Re
   const { error } = await supabase.rpc('anular_pedido', { p_pedido: pedidoId, p_motivo: motivo })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
   return { ok: true }
 }
 
@@ -69,6 +74,7 @@ export async function legalizarDomiciliario(domiId: string): Promise<Resultado> 
   const { error } = await supabase.rpc('legalizar_domiciliario', { p_domi: domiId })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
   return { ok: true }
 }
 
@@ -92,5 +98,6 @@ export async function cerrarTurno(
   })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
   return { ok: true, arqueo: data as unknown as ArqueoCierre }
 }

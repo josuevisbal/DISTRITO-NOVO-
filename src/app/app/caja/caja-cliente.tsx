@@ -184,9 +184,12 @@ function NotificacionTransferencia({
   const [ocupado, setOcupado] = useState(false)
   const [rechazando, setRechazando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Óptimista: la notificación sale al instante; si el servidor falla, vuelve con error.
+  const [oculta, setOculta] = useState(false)
 
   async function verificar(ok: boolean) {
-    setOcupado(true)
+    navigator.vibrate?.(15)
+    setOculta(true)
     setError(null)
     const r = await verificarTransferencia(
       transferencia.pedido_id,
@@ -194,11 +197,13 @@ function NotificacionTransferencia({
       ok ? undefined : 'La transferencia no llegó al banco',
     )
     if (!r.ok) {
+      setOculta(false)
       setError(r.error)
       setOcupado(false)
     }
-    // Al éxito, el refresco de Realtime retira la notificación.
   }
+
+  if (oculta) return null
 
   return (
     <article className="notifica overflow-hidden rounded-xl bg-marca-superficie shadow-[0_8px_24px_rgba(0,0,0,0.14)]">
@@ -295,16 +300,21 @@ function NotificacionTransferencia({
 function TarjetaLegalizar({ liquidacion }: { liquidacion: PorLegalizar }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [oculto, setOculto] = useState(false)
 
   async function legalizar() {
-    setOcupado(true)
+    navigator.vibrate?.(15)
+    setOculto(true)
     setError(null)
     const r = await legalizarDomiciliario(liquidacion.domiciliario_id)
     if (!r.ok) {
+      setOculto(false)
       setError(r.error)
       setOcupado(false)
     }
   }
+
+  if (oculto) return null
 
   return (
     <article className="tarjeta p-4">
@@ -559,16 +569,21 @@ function ResumenCierre({
 function TarjetaContraentrega({ pedido }: { pedido: Contraentrega }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [oculto, setOculto] = useState(false)
 
   async function confirmar() {
-    setOcupado(true)
+    navigator.vibrate?.(15)
+    setOculto(true)
     setError(null)
     const r = await confirmarContraentrega(pedido.pedido_id)
     if (!r.ok) {
+      setOculto(false)
       setError(r.error)
       setOcupado(false)
     }
   }
+
+  if (oculto) return null
 
   return (
     <article className="tarjeta p-4">
@@ -609,16 +624,21 @@ function TarjetaCobro({ pedido }: { pedido: PorCobrar }) {
   const [medio, setMedio] = useState<'efectivo' | 'transferencia' | 'datafono'>('efectivo')
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [oculto, setOculto] = useState(false)
 
   async function cobrar() {
-    setOcupado(true)
+    navigator.vibrate?.(15)
+    setOculto(true)
     setError(null)
     const r = await registrarCobro(pedido.pedido_id, medio)
     if (!r.ok) {
+      setOculto(false)
       setError(r.error)
       setOcupado(false)
     }
   }
+
+  if (oculto) return null
 
   return (
     <article className="tarjeta p-4">
