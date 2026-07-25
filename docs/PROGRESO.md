@@ -498,3 +498,36 @@ transiciones, sin perder nada de lo que ya funcionaba.
 - **Móvil (375px)**: lateral oculta, hamburguesa abre el cajón con los 6 módulos, navegar
   cierra el cajón y cambia el módulo.
 - `tsc`, `eslint` y `npm run build` limpios.
+
+## Fase R3 — Tablero
+
+**Objetivo:** al entrar como dueño, el Tablero es lo primero que se ve, con datos reales.
+
+### Hecho
+
+- **`/app/admin/tablero`** (+ `src/lib/datos/tablero.ts`): resumen del día con
+  - 4 KPI con **conteo animado** (~700 ms, easing suave, salta directo con
+    `prefers-reduced-motion`): ventas de hoy, pedidos, ticket promedio y en cocina.
+  - **Venta por punto de cocina**: barras con el color de cada estación (de la base) que
+    crecen al montar.
+  - **Alertas accionables** (cada una lleva a su módulo): transferencias sin verificar
+    (rojo → Caja), productos agotados (ámbar → Carta), domicilios devueltos (→ Pase) y
+    turno sin abrir (→ Caja). Si no hay nada: "Todo en orden".
+  - Chip de estado del turno (abierto / sin turno) y subtítulo "Resumen de hoy · día".
+- **El día es el del negocio**, no el de UTC (`src/lib/zona-horaria.ts`, configurable con
+  `ZONA_HORARIA`, Bogotá por defecto): a las 7 p. m. en Barranquilla las ventas no se van
+  al día siguiente.
+- Tablero es el primer módulo de la lateral y el destino del login para dueño y admin;
+  `/app/admin` redirige ahí.
+- Se refresca solo por Realtime cuando cambian los pedidos.
+
+### Verificado (en el navegador, con datos reales)
+
+Se crearon 2 pedidos de prueba "de hoy" vía `crear_pedido` (uno efectivo, uno
+transferencia): el Tablero mostró **$41.000 · 2 pedidos · ticket $20.500 · 1 en cocina**,
+la barra de Comida rápida al 100 % con su color, y la alerta roja "1 transferencia sin
+verificar en caja" apuntando a Caja. El conteo animado sube de 0 al valor al entrar.
+
+> Tropiezo de entorno: el dev server (Turbopack en Windows) quedó sirviendo un bundle roto
+> de una edición intermedia y no recompiló al corregirla; el reinicio del server lo sanó.
+> No era un bug del código (el build de producción ya pasaba).

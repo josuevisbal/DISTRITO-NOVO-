@@ -50,9 +50,9 @@ export async function exigirRol(...roles: Rol[]): Promise<Staff> {
 export function inicioDeRol(rol: Rol): string {
   switch (rol) {
     case 'dueno':
-      return '/app/admin/reportes'
+      return '/app/admin/tablero'
     case 'admin':
-      return '/app/admin/carta'
+      return '/app/admin/tablero'
     case 'cajero':
       return '/app/caja'
     case 'mesero':

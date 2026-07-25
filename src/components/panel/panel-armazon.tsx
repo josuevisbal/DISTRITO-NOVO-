@@ -15,6 +15,7 @@ import {
   IconoPin,
   IconoPorcentaje,
   IconoSalir,
+  IconoTablero,
 } from '@/components/iconos'
 import type { Staff } from '@/lib/sesion'
 
@@ -24,8 +25,9 @@ type Modulo = {
   Icono: (p: { className?: string }) => React.ReactNode
 }
 
-/** Orden de la barra. Tablero y Pedidos en vivo se suman en sus fases. */
+/** Orden de la barra. Pedidos en vivo se suma en su fase. */
 const MODULOS: Modulo[] = [
+  { href: '/app/admin/tablero', titulo: 'Tablero', Icono: IconoTablero },
   { href: '/app/admin/carta', titulo: 'Carta', Icono: IconoCarta },
   { href: '/app/admin/promociones', titulo: 'Promociones', Icono: IconoPorcentaje },
   { href: '/app/admin/zonas', titulo: 'Zonas', Icono: IconoPin },
