@@ -10,9 +10,21 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 /** Lo cobrado por un medio en el turno: monto y cuántos pedidos entraron por ahí. */
 export type ArqueoMedio = { monto: number; pedidos: number }
 
+/** Un cobro ya hecho en el turno: la trazabilidad de "Cobrados hoy". */
+export type Cobrado = {
+  movimiento_id: string
+  numero: number | null
+  cliente: string | null
+  mesa: number | null
+  medio: string
+  monto: number
+  cobrado_en: string
+}
+
 export type DatosCaja = {
   turno: Turno
   arqueo: Record<string, ArqueoMedio>
+  cobrados: Cobrado[]
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
   porCobrar: PorCobrar[]
@@ -37,17 +49,29 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   const turno: Turno = turnoRow ?? null
 
   // Arqueo en vivo: ingresos y legalizaciones del turno, sumados y contados por medio.
+  // La misma pasada arma "Cobrados hoy": cada cobro con su pedido, del más reciente al primero.
   const arqueo: Record<string, ArqueoMedio> = {}
+  const cobrados: Cobrado[] = []
   if (turno) {
     const { data: movs } = await supabase
       .from('caja_movimientos')
-      .select('medio, monto, tipo')
+      .select('id, medio, monto, tipo, creado_en, pedidos(numero, cliente_nombre, mesas(numero))')
       .eq('turno_id', turno.id)
       .in('tipo', ['ingreso', 'legalizacion'])
+      .order('creado_en', { ascending: false })
     for (const m of movs ?? []) {
       if (!m.medio) continue
       const previo = arqueo[m.medio] ?? { monto: 0, pedidos: 0 }
       arqueo[m.medio] = { monto: previo.monto + m.monto, pedidos: previo.pedidos + 1 }
+      cobrados.push({
+        movimiento_id: m.id,
+        numero: m.pedidos?.numero ?? null,
+        cliente: m.pedidos?.cliente_nombre ?? null,
+        mesa: m.pedidos?.mesas?.numero ?? null,
+        medio: m.medio,
+        monto: m.monto,
+        cobrado_en: m.creado_en,
+      })
     }
   }
 
@@ -138,6 +162,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   return {
     turno,
     arqueo,
+    cobrados,
     transferencias,
     contraentregas,
     porCobrar,

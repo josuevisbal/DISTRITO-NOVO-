@@ -18,7 +18,7 @@ import { Boton } from '@/components/ui/boton'
 import { Pildora, type TonoPildora } from '@/components/ui/pildora'
 import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
 import { Vacio } from '@/components/ui/vacio'
-import type { ArqueoMedio } from '@/lib/datos/caja'
+import type { ArqueoMedio, Cobrado } from '@/lib/datos/caja'
 import { formatearPesos } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
 import { useRefrescarEnCambios } from '@/lib/realtime'
@@ -97,6 +97,7 @@ const MEDIO_INFO: Record<
 type Props = {
   turno: Turno
   arqueo: Record<string, ArqueoMedio>
+  cobrados: Cobrado[]
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
   porCobrar: PorCobrar[]
@@ -105,8 +106,16 @@ type Props = {
 }
 
 export function CajaCliente(props: Props) {
-  const { turno, arqueo, transferencias, contraentregas, porCobrar, porLegalizar, servidorAhoraISO } =
-    props
+  const {
+    turno,
+    arqueo,
+    cobrados,
+    transferencias,
+    contraentregas,
+    porCobrar,
+    porLegalizar,
+    servidorAhoraISO,
+  } = props
 
   useRefrescarEnCambios(['pedidos'], { intervaloMs: 15000 })
 
@@ -137,6 +146,9 @@ export function CajaCliente(props: Props) {
   }
   const [filtro, setFiltro] = useState<'todos' | 'verificar' | 'confirmar' | 'cobrar'>('todos')
   const visibles = filtro === 'todos' ? filas : filas.filter((f) => f.tipo === filtro)
+
+  // La trazabilidad del turno se puede plegar, pero por defecto acompaña a la caja.
+  const [verCobrados, setVerCobrados] = useState(true)
 
   const pestanas = [
     { valor: 'todos', etiqueta: `Todos · ${conteos.todos}` },
@@ -174,6 +186,23 @@ export function CajaCliente(props: Props) {
               </button>
             )
           })}
+
+          {/* Chip de trazabilidad: no es un filtro de pendientes, muestra lo ya cobrado. */}
+          {turno ? (
+            <button
+              type="button"
+              onClick={() => setVerCobrados((v) => !v)}
+              aria-pressed={verCobrados}
+              className={`flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium ${
+                verCobrados
+                  ? 'border-[#1D9E75] bg-[#E7F6EE] text-[#116B47]'
+                  : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
+              }`}
+            >
+              <IconoReloj className="size-4" />
+              Cobrados hoy · {cobrados.length}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -196,6 +225,8 @@ export function CajaCliente(props: Props) {
           visibles.map((f, i) => <FilaPedido key={f.key} fila={f} ahora={ahora} indice={i} />)
         )}
       </ul>
+
+      {turno && verCobrados ? <CobradosHoy cobrados={cobrados} /> : null}
 
       {porLegalizar.length > 0 ? (
         <section className="pt-2">
@@ -221,6 +252,126 @@ function VentasTurno({ total }: { total: number }) {
       Ventas del turno{' '}
       <span className="text-base font-bold text-marca-texto">{formatearPesos(animado)}</span>
     </p>
+  )
+}
+
+/* ---------- Cobrados hoy: trazabilidad del turno ---------- */
+
+/**
+ * Todo lo que ya entró a la caja en este turno, del más reciente al primero. Se puede
+ * filtrar por medio de pago y buscar por pedido o cliente. Solo lectura: es el rastro.
+ */
+function CobradosHoy({ cobrados }: { cobrados: Cobrado[] }) {
+  const [buscar, setBuscar] = useState('')
+  const [medio, setMedio] = useState<string>('todos')
+
+  const total = cobrados.reduce((s, c) => s + c.monto, 0)
+
+  const texto = buscar.trim().toLowerCase()
+  const visibles = cobrados.filter((c) => {
+    if (medio !== 'todos' && c.medio !== medio) return false
+    if (!texto) return true
+    const campos = [
+      c.numero != null ? `#${c.numero}` : '',
+      c.numero != null ? String(c.numero) : '',
+      c.cliente ?? '',
+      c.mesa != null ? `mesa ${c.mesa}` : '',
+    ]
+    return campos.some((v) => v.toLowerCase().includes(texto))
+  })
+
+  return (
+    <section className="space-y-3 pt-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-marca-texto">
+          <IconoReloj className="size-4 text-[#116B47]" />
+          Cobrados hoy — trazabilidad del turno
+        </h2>
+        <p className="text-sm text-marca-texto-suave">
+          {cobrados.length} {cobrados.length === 1 ? 'pedido' : 'pedidos'} ·{' '}
+          <span className="font-bold text-marca-texto">{formatearPesos(total)}</span>
+        </p>
+      </div>
+
+      {cobrados.length === 0 ? (
+        <Vacio texto="Aún no se ha cobrado nada en este turno." Icono={IconoReloj} />
+      ) : (
+        <>
+          {/* Filtrar por medio de pago y buscar por pedido o cliente. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={buscar}
+              onChange={(e) => setBuscar(e.target.value)}
+              placeholder="Buscar pedido o cliente"
+              className="min-h-10 w-56 rounded-lg border border-marca-borde bg-marca-superficie px-3 text-sm text-marca-texto placeholder:text-marca-texto-suave/60"
+            />
+            {['todos', 'efectivo', 'transferencia', 'datafono', 'pasarela'].map((m) => {
+              const activa = medio === m
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMedio(m)}
+                  aria-pressed={activa}
+                  className={`min-h-10 rounded-lg border px-2.5 text-xs font-medium ${
+                    activa
+                      ? 'border-transparent bg-[#0B0B0C] text-marca-acento'
+                      : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
+                  }`}
+                >
+                  {m === 'todos' ? 'Todos' : (NOMBRE_MEDIO[m] ?? m)}
+                </button>
+              )
+            })}
+          </div>
+
+          {visibles.length === 0 ? (
+            <Vacio texto="Nada coincide con la búsqueda." Icono={IconoReloj} />
+          ) : (
+            <ul className="tarjeta divide-y divide-marca-borde overflow-hidden">
+              {visibles.map((c, i) => (
+                <FilaCobrado key={c.movimiento_id} cobrado={c} indice={i} />
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+function FilaCobrado({ cobrado, indice }: { cobrado: Cobrado; indice: number }) {
+  const info = MEDIO_INFO[cobrado.medio]
+  const hora = new Date(cobrado.cobrado_en).toLocaleTimeString('es-CO', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+  const quien = cobrado.mesa != null ? `Mesa ${cobrado.mesa}` : (cobrado.cliente ?? '—')
+
+  return (
+    <li
+      className="entra grid grid-cols-[4.5rem_1fr_auto_auto_6rem] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-marca-superficie-tenue"
+      style={{ '--i': Math.min(indice, 8) } as CSSProperties}
+    >
+      <span className="font-semibold tabular-nums text-marca-texto">
+        {cobrado.numero != null ? `#${cobrado.numero}` : '—'}
+      </span>
+      <span className="min-w-0 truncate text-sm text-marca-texto">{quien}</span>
+      <span
+        className="flex items-center gap-1.5 text-xs font-semibold"
+        style={{ color: info?.color }}
+      >
+        {info ? <info.Icono className="size-4" /> : null}
+        {NOMBRE_MEDIO[cobrado.medio] ?? cobrado.medio}
+      </span>
+      <span className="text-xs tabular-nums text-marca-texto-suave" suppressHydrationWarning>
+        {hora}
+      </span>
+      <span className="text-right font-semibold tabular-nums text-marca-texto">
+        {formatearPesos(cobrado.monto)}
+      </span>
+    </li>
   )
 }
 
