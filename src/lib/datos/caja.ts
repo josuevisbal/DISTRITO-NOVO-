@@ -7,9 +7,12 @@ import type {
 } from '@/app/app/caja/caja-cliente'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
+/** Lo cobrado por un medio en el turno: monto y cuántos pedidos entraron por ahí. */
+export type ArqueoMedio = { monto: number; pedidos: number }
+
 export type DatosCaja = {
   turno: Turno
-  arqueo: Record<string, number>
+  arqueo: Record<string, ArqueoMedio>
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
   porCobrar: PorCobrar[]
@@ -33,8 +36,8 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
 
   const turno: Turno = turnoRow ?? null
 
-  // Arqueo en vivo: ingresos y legalizaciones del turno, sumados por medio.
-  const arqueo: Record<string, number> = {}
+  // Arqueo en vivo: ingresos y legalizaciones del turno, sumados y contados por medio.
+  const arqueo: Record<string, ArqueoMedio> = {}
   if (turno) {
     const { data: movs } = await supabase
       .from('caja_movimientos')
@@ -42,7 +45,9 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       .eq('turno_id', turno.id)
       .in('tipo', ['ingreso', 'legalizacion'])
     for (const m of movs ?? []) {
-      if (m.medio) arqueo[m.medio] = (arqueo[m.medio] ?? 0) + m.monto
+      if (!m.medio) continue
+      const previo = arqueo[m.medio] ?? { monto: 0, pedidos: 0 }
+      arqueo[m.medio] = { monto: previo.monto + m.monto, pedidos: previo.pedidos + 1 }
     }
   }
 

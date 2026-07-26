@@ -3,11 +3,21 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 
-import { IconoAlerta, IconoCheck, IconoReloj } from '@/components/iconos'
+import {
+  IconoAlerta,
+  IconoBillete,
+  IconoBolsa,
+  IconoCheck,
+  IconoEtiqueta,
+  IconoFuego,
+  IconoReloj,
+} from '@/components/iconos'
+import { Pildora } from '@/components/ui/pildora'
+import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
+import { Vacio } from '@/components/ui/vacio'
 import type { DatosTablero } from '@/lib/datos/tablero'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
-import { useConteo } from '@/lib/use-conteo'
 
 export function TableroCliente({ datos, dia }: { datos: DatosTablero; dia: string }) {
   // El resumen se refresca solo cuando cambian los pedidos.
@@ -17,33 +27,54 @@ export function TableroCliente({ datos, dia }: { datos: DatosTablero; dia: strin
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-marca-texto-suave">Resumen de hoy · {dia}</p>
-        <span
-          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
-            datos.turnoAbierto
-              ? 'border-marca-acento text-marca-acento-fuerte'
-              : 'border-marca-borde text-marca-texto-suave'
-          }`}
-        >
-          <span
-            aria-hidden
-            className={`size-2 rounded-full ${datos.turnoAbierto ? 'bg-marca-acento' : 'bg-marca-borde'}`}
-          />
+        <Pildora tono={datos.turnoAbierto ? 'verde' : 'gris'}>
           {datos.turnoAbierto ? 'Turno abierto' : 'Sin turno'}
-        </span>
+        </Pildora>
       </div>
 
+      {/* KPIs con la tarjeta-indicador estándar del sistema. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi titulo="Ventas de hoy" valor={datos.ventasHoy} dinero indice={0} />
-        <Kpi titulo="Pedidos" valor={datos.pedidosHoy} indice={1} />
-        <Kpi titulo="Ticket prom." valor={datos.ticketPromedio} dinero indice={2} />
-        <Kpi titulo="En cocina" valor={datos.enCocina} destacado indice={3} />
+        <TarjetaKpi
+          titulo="Ventas de hoy"
+          valor={datos.ventasHoy}
+          dinero
+          color="#B8862B"
+          Icono={IconoBillete}
+          sub={{ texto: `${datos.pedidosHoy} ${datos.pedidosHoy === 1 ? 'pedido' : 'pedidos'}` }}
+          indice={0}
+        />
+        <TarjetaKpi
+          titulo="Pedidos"
+          valor={datos.pedidosHoy}
+          color="#5B6BF0"
+          Icono={IconoBolsa}
+          sub={{ texto: 'de hoy' }}
+          indice={1}
+        />
+        <TarjetaKpi
+          titulo="Ticket prom."
+          valor={datos.ticketPromedio}
+          dinero
+          color="#2E9E8F"
+          Icono={IconoEtiqueta}
+          sub={{ texto: 'por pedido' }}
+          indice={2}
+        />
+        <TarjetaKpi
+          titulo="En cocina"
+          valor={datos.enCocina}
+          color="#E0872B"
+          Icono={IconoFuego}
+          sub={{ texto: 'en preparación' }}
+          indice={3}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_minmax(16rem,0.7fr)]">
         <section className="tarjeta entra p-5" style={{ '--i': 4 } as CSSProperties}>
           <h2 className="mb-4 font-medium text-marca-texto">Venta por punto de cocina</h2>
           {datos.porEstacion.every((e) => e.total === 0) ? (
-            <p className="text-sm text-marca-texto-suave">Aún no hay ventas hoy.</p>
+            <Vacio texto="Aún no hay ventas hoy." Icono={IconoReloj} />
           ) : (
             <BarrasEstacion estaciones={datos.porEstacion} />
           )}
@@ -62,11 +93,12 @@ export function TableroCliente({ datos, dia }: { datos: DatosTablero; dia: strin
                 <li key={a.tipo}>
                   <Link
                     href={a.href}
-                    className={`flex min-h-11 items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    className="flex min-h-11 items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors"
+                    style={
                       a.tipo === 'transferencias'
-                        ? 'border-red-200 bg-red-50 text-red-900 hover:border-red-400'
-                        : 'border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-400'
-                    }`}
+                        ? { backgroundColor: '#FBE6DE', borderColor: '#F0BFAF', color: '#9A3320' }
+                        : { backgroundColor: '#FBF1D4', borderColor: '#EBD9A0', color: '#7A5A0F' }
+                    }
                   >
                     {a.tipo === 'turno' ? (
                       <IconoReloj className="size-4 shrink-0" />
@@ -85,42 +117,15 @@ export function TableroCliente({ datos, dia }: { datos: DatosTablero; dia: strin
   )
 }
 
-function Kpi({
-  titulo,
-  valor,
-  dinero = false,
-  destacado = false,
-  indice,
-}: {
-  titulo: string
-  valor: number
-  dinero?: boolean
-  destacado?: boolean
-  indice: number
-}) {
-  const animado = useConteo(valor)
-
-  return (
-    <div
-      className={`tarjeta tarjeta-hover entra p-4 ${destacado ? 'border-marca-acento' : ''}`}
-      style={{ '--i': indice } as CSSProperties}
-    >
-      <p className="text-xs uppercase tracking-wide text-marca-texto-suave">{titulo}</p>
-      <p
-        className={`mt-1.5 text-2xl font-bold tabular-nums ${
-          destacado ? 'text-marca-acento-fuerte' : 'text-marca-texto'
-        }`}
-      >
-        {dinero ? formatearPesos(animado) : animado}
-      </p>
-    </div>
-  )
-}
-
 function BarrasEstacion({ estaciones }: { estaciones: DatosTablero['porEstacion'] }) {
   // Las barras crecen desde cero al montar (transición CSS), salvo con reduced-motion.
+  // En pestañas ocultas requestAnimationFrame no dispara: se salta directo al ancho final.
   const [montado, setMontado] = useState(false)
   useEffect(() => {
+    if (document.visibilityState === 'hidden') {
+      setMontado(true)
+      return
+    }
     const id = requestAnimationFrame(() => setMontado(true))
     return () => cancelAnimationFrame(id)
   }, [])

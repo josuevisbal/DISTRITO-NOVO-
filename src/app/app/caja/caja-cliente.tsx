@@ -14,6 +14,11 @@ import {
   IconoTarjeta,
 } from '@/components/iconos'
 import { useToast } from '@/components/toast'
+import { Boton } from '@/components/ui/boton'
+import { Pildora, type TonoPildora } from '@/components/ui/pildora'
+import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
+import { Vacio } from '@/components/ui/vacio'
+import type { ArqueoMedio } from '@/lib/datos/caja'
 import { formatearPesos } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
 import { useRefrescarEnCambios } from '@/lib/realtime'
@@ -83,15 +88,15 @@ const MEDIO_INFO: Record<
   string,
   { Icono: (p: { className?: string }) => React.ReactNode; color: string }
 > = {
-  efectivo: { Icono: IconoBillete, color: '#1E9E6A' },
-  transferencia: { Icono: IconoIntercambio, color: '#2563EB' },
-  datafono: { Icono: IconoTarjeta, color: '#7C3AED' },
-  pasarela: { Icono: IconoGlobo, color: '#D99A06' },
+  efectivo: { Icono: IconoBillete, color: '#1D9E75' },
+  transferencia: { Icono: IconoIntercambio, color: '#2E9E8F' },
+  datafono: { Icono: IconoTarjeta, color: '#5B6BF0' },
+  pasarela: { Icono: IconoGlobo, color: '#E0872B' },
 }
 
 type Props = {
   turno: Turno
-  arqueo: Record<string, number>
+  arqueo: Record<string, ArqueoMedio>
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
   porCobrar: PorCobrar[]
@@ -133,8 +138,6 @@ export function CajaCliente(props: Props) {
   const [filtro, setFiltro] = useState<'todos' | 'verificar' | 'confirmar' | 'cobrar'>('todos')
   const visibles = filtro === 'todos' ? filas : filas.filter((f) => f.tipo === filtro)
 
-  const ventasTurno = Object.values(arqueo).reduce((s, v) => s + v, 0)
-
   const pestanas = [
     { valor: 'todos', etiqueta: `Todos · ${conteos.todos}` },
     { valor: 'verificar', etiqueta: `Por verificar · ${conteos.verificar}` },
@@ -150,7 +153,7 @@ export function CajaCliente(props: Props) {
 
       <SeccionTurno turno={turno} arqueo={arqueo} onCerrado={setCierre} />
 
-      {/* Filtros con contador + ventas del turno. */}
+      {/* Filtros con contador. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           {pestanas.map((p) => {
@@ -172,7 +175,6 @@ export function CajaCliente(props: Props) {
             )
           })}
         </div>
-        {turno ? <VentasTurno total={ventasTurno} /> : null}
       </div>
 
       {/* Encabezado de columnas. */}
@@ -187,8 +189,8 @@ export function CajaCliente(props: Props) {
 
       <ul className="space-y-2.5">
         {visibles.length === 0 ? (
-          <li className="rounded-xl border border-dashed border-marca-borde p-6 text-center text-sm text-marca-texto-suave">
-            No hay pedidos en este filtro.
+          <li>
+            <Vacio texto="No hay pedidos en este filtro." Icono={IconoCheck} />
           </li>
         ) : (
           visibles.map((f, i) => <FilaPedido key={f.key} fila={f} ahora={ahora} indice={i} />)
@@ -215,9 +217,9 @@ export function CajaCliente(props: Props) {
 function VentasTurno({ total }: { total: number }) {
   const animado = useConteo(total)
   return (
-    <p className="text-sm text-marca-texto-suave">
+    <p className="text-right text-sm text-marca-texto-suave">
       Ventas del turno{' '}
-      <span className="font-bold text-marca-texto">{formatearPesos(animado)}</span>
+      <span className="text-base font-bold text-marca-texto">{formatearPesos(animado)}</span>
     </p>
   )
 }
@@ -258,24 +260,19 @@ function EnvolturaFila({
 function ColPedido({
   titulo,
   pastilla,
-  color,
+  tono,
   sub,
 }: {
   titulo: string
   pastilla: string
-  color: string
+  tono: TonoPildora
   sub: string
 }) {
   return (
     <div>
       <p className="flex flex-wrap items-center gap-2">
         <span className="font-bold text-marca-texto">{titulo}</span>
-        <span
-          className="entra-pastilla rounded-full px-2 py-0.5 text-[11px] font-semibold"
-          style={{ backgroundColor: `${color}1A`, color }}
-        >
-          {pastilla}
-        </span>
+        <Pildora tono={tono}>{pastilla}</Pildora>
       </p>
       <p className="mt-0.5 flex items-center gap-1 text-xs text-marca-texto-suave">
         <IconoReloj className="size-3.5" />
@@ -330,14 +327,18 @@ function FilaVerificar({ t, ahora, indice }: { t: Transferencia; ahora: number; 
       <ColPedido
         titulo={`#${t.numero}`}
         pastilla="Por verificar"
-        color="#B07A0F"
+        tono="ambar"
         sub={`${haceCuanto(new Date(t.creado_en).getTime(), ahora)} · domicilio`}
       />
       <ColCliente nombre={t.cliente} telefono={t.telefono} extra={t.zona} />
       <ColPago monto={t.monto_exacto} medio="transferencia" />
       <div className="flex items-center justify-end gap-2">
-        <BotonVerde onClick={() => verificar(true)} disabled={ocupado} texto="Verifiqué" />
-        <BotonBorde onClick={() => verificar(false)} disabled={ocupado} texto="No llegó" />
+        <Boton variante="exito" onClick={() => verificar(true)} disabled={ocupado}>
+          Verifiqué
+        </Boton>
+        <Boton variante="secundario" onClick={() => verificar(false)} disabled={ocupado}>
+          No llegó
+        </Boton>
       </div>
       {error ? <Error texto={error} /> : null}
     </EnvolturaFila>
@@ -377,7 +378,7 @@ function FilaConfirmar({ c, ahora, indice }: { c: Contraentrega; ahora: number; 
       <ColPedido
         titulo={`#${c.numero}`}
         pastilla="Contraentrega"
-        color="#B07A0F"
+        tono="ambar"
         sub={`${haceCuanto(new Date(c.creado_en).getTime(), ahora)} · ${c.canal}`}
       />
       <ColCliente nombre={c.cliente} telefono={c.telefono} extra={c.zona ?? c.direccion} />
@@ -392,8 +393,12 @@ function FilaConfirmar({ c, ahora, indice }: { c: Contraentrega; ahora: number; 
           />
         ) : (
           <div className="flex items-center gap-2">
-            <BotonVerde onClick={confirmar} disabled={ocupado} texto="Confirmar" />
-            <BotonBorde onClick={() => setAnulando(true)} disabled={ocupado} texto="Anular" />
+            <Boton variante="exito" onClick={confirmar} disabled={ocupado}>
+              Confirmar
+            </Boton>
+            <Boton variante="secundario" onClick={() => setAnulando(true)} disabled={ocupado}>
+              Anular
+            </Boton>
           </div>
         )}
       </div>
@@ -426,7 +431,7 @@ function FilaCobrar({ p, indice }: { p: PorCobrar; indice: number }) {
       <ColPedido
         titulo={p.mesa ? `Mesa ${p.mesa}` : `#${p.numero}`}
         pastilla="Servido"
-        color="#116B47"
+        tono="verde"
         sub="listo para cobrar"
       />
       <div className="min-w-0">
@@ -454,10 +459,14 @@ function FilaCobrar({ p, indice }: { p: PorCobrar; indice: number }) {
                 {m.nombre}
               </button>
             ))}
-            <BotonNegro onClick={cobrar} disabled={ocupado} texto="Cobrar" />
+            <Boton variante="negro" className="px-4" onClick={cobrar} disabled={ocupado}>
+              Cobrar
+            </Boton>
           </div>
         ) : (
-          <BotonNegro onClick={() => setAbierto(true)} disabled={ocupado} texto="Cobrar" />
+          <Boton variante="negro" className="px-4" onClick={() => setAbierto(true)} disabled={ocupado}>
+            Cobrar
+          </Boton>
         )}
       </div>
       {error ? <Error texto={error} /> : null}
@@ -481,71 +490,6 @@ function ColCliente({
         {[telefono, extra].filter(Boolean).join(' · ') || '—'}
       </p>
     </div>
-  )
-}
-
-/* Botones de acción compartidos (verde acción, borde secundario, negro/dorado). */
-function BotonVerde({
-  onClick,
-  disabled,
-  texto,
-}: {
-  onClick: () => void
-  disabled: boolean
-  texto: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="min-h-11 rounded-lg px-3.5 text-sm font-semibold text-white disabled:opacity-60"
-      style={{ backgroundColor: '#1E9E6A' }}
-    >
-      {texto}
-    </button>
-  )
-}
-
-function BotonBorde({
-  onClick,
-  disabled,
-  texto,
-}: {
-  onClick: () => void
-  disabled: boolean
-  texto: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="min-h-11 rounded-lg border border-marca-borde px-3.5 text-sm text-marca-texto-suave disabled:opacity-50"
-    >
-      {texto}
-    </button>
-  )
-}
-
-function BotonNegro({
-  onClick,
-  disabled,
-  texto,
-}: {
-  onClick: () => void
-  disabled: boolean
-  texto: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="min-h-11 rounded-lg bg-[#0B0B0C] px-4 text-sm font-semibold text-marca-acento disabled:opacity-60"
-    >
-      {texto}
-    </button>
   )
 }
 
@@ -792,56 +736,82 @@ function SeccionTurno({
   onCerrado,
 }: {
   turno: Turno
-  arqueo: Record<string, number>
+  arqueo: Record<string, ArqueoMedio>
   onCerrado: (arqueo: ArqueoCierre) => void
 }) {
   if (!turno) return <AbrirTurno />
 
-  const total = Object.values(arqueo).reduce((s, v) => s + v, 0)
+  const total = Object.values(arqueo).reduce((s, v) => s + v.monto, 0)
+  const desde = new Date(turno.abierto_en).toLocaleTimeString('es-CO', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
 
   return (
-    <section className="tarjeta p-4">
-      <div className="flex items-start justify-between gap-3">
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-titulo text-lg text-marca-texto">Turno abierto</h2>
-          <p className="text-sm text-marca-texto-suave">Base: {formatearPesos(turno.base_inicial)}</p>
+          <h2 className="text-lg font-bold text-marca-texto">Turno abierto</h2>
+          <p className="text-sm text-marca-texto-suave" suppressHydrationWarning>
+            Base: {formatearPesos(turno.base_inicial)} · desde {desde}
+          </p>
         </div>
         <CerrarTurno onCerrado={onCerrado} />
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m) => (
-          <TarjetaMedio key={m} medio={m} monto={arqueo[m] ?? 0} />
+      {/* Los cuatro medios con la tarjeta-indicador estándar: la composición del día de un vistazo. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m, i) => (
+          <TarjetaMedioPago
+            key={m}
+            medio={m}
+            monto={arqueo[m]?.monto ?? 0}
+            pedidos={arqueo[m]?.pedidos ?? 0}
+            total={total}
+            indice={i}
+          />
         ))}
-      </dl>
-      <p className="mt-3 text-right text-sm text-marca-texto-suave">
-        Ventas del turno: <span className="font-medium text-marca-texto">{formatearPesos(total)}</span>
-      </p>
+      </div>
+
+      <VentasTurno total={total} />
     </section>
   )
 }
 
-/** Tarjeta de un medio de pago: ícono con su color + nombre + monto. */
-function TarjetaMedio({ medio, monto }: { medio: string; monto: number }) {
+/** Medio de pago con la tarjeta-KPI estándar: monto, pedidos y % del turno con barra. */
+function TarjetaMedioPago({
+  medio,
+  monto,
+  pedidos,
+  total,
+  indice,
+}: {
+  medio: string
+  monto: number
+  /** Si no se conoce (cierre del turno), el mini-dato dice solo el % del total. */
+  pedidos?: number
+  total: number
+  indice: number
+}) {
   const info = MEDIO_INFO[medio]
+  const pct = total > 0 ? Math.round((monto / total) * 100) : 0
   return (
-    <div className="rounded-xl border border-marca-borde bg-marca-superficie p-2.5">
-      <dt className="flex items-center gap-1.5 text-xs text-marca-texto-suave">
-        {info ? (
-          <span
-            aria-hidden
-            className="flex size-6 items-center justify-center rounded-md"
-            style={{ backgroundColor: `${info.color}1A`, color: info.color }}
-          >
-            <info.Icono className="size-3.5" />
-          </span>
-        ) : null}
-        {NOMBRE_MEDIO[medio]}
-      </dt>
-      <dd className="mt-1.5 text-lg font-bold tabular-nums text-marca-texto">
-        {formatearPesos(monto)}
-      </dd>
-    </div>
+    <TarjetaKpi
+      titulo={NOMBRE_MEDIO[medio] ?? medio}
+      valor={monto}
+      dinero
+      color={info.color}
+      Icono={info.Icono}
+      sub={{
+        texto:
+          pedidos !== undefined
+            ? `${pedidos} ${pedidos === 1 ? 'pedido' : 'pedidos'}`
+            : 'del total del turno',
+        porcentaje: pct,
+      }}
+      indice={indice}
+    />
   )
 }
 
@@ -963,24 +933,27 @@ function ResumenCierre({
   onCerrar: () => void
 }) {
   const cuadra = arqueo.diferencia === 0
+  const totalCierre = Object.values(arqueo.por_medio).reduce((s, v) => s + v, 0)
   return (
     <section className="rounded-xl border-2 border-marca-acento bg-marca-superficie p-4">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="font-titulo text-lg text-marca-texto">Turno cerrado</h2>
-        <button
-          type="button"
-          onClick={onCerrar}
-          className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave"
-        >
+        <h2 className="text-lg font-bold text-marca-texto">Turno cerrado</h2>
+        <Boton variante="secundario" onClick={onCerrar}>
           Entendido
-        </button>
+        </Boton>
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m) => (
-          <TarjetaMedio key={m} medio={m} monto={arqueo.por_medio[m] ?? 0} />
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m, i) => (
+          <TarjetaMedioPago
+            key={m}
+            medio={m}
+            monto={arqueo.por_medio[m] ?? 0}
+            total={totalCierre}
+            indice={i}
+          />
         ))}
-      </dl>
+      </div>
 
       <dl className="mt-3 space-y-1 border-t border-marca-borde pt-3 text-sm">
         <Fila t="Base inicial" v={formatearPesos(arqueo.base_inicial)} />
