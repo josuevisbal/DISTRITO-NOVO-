@@ -4,63 +4,62 @@ import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { IconoAlerta } from '@/components/iconos'
+import { LogoMarca } from '@/components/logo-marca'
 import { iniciarSesion, type ResultadoLogin } from './acciones'
 
 /**
- * Escena de acceso: una lámpara de escritorio con cordón enciende y apaga la luz (el fondo
- * pasa de oscuro a cálido) y la tarjeta de acceso, tipo vidrio, aparece con el formulario.
- * Es una pantalla decorativa a propósito: las tonalidades de la escena (lámpara prendida /
- * apagada) son del ambiente, no de la marca. El botón de acceso sí usa el dorado de marca.
- * Todo el movimiento sale del sistema central (--mov-*) y respeta reduced-motion.
+ * Escena de acceso: una salchipapa de la casa bajo un foco cálido. El botón enciende y
+ * apaga la luz de esa zona (a todo color con resplandor dorado, o en penumbra) y a la
+ * derecha va la tarjeta de acceso con el logo de la marca adentro. Las transiciones
+ * salen del sistema central y respetan reduced-motion (con menos movimiento, la escena
+ * queda iluminada y sin animación). El logo se referencia desde config (LOGO_URL).
  */
 export function LoginForm({ destino, nombre }: { destino: string; nombre: string | null }) {
   const [estado, accion] = useActionState<ResultadoLogin, FormData>(iniciarSesion, undefined)
+  // Encendida por defecto: con reduced-motion nadie queda a oscuras.
   const [encendida, setEncendida] = useState(true)
 
   return (
     <div
-      className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10"
-      style={{
-        backgroundColor: encendida ? '#17140E' : '#0B0B0C',
-        transition: 'background-color var(--mov-lenta) var(--mov-estado)',
-      }}
+      className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10 transition-colors duration-300 motion-reduce:transition-none"
+      style={{ backgroundColor: encendida ? '#17140E' : '#0B0B0C' }}
     >
-      {/* Resplandor cálido de la lámpara: aparece al encender. */}
+      {/* Resplandor cálido del foco sobre el plato: aparece al encender. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -z-0"
+        className="pointer-events-none absolute -z-0 transition-opacity duration-300 motion-reduce:transition-none"
         style={{
-          left: '18%',
-          top: '30%',
-          width: 620,
-          height: 620,
+          left: '22%',
+          top: '42%',
+          width: 640,
+          height: 640,
           transform: 'translate(-50%, -50%)',
           background:
-            'radial-gradient(circle, rgba(216,172,78,0.30), rgba(216,172,78,0.10) 35%, transparent 62%)',
+            'radial-gradient(circle, rgba(224,135,43,0.32), rgba(216,172,78,0.12) 38%, transparent 64%)',
           opacity: encendida ? 1 : 0,
-          transition: 'opacity var(--mov-lenta) var(--mov-estado)',
         }}
       />
 
       <div className="relative z-10 grid w-full max-w-4xl items-center gap-10 md:grid-cols-2">
-        <Lampara encendida={encendida} onToggle={() => setEncendida((v) => !v)} />
+        <Salchipapa encendida={encendida} onToggle={() => setEncendida((v) => !v)} />
 
         {/* Tarjeta de acceso, tipo vidrio. */}
         <form
           action={accion}
-          className="animate-subir mx-auto w-full max-w-sm rounded-2xl border border-white/10 p-6 backdrop-blur-md"
+          className="animate-subir mx-auto w-full max-w-sm rounded-2xl border border-white/10 p-6 backdrop-blur-md transition-colors duration-300 motion-reduce:transition-none"
           style={{
             backgroundColor: encendida ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
             boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
-            transition: 'background-color var(--mov-lenta) var(--mov-estado)',
           }}
         >
           <input type="hidden" name="destino" value={destino} />
 
-          <h1
-            className="text-center font-titulo text-2xl font-bold"
-            style={{ color: '#ECCB79' }}
-          >
+          {/* Logo de la marca, dentro del recuadro y con aire antes del título. */}
+          <div className="mb-4 flex justify-center">
+            <LogoMarca className="h-[86px] w-auto" />
+          </div>
+
+          <h1 className="text-center font-titulo text-2xl font-bold" style={{ color: '#ECCB79' }}>
             {nombre ?? 'Bienvenido'}
           </h1>
           <p className="mt-1 text-center text-sm" style={{ color: '#A9A294' }}>
@@ -101,7 +100,7 @@ export function LoginForm({ destino, nombre }: { destino: string; nombre: string
 
           {!encendida ? (
             <p className="mt-4 text-center text-xs" style={{ color: '#7c766a' }}>
-              Tira del cordón de la lámpara para encender la luz.
+              Enciende la luz para ver el plato de la casa.
             </p>
           ) : null}
         </form>
@@ -110,64 +109,102 @@ export function LoginForm({ destino, nombre }: { destino: string; nombre: string
   )
 }
 
-/** Lámpara de escritorio con cordón. Al tirar del cordón se enciende o apaga la luz. */
-function Lampara({ encendida, onToggle }: { encendida: boolean; onToggle: () => void }) {
+/**
+ * Salchipapa de la casa en SVG: papas a la francesa doradas, trozos de salchicha y un
+ * toque de salsas. Con la luz apagada se oscurece casi hasta no verse; encendida, brilla
+ * a todo color. El fade es del sistema (~300 ms) y se anula con reduced-motion.
+ */
+function Salchipapa({ encendida, onToggle }: { encendida: boolean; onToggle: () => void }) {
   return (
     <div className="mx-auto flex flex-col items-center">
-      <svg viewBox="0 0 220 260" className="h-56 w-auto md:h-72" role="img" aria-label="Lámpara">
-        <defs>
-          <linearGradient id="pantalla" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#F4F1EA" />
-            <stop offset="1" stopColor="#D8D3C7" />
-          </linearGradient>
-        </defs>
-
-        {/* Halo bajo la pantalla cuando está encendida */}
+      <svg
+        viewBox="0 0 280 210"
+        className="h-52 w-auto transition-[opacity,filter] duration-300 ease-out motion-reduce:transition-none md:h-64"
+        role="img"
+        aria-label="Salchipapa de la casa"
+        style={{
+          opacity: encendida ? 1 : 0.14,
+          filter: encendida ? 'none' : 'brightness(0.4) saturate(0.4)',
+        }}
+      >
+        {/* Halo cálido pegado al plato. */}
         <ellipse
-          cx="96"
-          cy="96"
-          rx="92"
+          cx="140"
+          cy="150"
+          rx="128"
           ry="46"
           fill="#F6D98A"
-          style={{
-            opacity: encendida ? 0.5 : 0,
-            transition: 'opacity var(--mov-lenta) var(--mov-estado)',
-          }}
+          className="transition-opacity duration-300 motion-reduce:transition-none"
+          style={{ opacity: encendida ? 0.35 : 0 }}
         />
 
-        {/* Pantalla (cúpula) */}
-        <path d="M22 96 A74 62 0 0 1 170 96 Z" fill="url(#pantalla)" />
-        <ellipse cx="96" cy="96" rx="74" ry="12" fill="#EDE9DF" />
+        {/* Plato hondo. */}
+        <ellipse cx="140" cy="152" rx="112" ry="34" fill="#F4F1EA" />
+        <ellipse cx="140" cy="147" rx="96" ry="27" fill="#E4DFD2" />
 
-        {/* Cuello y base */}
-        <rect x="90" y="96" width="12" height="118" rx="4" fill="#D8D3C7" />
-        <rect x="60" y="214" width="72" height="14" rx="7" fill="#CFC9BC" />
-        <rect x="52" y="226" width="88" height="10" rx="5" fill="#BDB6A6" />
+        {/* Papas a la francesa: bastones dorados en abanico. */}
+        <g stroke="#B8862B" strokeWidth="1.2">
+          <rect x="76" y="62" width="15" height="74" rx="5" fill="#F2C14E" transform="rotate(-18 84 99)" />
+          <rect x="102" y="48" width="15" height="86" rx="5" fill="#F6D27A" transform="rotate(-8 110 91)" />
+          <rect x="128" y="42" width="15" height="92" rx="5" fill="#F2C14E" />
+          <rect x="154" y="48" width="15" height="86" rx="5" fill="#E8B23A" transform="rotate(8 162 91)" />
+          <rect x="180" y="62" width="15" height="74" rx="5" fill="#F6D27A" transform="rotate(18 188 99)" />
+          <rect x="92" y="84" width="14" height="58" rx="5" fill="#E8B23A" transform="rotate(-26 99 113)" />
+          <rect x="172" y="84" width="14" height="58" rx="5" fill="#F2C14E" transform="rotate(26 179 113)" />
+        </g>
 
-        {/* Cordón + perilla (área para tirar) */}
-        <line
-          x1="150"
-          y1="90"
-          x2="150"
-          y2={encendida ? 150 : 138}
-          stroke="#9a927f"
-          strokeWidth="2"
-          style={{ transition: 'all var(--mov-media) var(--mov-entrar)' }}
+        {/* Trozos de salchicha: rodajas con cara clara. */}
+        <g stroke="#8A3B22" strokeWidth="1.2">
+          <ellipse cx="104" cy="128" rx="17" ry="13" fill="#B65A38" />
+          <ellipse cx="104" cy="125" rx="13" ry="9" fill="#D98A5F" />
+          <ellipse cx="146" cy="136" rx="18" ry="13" fill="#A34D2E" />
+          <ellipse cx="146" cy="133" rx="14" ry="9" fill="#D98A5F" />
+          <ellipse cx="184" cy="127" rx="16" ry="12" fill="#B65A38" />
+          <ellipse cx="184" cy="124" rx="12" ry="8" fill="#D98A5F" />
+          <ellipse cx="124" cy="118" rx="13" ry="10" fill="#A34D2E" />
+          <ellipse cx="124" cy="116" rx="10" ry="7" fill="#D98A5F" />
+          <ellipse cx="166" cy="115" rx="12" ry="9" fill="#B65A38" />
+          <ellipse cx="166" cy="113" rx="9" ry="6" fill="#D98A5F" />
+        </g>
+
+        {/* Salsas por encima: rosada y un hilo rojo. */}
+        <path
+          d="M86 120 q14 -12 30 -4 q16 8 32 -2 q16 -10 32 0 q14 8 28 2"
+          fill="none"
+          stroke="#F0A7B4"
+          strokeWidth="6"
+          strokeLinecap="round"
+          opacity="0.9"
         />
-        <circle
-          cx="150"
-          cy={encendida ? 156 : 144}
-          r="6"
-          fill="#C9A24A"
-          style={{ transition: 'all var(--mov-media) var(--mov-entrar)' }}
+        <path
+          d="M96 128 q16 -8 30 0 q16 8 32 0 q16 -8 30 0"
+          fill="none"
+          stroke="#D64533"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          opacity="0.85"
         />
+
+        {/* Vapor sutil, solo con la luz encendida. */}
+        <g
+          className="transition-opacity duration-300 motion-reduce:transition-none"
+          style={{ opacity: encendida ? 0.5 : 0 }}
+          stroke="#F4EFE4"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          fill="none"
+        >
+          <path d="M116 34 q6 -10 0 -20" />
+          <path d="M142 28 q6 -10 0 -20" />
+          <path d="M168 34 q6 -10 0 -20" />
+        </g>
       </svg>
 
       <button
         type="button"
         onClick={onToggle}
         aria-pressed={encendida}
-        className="mt-1 min-h-11 rounded-full border border-white/15 px-4 text-xs font-medium"
+        className="mt-3 min-h-11 rounded-full border border-white/15 px-4 text-xs font-medium"
         style={{ color: '#C9A24A' }}
       >
         {encendida ? 'Apagar luz' : 'Encender luz'}

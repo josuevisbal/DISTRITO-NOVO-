@@ -84,6 +84,14 @@ const TEMAS_CARTA: Record<string, Tema> = {
   'distrito-novo': TEMA_CARTA,
 }
 
+/**
+ * Logo de la marca (login y donde se necesite). Para usar el arte real: sube el archivo
+ * SIN fondo (PNG transparente o SVG) a /public y pon aquí la ruta, p. ej. '/logo.png'.
+ * Con null se pinta el monograma vectorial provisional de LogoMarca. Única referencia:
+ * otro cliente cambia su logo sin tocar código.
+ */
+export const LOGO_URL: string | null = null
+
 /** Tema de los módulos internos (staff): blanco y dorado corporativo. */
 export function obtenerTema(slug: string): Tema {
   return TEMAS[slug] ?? TEMA_BASE
