@@ -11,10 +11,10 @@
 export type TonoPildora = 'verde' | 'ambar' | 'rojo' | 'azul' | 'gris'
 
 const TONOS: Record<TonoPildora, { fondo: string; texto: string; punto: string }> = {
-  verde: { fondo: '#E7F6EE', texto: '#116B47', punto: '#1E9E6A' },
-  ambar: { fondo: '#FBF1D4', texto: '#7A5A0F', punto: '#D99A06' },
+  verde: { fondo: '#E1F5EE', texto: '#0F6E56', punto: '#1E9E6A' },
+  ambar: { fondo: '#FAEEDA', texto: '#854F0B', punto: '#D99A06' },
   rojo: { fondo: '#FBE6DE', texto: '#9A3320', punto: '#D64533' },
-  azul: { fondo: '#E5E9FC', texto: '#33418F', punto: '#5B6BF0' },
+  azul: { fondo: '#E7EEF9', texto: '#0C447C', punto: '#5B6BF0' },
   gris: { fondo: 'var(--marca-superficie-tenue)', texto: 'var(--marca-texto-suave)', punto: 'var(--marca-borde)' },
 }
 

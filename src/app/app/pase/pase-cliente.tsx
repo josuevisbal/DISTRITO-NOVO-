@@ -3,6 +3,10 @@
 import { useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck, IconoMoto, IconoReloj } from '@/components/iconos'
+import { Boton } from '@/components/ui/boton'
+import { FichaDireccion } from '@/components/ui/ficha-cliente'
+import { Pildora, type TonoPildora } from '@/components/ui/pildora'
+import { Vacio } from '@/components/ui/vacio'
 import { useRefrescarEnCambios } from '@/lib/realtime'
 import { asignarDomiciliario, liberarPedido } from '../acciones'
 
@@ -128,8 +132,8 @@ export function PaseCliente({
 
       <ul className="space-y-2.5">
         {visibles.length === 0 ? (
-          <li className="rounded-xl border border-dashed border-marca-borde p-6 text-center text-sm text-marca-texto-suave">
-            No hay pedidos en este filtro.
+          <li>
+            <Vacio texto="No hay pedidos en este filtro." Icono={IconoCheck} />
           </li>
         ) : (
           visibles.map((f, i) =>
@@ -173,24 +177,19 @@ function EnvolturaFila({
 function ColPedido({
   titulo,
   pastilla,
-  color,
+  tono,
   origen: sub,
 }: {
   titulo: string
   pastilla: string
-  color: string
+  tono: TonoPildora
   origen: string
 }) {
   return (
     <div>
       <p className="flex flex-wrap items-center gap-2">
         <span className="font-bold text-marca-texto">{titulo}</span>
-        <span
-          className="entra-pastilla rounded-full px-2 py-0.5 text-[11px] font-semibold"
-          style={{ backgroundColor: `${color}1A`, color }}
-        >
-          {pastilla}
-        </span>
+        <Pildora tono={tono}>{pastilla}</Pildora>
       </p>
       <p className="mt-0.5 text-xs text-marca-texto-suave">{sub}</p>
     </div>
@@ -214,16 +213,16 @@ function FilaCocina({
     if (!r.ok) setOcupado(false)
   }
 
-  const pastilla = pedido.listo
-    ? { texto: 'Completo', color: '#116B47' }
-    : { texto: 'Falta cocina', color: '#B07A0F' }
+  const pastilla: { texto: string; tono: TonoPildora } = pedido.listo
+    ? { texto: 'Completo', tono: 'verde' }
+    : { texto: 'Falta cocina', tono: 'ambar' }
 
   return (
     <EnvolturaFila borde={pedido.listo ? BORDE.completo : BORDE.cocina} indice={indice}>
       <ColPedido
         titulo={pedido.mesa ? `Mesa ${pedido.mesa}` : `#${pedido.numero}`}
         pastilla={pastilla.texto}
-        color={pastilla.color}
+        tono={pastilla.tono}
         origen={origen(pedido.canal, pedido.mesa, pedido.zona)}
       />
 
@@ -242,18 +241,14 @@ function FilaCocina({
             {pedido.listo ? 'Completo' : 'En cocina'}
           </span>
         ) : (
-          <button
-            type="button"
+          <Boton
+            variante={pedido.listo ? 'negro' : 'secundario'}
+            className={`px-4 ${pedido.listo ? '' : 'cursor-not-allowed'}`}
             onClick={liberar}
             disabled={!pedido.listo || ocupado}
-            className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${
-              pedido.listo
-                ? 'bg-[#0B0B0C] text-marca-acento'
-                : 'cursor-not-allowed border border-marca-borde text-marca-texto-suave'
-            } disabled:opacity-60`}
           >
             {pedido.listo ? 'Liberar' : 'Esperando'}
-          </button>
+          </Boton>
         )}
       </div>
     </EnvolturaFila>
@@ -316,18 +311,18 @@ function FilaDespacho({
       <ColPedido
         titulo={`#${despacho.numero}`}
         pastilla="Por despachar"
-        color="#1E4FBF"
+        tono="azul"
         origen={despacho.zona ? `Domicilio · ${despacho.zona}` : 'Domicilio'}
       />
 
-      <p className="min-w-0 truncate text-sm text-marca-texto">
-        {despacho.direccion ?? 'Sin dirección'}
+      <div className="min-w-0">
+        <FichaDireccion direccion={despacho.direccion} zona={despacho.zona} />
         {despacho.nota_entrega ? (
-          <span className="mt-0.5 flex items-center gap-1 text-xs text-marca-acento-fuerte">
+          <p className="mt-1 flex items-center gap-1 text-xs text-marca-acento-fuerte">
             <IconoAlerta className="size-3.5" /> Volvió: {despacho.nota_entrega}
-          </span>
+          </p>
         ) : null}
-      </p>
+      </div>
 
       <p className="flex items-center gap-1.5 text-sm text-marca-texto-suave">
         <IconoCheck className="size-4 text-marca-acento-fuerte" />
@@ -361,15 +356,15 @@ function FilaDespacho({
               </option>
             ))}
           </select>
-          <button
-            type="button"
+          <Boton
+            variante="negro"
+            className="px-3"
             onClick={asignar}
             disabled={ocupado || !domi || domi === despacho.domiciliario_id}
-            className="min-h-11 rounded-lg bg-[#0B0B0C] px-3 text-sm font-semibold text-marca-acento disabled:opacity-50"
           >
             <IconoMoto className="mr-1 inline size-4" />
             {despacho.domiciliario_id ? 'Reasignar' : 'Asignar domi'}
-          </button>
+          </Boton>
         </div>
         {error ? (
           <p role="alert" className="flex items-center gap-1 text-xs text-marca-acento-fuerte">

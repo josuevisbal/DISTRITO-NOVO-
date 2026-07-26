@@ -325,6 +325,51 @@ export function IconoFloritura({ className }: Props) {
   )
 }
 
+/** Silla: pedidos de mesa (salón). */
+export function IconoSilla(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M5 11V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v5" />
+      <path d="M5 11a2 2 0 0 1 2 2v2h10v-2a2 2 0 1 1 4 0v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Z" />
+      <path d="M6 21v-2M18 21v-2" />
+    </Svg>
+  )
+}
+
+/** Tienda: pedidos de mostrador / para recoger. */
+export function IconoTienda(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M3 21h18" />
+      <path d="M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4" />
+      <path d="M5 21V10.85M19 21V10.85" />
+      <path d="M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4" />
+    </Svg>
+  )
+}
+
+/** Cubiertos: los productos del pedido. */
+export function IconoCubiertos(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M7 3v18" />
+      <path d="M4 3v4a3 3 0 0 0 6 0V3" />
+      <path d="M17 3a3 3 0 0 0-3 3v5h6V6a3 3 0 0 0-3-3Z" />
+      <path d="M17 11v10" />
+    </Svg>
+  )
+}
+
+/** WhatsApp: escribirle al cliente. */
+export function IconoWhatsApp(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" />
+      <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1" />
+    </Svg>
+  )
+}
+
 /** Ojo: monitoreo en vivo (vista de solo lectura). */
 export function IconoOjo(props: Props) {
   return (

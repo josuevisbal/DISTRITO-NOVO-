@@ -9,14 +9,6 @@ export default async function PaginaPedidosVivo() {
   const staff = await exigirRol('admin')
   const pedidos = await cargarPedidosVivos(staff.restaurante_id)
 
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-marca-texto-suave">
-        {pedidos.length === 0
-          ? 'Nada en curso.'
-          : `${pedidos.length} ${pedidos.length === 1 ? 'pedido' : 'pedidos'} en curso, del más nuevo al más viejo.`}
-      </p>
-      <PedidosVivoCliente pedidos={pedidos} servidorAhoraISO={new Date().toISOString()} />
-    </div>
-  )
+  // El conteo y los filtros por canal los pinta el propio componente.
+  return <PedidosVivoCliente pedidos={pedidos} servidorAhoraISO={new Date().toISOString()} />
 }

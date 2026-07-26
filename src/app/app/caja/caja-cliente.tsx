@@ -15,6 +15,7 @@ import {
 } from '@/components/iconos'
 import { useToast } from '@/components/toast'
 import { Boton } from '@/components/ui/boton'
+import { FichaCliente } from '@/components/ui/ficha-cliente'
 import { Pildora, type TonoPildora } from '@/components/ui/pildora'
 import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
 import { Vacio } from '@/components/ui/vacio'
@@ -634,12 +635,13 @@ function ColCliente({
   telefono: string | null
   extra: string | null
 }) {
+  if (!nombre && !telefono) {
+    return <p className="text-sm text-marca-texto-suave">Sin datos del cliente</p>
+  }
   return (
-    <div className="min-w-0">
-      <p className="truncate font-medium text-marca-texto">{nombre ?? 'Sin nombre'}</p>
-      <p className="truncate text-xs text-marca-texto-suave">
-        {[telefono, extra].filter(Boolean).join(' · ') || '—'}
-      </p>
+    <div className="min-w-0 space-y-1">
+      <FichaCliente nombre={nombre} telefono={telefono} />
+      {extra ? <p className="truncate text-xs text-marca-texto-suave">{extra}</p> : null}
     </div>
   )
 }
