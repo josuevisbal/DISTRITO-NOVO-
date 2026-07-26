@@ -2,9 +2,12 @@
 
 import { useRef, useState, type CSSProperties } from 'react'
 
-import { IconoAlerta, IconoCheck } from '@/components/iconos'
+import { IconoAlerta, IconoCheck, IconoPorcentaje } from '@/components/iconos'
 import { Interruptor } from '@/components/interruptor'
 import { useToast } from '@/components/toast'
+import { Boton } from '@/components/ui/boton'
+import { Pildora } from '@/components/ui/pildora'
+import { Vacio } from '@/components/ui/vacio'
 import { alternarPromo, guardarPromo, quitarFotoPromo, subirFotoPromo } from './acciones'
 
 export type PromoAdmin = {
@@ -28,9 +31,9 @@ const NOMBRE_TIPO: Record<string, string> = {
 export function PromosAdmin({ promos }: { promos: PromoAdmin[] }) {
   if (promos.length === 0) {
     return (
-      <p className="mx-auto max-w-2xl px-4 pt-6 text-marca-texto-suave">
-        No hay promociones cargadas.
-      </p>
+      <div className="mx-auto max-w-2xl px-4 pt-6">
+        <Vacio texto="No hay promociones cargadas." Icono={IconoPorcentaje} />
+      </div>
     )
   }
   return (
@@ -71,14 +74,11 @@ function TarjetaPromo({ promo, indice }: { promo: PromoAdmin; indice: number }) 
   }
 
   return (
-    <article
-      className="entra rounded-xl border border-marca-borde bg-marca-superficie p-4"
-      style={{ '--i': indice } as CSSProperties}
-    >
+    <article className="tarjeta tarjeta-hover entra p-4" style={{ '--i': indice } as CSSProperties}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <span className="rounded-full border border-marca-borde px-2.5 py-0.5 text-xs text-marca-texto-suave">
+        <Pildora tono="gris" punto={false}>
           {NOMBRE_TIPO[promo.tipo] ?? promo.tipo}
-        </span>
+        </Pildora>
         <Interruptor activa={promo.activa} onCambiar={(v) => alternarPromo(promo.id, v)} />
       </div>
 
@@ -108,15 +108,15 @@ function TarjetaPromo({ promo, indice }: { promo: PromoAdmin; indice: number }) 
         </p>
       ) : null}
 
-      <button
-        type="button"
+      <Boton
+        variante="primario"
+        className="mt-4 flex items-center justify-center gap-1.5 px-4"
         onClick={guardar}
         disabled={guardando}
-        className="mt-4 flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto disabled:opacity-60"
       >
         {guardado ? <IconoCheck className="size-4" /> : null}
         {guardando ? 'Guardando…' : guardado ? 'Guardado' : 'Guardar cambios'}
-      </button>
+      </Boton>
     </article>
   )
 }
@@ -182,40 +182,30 @@ function FotoPromo({ promo }: { promo: PromoAdmin }) {
           />
           {pendiente ? (
             <>
-              <button
-                type="button"
-                onClick={guardarFoto}
-                disabled={ocupado}
-                className="min-h-11 rounded-lg bg-marca-acento px-3 text-sm font-medium text-marca-acento-texto disabled:opacity-60"
-              >
+              <Boton variante="primario" className="px-3" onClick={guardarFoto} disabled={ocupado}>
                 {ocupado ? 'Subiendo…' : 'Guardar foto'}
-              </button>
-              <button
-                type="button"
-                onClick={limpiar}
-                disabled={ocupado}
-                className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave"
-              >
+              </Boton>
+              <Boton variante="secundario" className="px-3" onClick={limpiar} disabled={ocupado}>
                 Cancelar
-              </button>
+              </Boton>
             </>
           ) : (
             <>
-              <button
-                type="button"
+              <Boton
+                variante="secundario"
+                className="px-3 text-marca-texto"
                 onClick={() => inputRef.current?.click()}
-                className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto"
               >
                 {promo.imagen_url ? 'Cambiar foto' : 'Subir foto de fondo'}
-              </button>
+              </Boton>
               {promo.imagen_url ? (
-                <button
-                  type="button"
+                <Boton
+                  variante="secundario"
+                  className="px-3"
                   onClick={() => quitarFotoPromo(promo.id)}
-                  className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave"
                 >
                   Quitar
-                </button>
+                </Boton>
               ) : null}
             </>
           )}

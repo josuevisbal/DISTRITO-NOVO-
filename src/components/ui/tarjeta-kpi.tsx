@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react'
 
+import { IconoBajar, IconoSubir } from '@/components/iconos'
 import { formatearPesos } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
 
@@ -21,6 +22,13 @@ export type SubKpi = {
   porcentaje?: number
 }
 
+export type VariacionKpi = {
+  /** % de cambio vs el período anterior; null cuando no hay base de comparación. */
+  pct: number | null
+  /** Contra qué se compara: "junio", "mes anterior". */
+  contra: string
+}
+
 export function TarjetaKpi({
   titulo,
   valor,
@@ -28,6 +36,7 @@ export function TarjetaKpi({
   color,
   Icono,
   sub,
+  variacion,
   indice = 0,
 }: {
   titulo: string
@@ -37,6 +46,8 @@ export function TarjetaKpi({
   color: string
   Icono: (p: { className?: string }) => React.ReactNode
   sub?: SubKpi
+  /** Comparación vs el período anterior, con flecha verde/roja. */
+  variacion?: VariacionKpi
   indice?: number
 }) {
   const animado = useConteo(valor)
@@ -106,6 +117,25 @@ export function TarjetaKpi({
               </div>
             ) : null}
           </div>
+        ) : null}
+
+        {variacion ? (
+          variacion.pct !== null ? (
+            <p
+              className="mt-1.5 flex items-center gap-1 text-xs font-medium"
+              style={{ color: variacion.pct >= 0 ? '#116B47' : '#9A3320' }}
+            >
+              {variacion.pct >= 0 ? (
+                <IconoSubir className="size-3.5" />
+              ) : (
+                <IconoBajar className="size-3.5" />
+              )}
+              {variacion.pct >= 0 ? '+' : ''}
+              {variacion.pct}% vs {variacion.contra}
+            </p>
+          ) : (
+            <p className="mt-1.5 text-xs text-marca-texto-suave">Sin datos de {variacion.contra}</p>
+          )
         ) : null}
       </div>
     </article>

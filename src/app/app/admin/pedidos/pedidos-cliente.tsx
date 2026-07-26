@@ -2,26 +2,29 @@
 
 import { useEffect, useState, type CSSProperties } from 'react'
 
-import { IconoCheck, IconoMoto, IconoReloj } from '@/components/iconos'
+import { IconoCheck, IconoMoto, IconoPin, IconoReloj } from '@/components/iconos'
+import { Pildora, type TonoPildora } from '@/components/ui/pildora'
+import { Vacio } from '@/components/ui/vacio'
 import type { EstadoPedido, PedidoVivo } from '@/lib/datos/pedidos-vivo'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
 import { haceCuanto } from '@/lib/tiempo'
 
 /**
- * Píldoras de estado: colores fijos del sistema sobre fondo claro (no de marca), siempre
- * acompañados del texto del estado. El rojo queda para lo que exige acción humana.
+ * Estados con los tonos del sistema: rojo exige acción, ámbar espera una decisión,
+ * azul está en proceso, verde terminó bien, gris ya no corre. El ícono acompaña
+ * al texto — nunca color solo.
  */
-const PILDORA: Record<EstadoPedido, { texto: string; clase: string }> = {
-  esperando_pago: { texto: 'Esperando pago', clase: 'border-red-300 bg-red-50 text-red-900' },
-  pendiente: { texto: 'Por confirmar', clase: 'border-amber-300 bg-amber-50 text-amber-900' },
-  en_cocina: { texto: 'En cocina', clase: 'border-sky-300 bg-sky-50 text-sky-900' },
-  listo: { texto: 'Listo', clase: 'border-emerald-300 bg-emerald-50 text-emerald-900' },
-  en_despacho: { texto: 'En despacho', clase: 'border-violet-300 bg-violet-50 text-violet-900' },
-  en_camino: { texto: 'En camino', clase: 'border-cyan-300 bg-cyan-50 text-cyan-900' },
-  entregado: { texto: 'Entregado · por legalizar', clase: 'border-emerald-400 bg-emerald-50 text-emerald-900' },
-  cerrado: { texto: 'Cerrado', clase: 'border-marca-borde bg-marca-superficie-tenue text-marca-texto-suave' },
-  anulado: { texto: 'Anulado', clase: 'border-marca-borde bg-marca-superficie-tenue text-marca-texto-suave' },
+const ESTADO: Record<EstadoPedido, { texto: string; tono: TonoPildora }> = {
+  esperando_pago: { texto: 'Esperando pago', tono: 'rojo' },
+  pendiente: { texto: 'Por confirmar', tono: 'ambar' },
+  en_cocina: { texto: 'En cocina', tono: 'azul' },
+  listo: { texto: 'Listo', tono: 'verde' },
+  en_despacho: { texto: 'En despacho', tono: 'azul' },
+  en_camino: { texto: 'En camino', tono: 'azul' },
+  entregado: { texto: 'Entregado · por legalizar', tono: 'verde' },
+  cerrado: { texto: 'Cerrado', tono: 'gris' },
+  anulado: { texto: 'Anulado', tono: 'gris' },
 }
 
 const NOMBRE_CANAL: Record<string, string> = {
@@ -51,14 +54,7 @@ export function PedidosVivoCliente({
   }, [servidorAhoraISO])
 
   if (pedidos.length === 0) {
-    return (
-      <div className="tarjeta p-10 text-center">
-        <p className="flex items-center justify-center gap-2 text-marca-texto-suave">
-          <IconoCheck className="size-5 shrink-0 text-marca-acento-fuerte" />
-          No hay pedidos en curso ahora mismo.
-        </p>
-      </div>
-    )
+    return <Vacio texto="No hay pedidos en curso ahora mismo." Icono={IconoCheck} />
   }
 
   return (
@@ -79,50 +75,71 @@ function FilaPedido({
   ahora: number
   indice: number
 }) {
-  const pildora = PILDORA[pedido.estado]
+  const estado = ESTADO[pedido.estado]
+
+  // Qué lleva, completo: "2× Salchipapa sencilla · 1× Agua".
+  const productos = pedido.productos
+    .map((p) => `${p.cantidad}× ${p.nombre}`)
+    .join(' · ')
+
+  const contacto = [pedido.cliente, pedido.telefono].filter(Boolean).join(' · ')
+  const lugar = [pedido.direccion, pedido.zona].filter(Boolean).join(' · ')
 
   return (
     <li
-      className="tarjeta tarjeta-hover entra flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
+      className="tarjeta tarjeta-hover entra px-4 py-3"
       style={{ '--i': Math.min(indice, 8) } as CSSProperties}
     >
-      <div className="min-w-24">
-        <p className="font-semibold text-marca-texto">
-          {pedido.mesa ? `Mesa ${pedido.mesa}` : `#${pedido.numero}`}
-        </p>
-        <p className="text-xs text-marca-texto-suave">
-          {NOMBRE_CANAL[pedido.canal] ?? pedido.canal}
-          {pedido.cliente ? ` · ${pedido.cliente}` : ''}
-        </p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-24">
+          <p className="font-semibold text-marca-texto">
+            {pedido.mesa ? `Mesa ${pedido.mesa}` : `#${pedido.numero}`}
+          </p>
+          <p className="text-xs text-marca-texto-suave">
+            {NOMBRE_CANAL[pedido.canal] ?? pedido.canal}
+            {contacto ? ` · ${contacto}` : ''}
+          </p>
+        </div>
+
+        <Pildora tono={estado.tono} punto={false}>
+          {pedido.estado === 'en_camino' ? (
+            <IconoMoto className="size-3.5 shrink-0" />
+          ) : pedido.estado === 'listo' || pedido.estado === 'entregado' ? (
+            <IconoCheck className="size-3.5 shrink-0" />
+          ) : (
+            <IconoReloj className="size-3.5 shrink-0" />
+          )}
+          {estado.texto}
+        </Pildora>
+
+        {pedido.estado === 'en_cocina' && pedido.comandasTotal > 0 ? (
+          <span className="text-xs tabular-nums text-marca-texto-suave">
+            Estaciones listas: {pedido.comandasListas}/{pedido.comandasTotal}
+          </span>
+        ) : null}
+
+        <span className="ml-auto text-xs tabular-nums text-marca-texto-suave">
+          {pedido.unidades} {pedido.unidades === 1 ? 'ítem' : 'ítems'} ·{' '}
+          {haceCuanto(new Date(pedido.creado_en).getTime(), ahora)}
+        </span>
+
+        <span className="w-24 text-right font-semibold tabular-nums text-marca-texto">
+          {formatearPesos(pedido.total)}
+        </span>
       </div>
 
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${pildora.clase}`}
-      >
-        {pedido.estado === 'en_camino' ? (
-          <IconoMoto className="size-3.5 shrink-0" />
-        ) : pedido.estado === 'listo' || pedido.estado === 'entregado' ? (
-          <IconoCheck className="size-3.5 shrink-0" />
-        ) : (
-          <IconoReloj className="size-3.5 shrink-0" />
-        )}
-        {pildora.texto}
-      </span>
-
-      {pedido.estado === 'en_cocina' && pedido.comandasTotal > 0 ? (
-        <span className="text-xs tabular-nums text-marca-texto-suave">
-          Estaciones listas: {pedido.comandasListas}/{pedido.comandasTotal}
-        </span>
+      {/* Detalle completo: qué lleva y, en domicilios, a dónde va. */}
+      {productos ? (
+        <p className="mt-2 border-t border-marca-borde pt-2 text-sm text-marca-texto">
+          {productos}
+        </p>
       ) : null}
-
-      <span className="ml-auto text-xs tabular-nums text-marca-texto-suave">
-        {pedido.unidades} {pedido.unidades === 1 ? 'ítem' : 'ítems'} ·{' '}
-        {haceCuanto(new Date(pedido.creado_en).getTime(), ahora)}
-      </span>
-
-      <span className="w-24 text-right font-semibold tabular-nums text-marca-texto">
-        {formatearPesos(pedido.total)}
-      </span>
+      {lugar ? (
+        <p className="mt-1 flex items-start gap-1.5 text-xs text-marca-texto-suave">
+          <IconoPin className="mt-0.5 size-3.5 shrink-0" />
+          {lugar}
+        </p>
+      ) : null}
     </li>
   )
 }

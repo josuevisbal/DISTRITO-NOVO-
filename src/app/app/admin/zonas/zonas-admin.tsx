@@ -4,6 +4,7 @@ import { useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck, IconoMas } from '@/components/iconos'
 import { useToast } from '@/components/toast'
+import { Boton } from '@/components/ui/boton'
 import { formatearPesos } from '@/lib/formato'
 import { alternarZona, guardarZona } from './acciones'
 
@@ -55,7 +56,7 @@ function FilaZona({
 
   return (
     <div
-      className="entra flex flex-wrap items-end gap-3 rounded-xl border border-marca-borde bg-marca-superficie p-3"
+      className="tarjeta entra flex flex-wrap items-end gap-3 p-3"
       style={{ '--i': indice } as CSSProperties}
     >
       <label className="min-w-32 flex-1">
@@ -79,28 +80,24 @@ function FilaZona({
         />
       </label>
 
-      <button
-        type="button"
+      <Boton
+        variante="primario"
+        className="flex items-center gap-1.5 px-4"
         onClick={guardar}
         disabled={guardando}
-        className="flex min-h-11 items-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto disabled:opacity-60"
       >
         {nueva ? <IconoMas className="size-4" /> : guardado ? <IconoCheck className="size-4" /> : null}
         {guardando ? 'Guardando…' : nueva ? 'Agregar' : guardado ? 'Guardado' : 'Guardar'}
-      </button>
+      </Boton>
 
       {!nueva && zona ? (
-        <button
-          type="button"
+        <Boton
+          variante="secundario"
+          className={`px-3 ${zona.activa ? '' : 'border-marca-acento text-marca-acento-fuerte'}`}
           onClick={() => alternarZona(zona.id, !zona.activa)}
-          className={`min-h-11 rounded-lg border px-3 text-sm ${
-            zona.activa
-              ? 'border-marca-borde text-marca-texto-suave'
-              : 'border-marca-acento text-marca-acento-fuerte'
-          }`}
         >
           {zona.activa ? 'Activa' : 'Inactiva'}
-        </button>
+        </Boton>
       ) : null}
 
       {!nueva && zona ? (

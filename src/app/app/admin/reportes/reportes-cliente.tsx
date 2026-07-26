@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   Line,
   LineChart,
@@ -11,10 +11,11 @@ import {
   YAxis,
 } from 'recharts'
 
-import { IconoSubir, IconoBajar } from '@/components/iconos'
+import { IconoBillete, IconoBolsa, IconoEtiqueta, IconoGrafica, IconoReloj } from '@/components/iconos'
 import { Segmentado } from '@/components/segmentado'
+import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
+import { Vacio } from '@/components/ui/vacio'
 import { formatearPesos } from '@/lib/formato'
-import { useConteo } from '@/lib/use-conteo'
 
 export type ReporteMes = {
   total_ventas: number
@@ -51,6 +52,17 @@ export function ReportesCliente({
     actual.por_estacion.reduce((s, e) => s + e.total, 0),
   )
 
+  // Las barras crecen desde cero al montar; en pestañas ocultas saltan al ancho final.
+  const [montado, setMontado] = useState(false)
+  useEffect(() => {
+    if (document.visibilityState === 'hidden') {
+      setMontado(true)
+      return
+    }
+    const id = requestAnimationFrame(() => setMontado(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -67,28 +79,41 @@ export function ReportesCliente({
         />
       </div>
 
+      {/* KPIs con la tarjeta-indicador estándar y comparación vs mes anterior. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Kpi
+        <TarjetaKpi
           titulo="Ventas del mes"
           valor={actual.total_ventas}
-          previo={anterior?.total_ventas ?? null}
           dinero
-          nombreMesAnterior={nombreMesAnterior}
+          color="#B8862B"
+          Icono={IconoBillete}
+          variacion={{
+            pct: variacionPct(actual.total_ventas, anterior?.total_ventas),
+            contra: nombreMesAnterior,
+          }}
           indice={0}
         />
-        <Kpi
+        <TarjetaKpi
           titulo="Pedidos"
           valor={actual.num_pedidos}
-          previo={anterior?.num_pedidos ?? null}
-          nombreMesAnterior={nombreMesAnterior}
+          color="#5B6BF0"
+          Icono={IconoBolsa}
+          variacion={{
+            pct: variacionPct(actual.num_pedidos, anterior?.num_pedidos),
+            contra: nombreMesAnterior,
+          }}
           indice={1}
         />
-        <Kpi
+        <TarjetaKpi
           titulo="Ticket promedio"
           valor={actual.ticket_promedio}
-          previo={anterior?.ticket_promedio ?? null}
           dinero
-          nombreMesAnterior={nombreMesAnterior}
+          color="#2E9E8F"
+          Icono={IconoEtiqueta}
+          variacion={{
+            pct: variacionPct(actual.ticket_promedio, anterior?.ticket_promedio),
+            contra: nombreMesAnterior,
+          }}
           indice={2}
         />
       </div>
@@ -99,7 +124,7 @@ export function ReportesCliente({
             Ventas por día · <span className="capitalize">{mesSeleccionado.etiqueta}</span>
           </h2>
           {actual.por_dia.length === 0 ? (
-            <p className="text-sm text-marca-texto-suave">Sin ventas en este mes.</p>
+            <Vacio texto="Sin ventas en este mes." Icono={IconoGrafica} />
           ) : (
             <GraficaVentas datos={actual.por_dia} />
           )}
@@ -119,7 +144,7 @@ export function ReportesCliente({
                   <div className="h-2.5 overflow-hidden rounded-full bg-marca-superficie-tenue">
                     <div
                       className="h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none"
-                      style={{ width: `${pct}%`, backgroundColor: e.color }}
+                      style={{ width: montado ? `${pct}%` : '0%', backgroundColor: e.color }}
                     />
                   </div>
                 </li>
@@ -131,7 +156,7 @@ export function ReportesCliente({
             Lo más vendido
           </h3>
           {actual.top_productos.length === 0 ? (
-            <p className="text-sm text-marca-texto-suave">Sin ventas aún.</p>
+            <Vacio texto="Sin ventas aún." Icono={IconoReloj} />
           ) : (
             <ol className="space-y-1.5">
               {actual.top_productos.map((p, i) => (
@@ -155,47 +180,9 @@ export function ReportesCliente({
   )
 }
 
-function Kpi({
-  titulo,
-  valor,
-  previo,
-  dinero = false,
-  nombreMesAnterior,
-  indice,
-}: {
-  titulo: string
-  valor: number
-  previo: number | null
-  dinero?: boolean
-  nombreMesAnterior: string
-  indice: number
-}) {
-  const animado = useConteo(valor)
-
-  // Variación vs. mes anterior. Sin base de comparación (mes anterior en 0), no se inventa.
-  const variacion = previo && previo > 0 ? Math.round(((valor - previo) / previo) * 100) : null
-  const sube = variacion !== null && variacion >= 0
-
-  return (
-    <div className="tarjeta tarjeta-hover entra p-4" style={{ '--i': indice } as CSSProperties}>
-      <p className="text-sm text-marca-texto-suave">{titulo}</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums text-marca-texto">
-        {dinero ? formatearPesos(animado) : animado}
-      </p>
-      {variacion !== null ? (
-        <p
-          className="mt-1.5 flex items-center gap-1 text-xs font-medium"
-          style={{ color: sube ? '#116B47' : '#9A3320' }}
-        >
-          {sube ? <IconoSubir className="size-3.5" /> : <IconoBajar className="size-3.5" />}
-          {sube ? '+' : ''}
-          {variacion}% vs {nombreMesAnterior}
-        </p>
-      ) : (
-        <p className="mt-1.5 text-xs text-marca-texto-suave">Sin datos de {nombreMesAnterior}</p>
-      )}
-    </div>
-  )
+/** Variación vs. mes anterior. Sin base de comparación (mes anterior en 0), no se inventa. */
+function variacionPct(valor: number, previo: number | null | undefined): number | null {
+  return previo && previo > 0 ? Math.round(((valor - previo) / previo) * 100) : null
 }
 
 function GraficaVentas({ datos }: { datos: { dia: number; total: number }[] }) {

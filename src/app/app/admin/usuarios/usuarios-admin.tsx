@@ -5,6 +5,8 @@ import { useState, type CSSProperties } from 'react'
 import { IconoAlerta, IconoCheck, IconoMas } from '@/components/iconos'
 import { Modal } from '@/components/modal'
 import { useToast } from '@/components/toast'
+import { Boton } from '@/components/ui/boton'
+import { Pildora } from '@/components/ui/pildora'
 import type { Database } from '@/lib/database.types'
 import { actualizarUsuario, crearUsuario, eliminarUsuario } from './acciones'
 
@@ -49,17 +51,17 @@ export function UsuariosAdmin({
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button
-          type="button"
+        <Boton
+          variante="primario"
+          className="flex items-center gap-1.5 px-4"
           onClick={(e) => {
             setOrigen({ x: e.clientX, y: e.clientY })
             setCreando(true)
           }}
-          className="flex min-h-11 items-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto"
         >
           <IconoMas className="size-4" />
           Crear usuario
-        </button>
+        </Boton>
       </div>
 
       {creando ? (
@@ -157,22 +159,18 @@ function FormularioCrear({ roles, onListo }: { roles: Rol[]; onListo: () => void
       ) : null}
 
       <div className="flex gap-2">
-        <button
-          type="button"
+        <Boton
+          variante="primario"
+          className="flex items-center gap-1.5 px-4"
           onClick={crear}
           disabled={enviando}
-          className="flex min-h-11 items-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto disabled:opacity-60"
         >
           <IconoCheck className="size-4" />
           {enviando ? 'Creando…' : 'Crear usuario'}
-        </button>
-        <button
-          type="button"
-          onClick={onListo}
-          className="min-h-11 rounded-lg border border-marca-borde px-4 text-sm text-marca-texto-suave"
-        >
+        </Boton>
+        <Boton variante="secundario" className="px-4" onClick={onListo}>
           Cancelar
-        </button>
+        </Boton>
       </div>
     </div>
   )
@@ -247,9 +245,9 @@ function FilaUsuario({
       <p className="min-w-0 truncate text-sm text-marca-texto-suave">{usuario.correo ?? '—'}</p>
 
       {bloqueada ? (
-        <span className="inline-flex w-fit rounded-full border border-marca-acento px-3 py-1 text-sm font-medium capitalize text-marca-acento-fuerte">
+        <Pildora tono="ambar" className="w-fit capitalize">
           {NOMBRE_ROL[usuario.rol]}
-        </span>
+        </Pildora>
       ) : (
         <select
           value={rol}
@@ -291,33 +289,27 @@ function FilaUsuario({
       <div className="flex justify-end">
         {confirmando ? (
           <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={eliminar}
-              disabled={ocupado}
-              className="min-h-11 rounded-lg px-3 text-sm font-bold text-white disabled:opacity-60"
-              style={{ backgroundColor: '#D64533' }}
-            >
+            <Boton variante="peligro" className="px-3" onClick={eliminar} disabled={ocupado}>
               {ocupado ? '…' : 'Sí'}
-            </button>
-            <button
-              type="button"
+            </Boton>
+            <Boton
+              variante="secundario"
+              className="px-3"
               onClick={() => setConfirmando(false)}
               disabled={ocupado}
-              className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave"
             >
               No
-            </button>
+            </Boton>
           </div>
         ) : (
-          <button
-            type="button"
+          <Boton
+            variante="secundario"
+            className="px-3 transition-colors hover:border-[#D64533] hover:text-[#D64533]"
             disabled={!puedeEliminar}
             onClick={() => setConfirmando(true)}
-            className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave transition-colors hover:border-[#D64533] hover:text-[#D64533] disabled:opacity-40"
           >
             Eliminar
-          </button>
+          </Boton>
         )}
       </div>
 
