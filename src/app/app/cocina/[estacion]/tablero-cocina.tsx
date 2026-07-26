@@ -43,6 +43,8 @@ type Props = {
   servidorAhoraISO: string
   /** Barra de sesión (server component) que se pinta dentro del tema elegido. */
   barraStaff: ReactNode
+  /** Pestañas para cambiar de estación, pintadas dentro del tema elegido. */
+  pestanas?: ReactNode
 }
 
 const NOMBRE_CANAL: Record<string, string> = {
@@ -82,6 +84,7 @@ export function TableroCocina({
   color,
   servidorAhoraISO,
   barraStaff,
+  pestanas,
 }: Props) {
   const router = useRouter()
 
@@ -173,6 +176,7 @@ export function TableroCocina({
       className="min-h-screen bg-marca-fondo text-marca-texto"
     >
       {barraStaff}
+      {pestanas}
 
       {/* Barra de la estación: identidad, cola y reloj. */}
       <header className="sticky top-0 z-20 border-b border-marca-borde bg-marca-superficie">

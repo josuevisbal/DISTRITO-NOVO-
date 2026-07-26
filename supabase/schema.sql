@@ -38,7 +38,7 @@ create table if not exists usuarios (
   nombre text not null,
   correo text,                          -- espejo de auth.users.email para el panel de Equipo
   rol rol_usuario not null,
-  estacion_id uuid,                     -- solo para rol 'cocina'
+  estacion_id uuid,                     -- histórico; ya no aplica (cocina es pantalla única)
   activo boolean not null default true,
   creado_en timestamptz not null default now()
 );
@@ -1011,14 +1011,16 @@ create policy staff_ped_upd on pedidos for update to authenticated
 create policy staff_items on pedido_items for select to authenticated
   using (exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante()));
 
--- cocina: ve y actualiza SOLO las comandas de su estación, y solo las ya disparadas
+-- cocina: pantalla única. Ve y opera comandas de CUALQUIER estación de SU
+-- restaurante (ya disparadas). La estación que ve la elige el filtro de la
+-- interfaz, no el usuario; sigue sin ver precios ni datos del cliente.
 create policy cocina_comandas on comandas for select to authenticated using (
   exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante())
-  and (mi_rol() <> 'cocina' or (estacion_id = mi_estacion() and disparo_en <= now()))
+  and (mi_rol() <> 'cocina' or disparo_en <= now())
 );
 create policy cocina_comandas_upd on comandas for update to authenticated using (
   exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante())
-  and (mi_rol() in ('admin','dueno','pase') or (mi_rol() = 'cocina' and estacion_id = mi_estacion()))
+  and mi_rol() in ('admin','dueno','pase','cocina')
 );
 
 -- domiciliario: SOLO los pedidos que le asignaron

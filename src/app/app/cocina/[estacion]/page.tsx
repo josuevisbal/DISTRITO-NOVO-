@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { BarraStaff } from '@/components/barra-staff'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { PestanasEstacion } from './pestanas-estacion'
 import { TableroCocina, type Ticket } from './tablero-cocina'
 
 export const dynamic = 'force-dynamic'
@@ -16,13 +17,15 @@ export default async function PaginaEstacion({
   const staff = await exigirRol('cocina', 'admin', 'pase')
   const supabase = await crearClienteServidor()
 
-  const { data: est } = await supabase
+  // Todas las estaciones activas para las pestañas; la actual se resuelve del listado.
+  const { data: estaciones } = await supabase
     .from('estaciones')
-    .select('id, nombre, color')
+    .select('id, slug, nombre, color')
     .eq('restaurante_id', staff.restaurante_id)
-    .eq('slug', estacion)
-    .maybeSingle()
+    .eq('activa', true)
+    .order('orden')
 
+  const est = (estaciones ?? []).find((e) => e.slug === estacion)
   if (!est) notFound()
 
   const ahora = new Date()
@@ -80,6 +83,11 @@ export default async function PaginaEstacion({
       color={est.color}
       servidorAhoraISO={ahora.toISOString()}
       barraStaff={<BarraStaff staff={staff} titulo={`Cocina · ${est.nombre}`} />}
+      pestanas={
+        (estaciones?.length ?? 0) > 1 ? (
+          <PestanasEstacion estaciones={estaciones ?? []} actual={estacion} />
+        ) : null
+      }
     />
   )
 }

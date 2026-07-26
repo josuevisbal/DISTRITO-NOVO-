@@ -15,10 +15,8 @@ export type UsuarioAdmin = {
   nombre: string
   correo: string | null
   rol: Rol
-  estacion_id: string | null
   activo: boolean
 }
-export type EstacionOpcion = { id: string; nombre: string }
 
 const ROLES_OPERACION: Rol[] = ['cajero', 'mesero', 'cocina', 'pase', 'domiciliario']
 
@@ -34,12 +32,10 @@ const NOMBRE_ROL: Record<Rol, string> = {
 
 export function UsuariosAdmin({
   usuarios,
-  estaciones,
   yoId,
   miRol,
 }: {
   usuarios: UsuarioAdmin[]
-  estaciones: EstacionOpcion[]
   yoId: string
   miRol: Rol
 }) {
@@ -68,11 +64,7 @@ export function UsuariosAdmin({
 
       {creando ? (
         <Modal titulo="Nuevo usuario" origen={origen} onCerrar={() => setCreando(false)}>
-          <FormularioCrear
-            estaciones={estaciones}
-            roles={rolesDisponibles}
-            onListo={() => setCreando(false)}
-          />
+          <FormularioCrear roles={rolesDisponibles} onListo={() => setCreando(false)} />
         </Modal>
       ) : null}
 
@@ -80,7 +72,7 @@ export function UsuariosAdmin({
       <div className="hidden grid-cols-[1.4fr_1fr_9rem_6rem_6rem] gap-3 px-3 text-xs font-semibold uppercase tracking-wider text-marca-texto-suave sm:grid">
         <span>Nombre</span>
         <span>Correo</span>
-        <span>Rol / estación</span>
+        <span>Rol</span>
         <span>Acceso</span>
         <span className="text-right">Eliminar</span>
       </div>
@@ -90,7 +82,6 @@ export function UsuariosAdmin({
           <FilaUsuario
             key={u.id}
             usuario={u}
-            estaciones={estaciones}
             esYo={u.id === yoId}
             miRol={miRol}
             rolesDisponibles={rolesDisponibles}
@@ -102,20 +93,11 @@ export function UsuariosAdmin({
   )
 }
 
-function FormularioCrear({
-  estaciones,
-  roles,
-  onListo,
-}: {
-  estaciones: EstacionOpcion[]
-  roles: Rol[]
-  onListo: () => void
-}) {
+function FormularioCrear({ roles, onListo }: { roles: Rol[]; onListo: () => void }) {
   const [nombre, setNombre] = useState('')
   const [correo, setCorreo] = useState('')
   const [clave, setClave] = useState('')
   const [rol, setRol] = useState<Rol>('cajero')
-  const [estacion, setEstacion] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { mostrar } = useToast()
@@ -123,13 +105,7 @@ function FormularioCrear({
   async function crear() {
     setEnviando(true)
     setError(null)
-    const r = await crearUsuario({
-      nombre,
-      correo,
-      clave,
-      rol,
-      estacion_id: estacion || null,
-    })
+    const r = await crearUsuario({ nombre, correo, clave, rol })
     setEnviando(false)
     if (!r.ok) {
       setError(r.error)
@@ -157,39 +133,20 @@ function FormularioCrear({
           tipo="text"
           marcador="Mínimo 8 caracteres"
         />
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="text-xs text-marca-texto-suave">Rol</span>
-            <select
-              value={rol}
-              onChange={(e) => setRol(e.target.value as Rol)}
-              className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-2 text-marca-texto"
-            >
-              {roles.map((r) => (
-                <option key={r} value={r}>
-                  {NOMBRE_ROL[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-          {rol === 'cocina' ? (
-            <label className="block">
-              <span className="text-xs text-marca-texto-suave">Estación</span>
-              <select
-                value={estacion}
-                onChange={(e) => setEstacion(e.target.value)}
-                className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-2 text-marca-texto"
-              >
-                <option value="">—</option>
-                {estaciones.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-        </div>
+        <label className="block">
+          <span className="text-xs text-marca-texto-suave">Rol</span>
+          <select
+            value={rol}
+            onChange={(e) => setRol(e.target.value as Rol)}
+            className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-2 text-marca-texto"
+          >
+            {roles.map((r) => (
+              <option key={r} value={r}>
+                {NOMBRE_ROL[r]}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {error ? (
@@ -223,21 +180,18 @@ function FormularioCrear({
 
 function FilaUsuario({
   usuario,
-  estaciones,
   esYo,
   miRol,
   rolesDisponibles,
   indice,
 }: {
   usuario: UsuarioAdmin
-  estaciones: EstacionOpcion[]
   esYo: boolean
   miRol: Rol
   rolesDisponibles: Rol[]
   indice: number
 }) {
   const [rol, setRol] = useState<Rol>(usuario.rol)
-  const [estacion, setEstacion] = useState(usuario.estacion_id ?? '')
   const [activo, setActivo] = useState(usuario.activo)
   const [confirmando, setConfirmando] = useState(false)
   const [eliminado, setEliminado] = useState(false)
@@ -297,44 +251,24 @@ function FilaUsuario({
           {NOMBRE_ROL[usuario.rol]}
         </span>
       ) : (
-        <div className="flex gap-1.5">
-          <select
-            value={rol}
-            onChange={(e) => {
-              const nuevo = e.target.value as Rol
-              setRol(nuevo)
-              aplicar({ rol: nuevo, estacion_id: estacion || null })
-            }}
-            className="min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-2 text-sm capitalize text-marca-texto"
-          >
-            {(rolesDisponibles.includes(usuario.rol)
-              ? rolesDisponibles
-              : [usuario.rol, ...rolesDisponibles]
-            ).map((r) => (
-              <option key={r} value={r}>
-                {NOMBRE_ROL[r]}
-              </option>
-            ))}
-          </select>
-          {rol === 'cocina' ? (
-            <select
-              value={estacion}
-              onChange={(e) => {
-                setEstacion(e.target.value)
-                aplicar({ rol, estacion_id: e.target.value || null })
-              }}
-              aria-label="Estación"
-              className="min-h-11 w-24 rounded-lg border border-marca-borde bg-marca-fondo px-1.5 text-sm text-marca-texto"
-            >
-              <option value="">—</option>
-              {estaciones.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nombre}
-                </option>
-              ))}
-            </select>
-          ) : null}
-        </div>
+        <select
+          value={rol}
+          onChange={(e) => {
+            const nuevo = e.target.value as Rol
+            setRol(nuevo)
+            aplicar({ rol: nuevo })
+          }}
+          className="min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-2 text-sm capitalize text-marca-texto"
+        >
+          {(rolesDisponibles.includes(usuario.rol)
+            ? rolesDisponibles
+            : [usuario.rol, ...rolesDisponibles]
+          ).map((r) => (
+            <option key={r} value={r}>
+              {NOMBRE_ROL[r]}
+            </option>
+          ))}
+        </select>
       )}
 
       <button

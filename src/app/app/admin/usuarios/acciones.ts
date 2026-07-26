@@ -19,7 +19,7 @@ function puedeTocar(miRol: Rol, rolObjetivo: Rol, esYo: boolean): boolean {
 
 export async function actualizarUsuario(
   id: string,
-  cambios: { rol?: Rol; estacion_id?: string | null; activo?: boolean },
+  cambios: { rol?: Rol; activo?: boolean },
 ): Promise<Resultado> {
   const staff = await exigirRol('admin')
 
@@ -47,13 +47,12 @@ export async function actualizarUsuario(
   }
 
   const parche: Database['public']['Tables']['usuarios']['Update'] = {}
-  if (cambios.rol !== undefined) parche.rol = cambios.rol
-  if (cambios.activo !== undefined) parche.activo = cambios.activo
-  // La estación solo aplica a cocina; en otros roles se limpia.
-  if (cambios.rol !== undefined || cambios.estacion_id !== undefined) {
-    parche.estacion_id =
-      (cambios.rol ?? undefined) === 'cocina' ? (cambios.estacion_id ?? null) : null
+  if (cambios.rol !== undefined) {
+    parche.rol = cambios.rol
+    // La estación ya no aplica a ningún rol (cocina es pantalla única): se limpia.
+    parche.estacion_id = null
   }
+  if (cambios.activo !== undefined) parche.activo = cambios.activo
 
   const { error } = await supabase
     .from('usuarios')
@@ -71,7 +70,6 @@ export async function crearUsuario(datos: {
   correo: string
   clave: string
   rol: Rol
-  estacion_id?: string | null
 }): Promise<Resultado> {
   await exigirRol('admin')
   const supabase = await crearClienteServidor()
@@ -82,7 +80,7 @@ export async function crearUsuario(datos: {
     p_correo: datos.correo,
     p_clave: datos.clave,
     p_rol: datos.rol,
-    p_estacion: datos.rol === 'cocina' ? (datos.estacion_id ?? null) : null,
+    p_estacion: null,
   })
   if (error) return { ok: false, error: error.message }
 
