@@ -61,10 +61,13 @@ export function PaseCliente({
   pedidos,
   despachos,
   domiciliarios,
+  soloLectura = false,
 }: {
   pedidos: PedidoPase[]
   despachos: Despacho[]
   domiciliarios: Domiciliario[]
+  /** Monitoreo del admin: espejo sin controles. Observa, no opera. */
+  soloLectura?: boolean
 }) {
   useRefrescarEnCambios(['pedidos', 'comandas'], { intervaloMs: 15000 })
 
@@ -131,9 +134,15 @@ export function PaseCliente({
         ) : (
           visibles.map((f, i) =>
             f.tipo === 'cocina' ? (
-              <FilaCocina key={f.key} pedido={f.pedido} indice={i} />
+              <FilaCocina key={f.key} pedido={f.pedido} indice={i} soloLectura={soloLectura} />
             ) : (
-              <FilaDespacho key={f.key} despacho={f.despacho} domiciliarios={domiciliarios} indice={i} />
+              <FilaDespacho
+                key={f.key}
+                despacho={f.despacho}
+                domiciliarios={domiciliarios}
+                indice={i}
+                soloLectura={soloLectura}
+              />
             ),
           )
         )}
@@ -188,7 +197,15 @@ function ColPedido({
   )
 }
 
-function FilaCocina({ pedido, indice }: { pedido: PedidoPase; indice: number }) {
+function FilaCocina({
+  pedido,
+  indice,
+  soloLectura,
+}: {
+  pedido: PedidoPase
+  indice: number
+  soloLectura: boolean
+}) {
   const [ocupado, setOcupado] = useState(false)
 
   async function liberar() {
@@ -220,18 +237,24 @@ function FilaCocina({ pedido, indice }: { pedido: PedidoPase; indice: number }) 
       </div>
 
       <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={liberar}
-          disabled={!pedido.listo || ocupado}
-          className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${
-            pedido.listo
-              ? 'bg-[#0B0B0C] text-marca-acento'
-              : 'cursor-not-allowed border border-marca-borde text-marca-texto-suave'
-          } disabled:opacity-60`}
-        >
-          {pedido.listo ? 'Liberar' : 'Esperando'}
-        </button>
+        {soloLectura ? (
+          <span className="min-h-11 rounded-lg px-4 text-sm font-semibold text-marca-texto-suave">
+            {pedido.listo ? 'Completo' : 'En cocina'}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={liberar}
+            disabled={!pedido.listo || ocupado}
+            className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${
+              pedido.listo
+                ? 'bg-[#0B0B0C] text-marca-acento'
+                : 'cursor-not-allowed border border-marca-borde text-marca-texto-suave'
+            } disabled:opacity-60`}
+          >
+            {pedido.listo ? 'Liberar' : 'Esperando'}
+          </button>
+        )}
       </div>
     </EnvolturaFila>
   )
@@ -266,10 +289,12 @@ function FilaDespacho({
   despacho,
   domiciliarios,
   indice,
+  soloLectura,
 }: {
   despacho: Despacho
   domiciliarios: Domiciliario[]
   indice: number
+  soloLectura: boolean
 }) {
   const [domi, setDomi] = useState(despacho.domiciliario_id ?? '')
   const [ocupado, setOcupado] = useState(false)
@@ -311,6 +336,13 @@ function FilaDespacho({
           : 'Empacado, listo para asignar'}
       </p>
 
+      {soloLectura ? (
+        <div className="flex justify-end">
+          <span className="min-h-11 rounded-lg px-4 text-sm font-semibold text-marca-texto-suave">
+            {despacho.domiciliario_nombre ?? 'Sin asignar'}
+          </span>
+        </div>
+      ) : (
       <div className="flex flex-col items-end gap-1.5">
         <div className="flex items-center gap-1.5">
           <label className="sr-only" htmlFor={`domi-${despacho.id}`}>
@@ -346,6 +378,7 @@ function FilaDespacho({
           </p>
         ) : null}
       </div>
+      )}
     </EnvolturaFila>
   )
 }

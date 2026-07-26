@@ -21,15 +21,24 @@ export type Entrega = {
   pagado: boolean
   nota_entrega: string | null
   items: { nombre: string; cantidad: number }[]
+  /** Quién la lleva. Solo se usa en el monitoreo del admin; el domiciliario es él mismo. */
+  domiciliario?: string | null
 }
 
-export function DomiciliosCliente({ entregas }: { entregas: Entrega[] }) {
+export function DomiciliosCliente({
+  entregas,
+  soloLectura = false,
+}: {
+  entregas: Entrega[]
+  /** Monitoreo del admin: espejo sin controles. Observa, no opera. */
+  soloLectura?: boolean
+}) {
   useRefrescarEnCambios(['pedidos'], { intervaloMs: 20000 })
 
   if (entregas.length === 0) {
     return (
       <p className="mx-auto mt-24 max-w-sm px-6 text-center text-lg text-marca-texto-suave">
-        No tienes entregas asignadas por ahora.
+        {soloLectura ? 'No hay entregas en curso por ahora.' : 'No tienes entregas asignadas por ahora.'}
       </p>
     )
   }
@@ -37,13 +46,21 @@ export function DomiciliosCliente({ entregas }: { entregas: Entrega[] }) {
   return (
     <ul className="mx-auto max-w-xl space-y-4 p-4">
       {entregas.map((e, i) => (
-        <TarjetaEntrega key={e.pedido_id} entrega={e} indice={i} />
+        <TarjetaEntrega key={e.pedido_id} entrega={e} indice={i} soloLectura={soloLectura} />
       ))}
     </ul>
   )
 }
 
-function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number }) {
+function TarjetaEntrega({
+  entrega,
+  indice,
+  soloLectura,
+}: {
+  entrega: Entrega
+  indice: number
+  soloLectura: boolean
+}) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Óptimista: el estado cambia o la tarjeta sale apenas el domiciliario toca.
@@ -91,6 +108,13 @@ function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number 
         </span>
       </div>
 
+      {/* En monitoreo se muestra quién la lleva; el domiciliario en operación es él mismo. */}
+      {soloLectura ? (
+        <p className="mt-1 text-sm text-marca-texto-suave">
+          Lleva: <span className="font-medium text-marca-texto">{entrega.domiciliario ?? 'Sin asignar'}</span>
+        </p>
+      ) : null}
+
       {/* Dirección grande: se lee de pie, con las manos ocupadas. */}
       <p className="mt-3 text-2xl font-semibold leading-tight text-marca-texto">
         {entrega.direccion ?? 'Sin dirección'}
@@ -116,7 +140,7 @@ function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number 
         </ul>
       </details>
 
-      {entrega.telefono ? (
+      {entrega.telefono && !soloLectura ? (
         <div className="mt-3 grid grid-cols-2 gap-2">
           <a
             href={enlaceLlamar(entrega.telefono)}
@@ -149,6 +173,7 @@ function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number 
         </p>
       ) : null}
 
+      {soloLectura ? null : (
       <div className="mt-4 flex flex-col gap-2">
         {estado === 'en_despacho' ? (
           <button
@@ -176,6 +201,7 @@ function TarjetaEntrega({ entrega, indice }: { entrega: Entrega; indice: number 
           </>
         )}
       </div>
+      )}
     </li>
   )
 }

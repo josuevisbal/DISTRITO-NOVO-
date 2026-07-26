@@ -6,13 +6,16 @@ import { usePathname } from 'next/navigation'
 
 import { cerrarSesion } from '@/app/app/login/acciones'
 import {
+  IconoBolsa,
   IconoCaja,
   IconoCampana,
   IconoCarta,
   IconoCerrar,
   IconoEquipo,
+  IconoFuego,
   IconoGrafica,
   IconoMenu,
+  IconoMoto,
   IconoPin,
   IconoPorcentaje,
   IconoSalir,
@@ -38,6 +41,13 @@ const MODULOS: Modulo[] = [
   { href: '/app/admin/caja', titulo: 'Caja y finanzas', Icono: IconoCaja },
   { href: '/app/admin/usuarios', titulo: 'Equipo', Icono: IconoEquipo },
   { href: '/app/admin/reportes', titulo: 'Reportes', Icono: IconoGrafica },
+]
+
+/** Espejo en vivo de cada puesto, en modo solo lectura. Ver, no operar. */
+const MONITOREO: Modulo[] = [
+  { href: '/app/admin/monitoreo/cocina', titulo: 'Pantallas de cocina', Icono: IconoFuego },
+  { href: '/app/admin/monitoreo/pase', titulo: 'Pase', Icono: IconoBolsa },
+  { href: '/app/admin/monitoreo/domicilios', titulo: 'Domicilios', Icono: IconoMoto },
 ]
 
 const NOMBRE_ROL: Record<Staff['rol'], string> = {
@@ -95,7 +105,7 @@ export function PanelArmazon({ staff, nombreRestaurante, children }: Props) {
     }
   }, [])
 
-  const activo = MODULOS.find((m) => ruta.startsWith(m.href))
+  const activo = [...MODULOS, ...MONITOREO].find((m) => ruta.startsWith(m.href))
 
   return (
     <div className="flex min-h-screen">
@@ -201,34 +211,52 @@ function ContenidoLateral({
       </div>
 
       <nav aria-label="Módulos" className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {MODULOS.map((m) => {
-          const activo = ruta.startsWith(m.href)
-          return (
-            <Link
-              key={m.href}
-              href={m.href}
-              aria-current={activo ? 'page' : undefined}
-              className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm transition-all duration-200 ${
-                activo
-                  ? 'bg-marca-acento font-semibold text-marca-acento-texto shadow-sm'
-                  : 'text-panel-lateral-texto-suave hover:translate-x-0.5 hover:bg-white/5 hover:text-panel-lateral-texto'
-              }`}
-            >
-              <m.Icono className="size-5 shrink-0" />
-              <span className="flex-1">{m.titulo}</span>
-              {m.href === '/app/admin/pedidos' && enVivo !== null && enVivo > 0 ? (
-                <span
-                  className={`flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
-                    activo ? 'bg-black/20 text-marca-acento-texto' : 'bg-red-600 text-white'
-                  }`}
-                >
-                  {enVivo}
-                </span>
-              ) : null}
-            </Link>
-          )
-        })}
+        {MODULOS.map((m) => (
+          <LinkModulo key={m.href} modulo={m} ruta={ruta} enVivo={enVivo} />
+        ))}
+
+        <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-wider text-panel-lateral-texto-suave">
+          Monitoreo en vivo
+        </p>
+        {MONITOREO.map((m) => (
+          <LinkModulo key={m.href} modulo={m} ruta={ruta} enVivo={enVivo} />
+        ))}
       </nav>
     </>
+  )
+}
+
+function LinkModulo({
+  modulo,
+  ruta,
+  enVivo,
+}: {
+  modulo: Modulo
+  ruta: string
+  enVivo: number | null
+}) {
+  const activo = ruta.startsWith(modulo.href)
+  return (
+    <Link
+      href={modulo.href}
+      aria-current={activo ? 'page' : undefined}
+      className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm transition-all duration-200 ${
+        activo
+          ? 'bg-marca-acento font-semibold text-marca-acento-texto shadow-sm'
+          : 'text-panel-lateral-texto-suave hover:translate-x-0.5 hover:bg-white/5 hover:text-panel-lateral-texto'
+      }`}
+    >
+      <modulo.Icono className="size-5 shrink-0" />
+      <span className="flex-1">{modulo.titulo}</span>
+      {modulo.href === '/app/admin/pedidos' && enVivo !== null && enVivo > 0 ? (
+        <span
+          className={`flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
+            activo ? 'bg-black/20 text-marca-acento-texto' : 'bg-red-600 text-white'
+          }`}
+        >
+          {enVivo}
+        </span>
+      ) : null}
+    </Link>
   )
 }

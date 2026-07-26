@@ -325,6 +325,16 @@ export function IconoFloritura({ className }: Props) {
   )
 }
 
+/** Ojo: monitoreo en vivo (vista de solo lectura). */
+export function IconoOjo(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Svg>
+  )
+}
+
 /** Estrella de cuatro puntas para acentos decorativos. */
 export function IconoDestello({ className }: Props) {
   return (

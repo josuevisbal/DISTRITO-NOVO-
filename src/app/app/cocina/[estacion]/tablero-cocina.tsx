@@ -42,9 +42,11 @@ type Props = {
   /** Hora del servidor al armar la página, para corregir el desfase del reloj local. */
   servidorAhoraISO: string
   /** Barra de sesión (server component) que se pinta dentro del tema elegido. */
-  barraStaff: ReactNode
+  barraStaff?: ReactNode
   /** Pestañas para cambiar de estación, pintadas dentro del tema elegido. */
   pestanas?: ReactNode
+  /** Monitoreo del admin: espejo sin controles. Observa, no opera. */
+  soloLectura?: boolean
 }
 
 const NOMBRE_CANAL: Record<string, string> = {
@@ -85,6 +87,7 @@ export function TableroCocina({
   servidorAhoraISO,
   barraStaff,
   pestanas,
+  soloLectura = false,
 }: Props) {
   const router = useRouter()
 
@@ -173,13 +176,17 @@ export function TableroCocina({
   return (
     <div
       style={variablesTema(oscuro ? obtenerTemaOperacion() : obtenerTema(''))}
-      className="min-h-screen bg-marca-fondo text-marca-texto"
+      className={`bg-marca-fondo text-marca-texto ${
+        soloLectura ? 'overflow-hidden rounded-2xl border border-marca-borde' : 'min-h-screen'
+      }`}
     >
       {barraStaff}
       {pestanas}
 
       {/* Barra de la estación: identidad, cola y reloj. */}
-      <header className="sticky top-0 z-20 border-b border-marca-borde bg-marca-superficie">
+      <header
+        className={`${soloLectura ? '' : 'sticky top-0'} z-20 border-b border-marca-borde bg-marca-superficie`}
+      >
         <div className="flex items-center gap-3 px-4 py-3">
           <span
             aria-hidden
@@ -237,6 +244,7 @@ export function TableroCocina({
               ahora={ahora}
               indice={i}
               onMarcar={marcar}
+              soloLectura={soloLectura}
             />
           ))}
         </ul>
@@ -259,6 +267,7 @@ function TicketKds({
   ahora,
   indice,
   onMarcar,
+  soloLectura,
 }: {
   ticket: Ticket
   colorEstacion: string
@@ -266,6 +275,7 @@ function TicketKds({
   ahora: number
   indice: number
   onMarcar: (comandaId: string, estado: 'preparando' | 'listo') => void
+  soloLectura: boolean
 }) {
   const [ocupado, setOcupado] = useState(false)
 
@@ -315,14 +325,16 @@ function TicketKds({
                 </span>
                 {item.nombre}
               </p>
-              <button
-                type="button"
-                onClick={() => agotar(item.producto_id)}
-                disabled={ocupado}
-                className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-2.5 text-xs text-marca-texto-suave disabled:opacity-50"
-              >
-                Agotar
-              </button>
+              {soloLectura ? null : (
+                <button
+                  type="button"
+                  onClick={() => agotar(item.producto_id)}
+                  disabled={ocupado}
+                  className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-2.5 text-xs text-marca-texto-suave disabled:opacity-50"
+                >
+                  Agotar
+                </button>
+              )}
             </div>
             {item.notas ? (
               <p
@@ -356,7 +368,11 @@ function TicketKds({
       ) : null}
 
       <div className="p-3">
-        {ticket.estado === 'pendiente' ? (
+        {soloLectura ? (
+          <p className="flex min-h-14 items-center justify-center rounded-xl border border-marca-borde text-sm font-semibold text-marca-texto-suave">
+            {ticket.estado === 'pendiente' ? 'En espera' : 'Preparando'}
+          </p>
+        ) : ticket.estado === 'pendiente' ? (
           <button
             type="button"
             onClick={() => onMarcar(ticket.comanda_id, 'preparando')}
