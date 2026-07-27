@@ -18,3 +18,6 @@ alter table restaurantes add column if not exists landing jsonb not null default
 
 -- Video de fondo del héroe (opcional). Si no hay video, manda la foto (portada_url).
 alter table restaurantes add column if not exists hero_video_url text;
+
+-- WhatsApp al que llega el aviso de cada pedido nuevo del menú digital.
+alter table restaurantes add column if not exists whatsapp_pedidos text;

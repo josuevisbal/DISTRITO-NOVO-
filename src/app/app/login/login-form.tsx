@@ -18,10 +18,13 @@ export function LoginForm({
   destino,
   nombre,
   logo,
+  foto,
 }: {
   destino: string
   nombre: string | null
   logo?: string | null
+  /** Foto del plato (la portada que el dueño subió); se funde con el negro. */
+  foto?: string | null
 }) {
   const [estado, accion] = useActionState<ResultadoLogin, FormData>(iniciarSesion, undefined)
   // Encendida por defecto: con reduced-motion nadie queda a oscuras.
@@ -49,7 +52,11 @@ export function LoginForm({
       />
 
       <div className="relative z-10 grid w-full max-w-4xl items-center gap-10 md:grid-cols-2">
-        <Salchipapa encendida={encendida} onToggle={() => setEncendida((v) => !v)} />
+        <PlatoDeLaCasa
+          foto={foto}
+          encendida={encendida}
+          onToggle={() => setEncendida((v) => !v)}
+        />
 
         {/* Tarjeta de acceso, tipo vidrio. */}
         <form
@@ -118,95 +125,67 @@ export function LoginForm({
 }
 
 /**
- * Salchipapa de la casa en SVG: papas a la francesa doradas, trozos de salchicha y un
- * toque de salsas. Con la luz apagada se oscurece casi hasta no verse; encendida, brilla
- * a todo color. El fade es del sistema (~300 ms) y se anula con reduced-motion.
+ * El plato de la casa: la misma foto de portada que el dueno sube en el panel, fundida
+ * con el negro por los bordes (nada de marcos). El boton de la luz la ilumina: a todo
+ * color con resplandor calido, o en penumbra. Fade de 300 ms del sistema, anulado con
+ * reduced-motion. Sin foto todavia, queda un circulo tenue en vez de un hueco.
  */
-function Salchipapa({ encendida, onToggle }: { encendida: boolean; onToggle: () => void }) {
+function PlatoDeLaCasa({
+  foto,
+  encendida,
+  onToggle,
+}: {
+  foto?: string | null
+  encendida: boolean
+  onToggle: () => void
+}) {
   return (
     <div className="mx-auto flex flex-col items-center">
-      <svg
-        viewBox="0 0 280 210"
-        className="h-52 w-auto transition-[opacity,filter] duration-300 ease-out motion-reduce:transition-none md:h-64"
-        role="img"
-        aria-label="Salchipapa de la casa"
+      <div
+        className="relative size-64 transition-[opacity,filter] duration-300 ease-out motion-reduce:transition-none sm:size-72 md:size-80"
         style={{
-          opacity: encendida ? 1 : 0.14,
+          opacity: encendida ? 1 : 0.16,
           filter: encendida ? 'none' : 'brightness(0.4) saturate(0.4)',
         }}
       >
-        {/* Halo cálido pegado al plato. */}
-        <ellipse
-          cx="140"
-          cy="150"
-          rx="128"
-          ry="46"
-          fill="#F6D98A"
-          className="transition-opacity duration-300 motion-reduce:transition-none"
-          style={{ opacity: encendida ? 0.35 : 0 }}
+        {/* Resplandor calido detras del plato. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 rounded-full blur-2xl transition-opacity duration-300 motion-reduce:transition-none"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(224,135,43,0.55), rgba(216,172,78,0.18) 45%, transparent 70%)',
+            opacity: encendida ? 1 : 0,
+            transform: 'scale(1.15)',
+          }}
         />
 
-        {/* Plato hondo. */}
-        <ellipse cx="140" cy="152" rx="112" ry="34" fill="#F4F1EA" />
-        <ellipse cx="140" cy="147" rx="96" ry="27" fill="#E4DFD2" />
-
-        {/* Papas a la francesa: bastones dorados en abanico. */}
-        <g stroke="#B8862B" strokeWidth="1.2">
-          <rect x="76" y="62" width="15" height="74" rx="5" fill="#F2C14E" transform="rotate(-18 84 99)" />
-          <rect x="102" y="48" width="15" height="86" rx="5" fill="#F6D27A" transform="rotate(-8 110 91)" />
-          <rect x="128" y="42" width="15" height="92" rx="5" fill="#F2C14E" />
-          <rect x="154" y="48" width="15" height="86" rx="5" fill="#E8B23A" transform="rotate(8 162 91)" />
-          <rect x="180" y="62" width="15" height="74" rx="5" fill="#F6D27A" transform="rotate(18 188 99)" />
-          <rect x="92" y="84" width="14" height="58" rx="5" fill="#E8B23A" transform="rotate(-26 99 113)" />
-          <rect x="172" y="84" width="14" height="58" rx="5" fill="#F2C14E" transform="rotate(26 179 113)" />
-        </g>
-
-        {/* Trozos de salchicha: rodajas con cara clara. */}
-        <g stroke="#8A3B22" strokeWidth="1.2">
-          <ellipse cx="104" cy="128" rx="17" ry="13" fill="#B65A38" />
-          <ellipse cx="104" cy="125" rx="13" ry="9" fill="#D98A5F" />
-          <ellipse cx="146" cy="136" rx="18" ry="13" fill="#A34D2E" />
-          <ellipse cx="146" cy="133" rx="14" ry="9" fill="#D98A5F" />
-          <ellipse cx="184" cy="127" rx="16" ry="12" fill="#B65A38" />
-          <ellipse cx="184" cy="124" rx="12" ry="8" fill="#D98A5F" />
-          <ellipse cx="124" cy="118" rx="13" ry="10" fill="#A34D2E" />
-          <ellipse cx="124" cy="116" rx="10" ry="7" fill="#D98A5F" />
-          <ellipse cx="166" cy="115" rx="12" ry="9" fill="#B65A38" />
-          <ellipse cx="166" cy="113" rx="9" ry="6" fill="#D98A5F" />
-        </g>
-
-        {/* Salsas por encima: rosada y un hilo rojo. */}
-        <path
-          d="M86 120 q14 -12 30 -4 q16 8 32 -2 q16 -10 32 0 q14 8 28 2"
-          fill="none"
-          stroke="#F0A7B4"
-          strokeWidth="6"
-          strokeLinecap="round"
-          opacity="0.9"
-        />
-        <path
-          d="M96 128 q16 -8 30 0 q16 8 32 0 q16 -8 30 0"
-          fill="none"
-          stroke="#D64533"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          opacity="0.85"
-        />
-
-        {/* Vapor sutil, solo con la luz encendida. */}
-        <g
-          className="transition-opacity duration-300 motion-reduce:transition-none"
-          style={{ opacity: encendida ? 0.5 : 0 }}
-          stroke="#F4EFE4"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          fill="none"
-        >
-          <path d="M116 34 q6 -10 0 -20" />
-          <path d="M142 28 q6 -10 0 -20" />
-          <path d="M168 34 q6 -10 0 -20" />
-        </g>
-      </svg>
+        {foto ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={foto}
+              alt="El plato de la casa"
+              className="size-full rounded-full object-cover"
+            />
+            {/* Los bordes se funden con el fondo: se ve el plato, no un recorte. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-full"
+              style={{
+                background:
+                  'radial-gradient(circle at 50% 45%, transparent 42%, rgba(11,11,12,0.55) 68%, #0B0B0C 92%)',
+              }}
+            />
+          </>
+        ) : (
+          <div
+            aria-hidden
+            className="size-full rounded-full"
+            style={{ background: 'radial-gradient(circle, #2a231a, transparent 70%)' }}
+          />
+        )}
+      </div>
 
       <button
         type="button"

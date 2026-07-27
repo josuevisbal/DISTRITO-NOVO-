@@ -738,6 +738,7 @@ export type Database = {
           portada_url: string | null
           slug: string
           whatsapp: string | null
+          whatsapp_pedidos: string | null
         }
         Insert: {
           activo?: boolean
@@ -756,6 +757,7 @@ export type Database = {
           portada_url?: string | null
           slug: string
           whatsapp?: string | null
+          whatsapp_pedidos?: string | null
         }
         Update: {
           activo?: boolean
@@ -774,6 +776,7 @@ export type Database = {
           portada_url?: string | null
           slug?: string
           whatsapp?: string | null
+          whatsapp_pedidos?: string | null
         }
         Relationships: []
       }
