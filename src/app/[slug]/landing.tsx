@@ -274,7 +274,9 @@ export function LandingCliente({ carta }: { carta: Carta }) {
 
       {/* ----- Nuestros especiales ----- */}
       {especiales.length > 0 ? (
-        <section id="especiales" className="mx-auto max-w-6xl px-5 pb-16 pt-14 sm:px-8">
+        <section id="especiales" className="relative mx-auto max-w-6xl px-5 pb-16 pt-14 sm:px-8">
+          <LluviaDePapas />
+
           <p
             className="text-center text-xs font-bold uppercase tracking-[0.25em]"
             style={{ color: NARANJA_CLARO }}
@@ -552,6 +554,59 @@ function FondoHero({
         />
       ) : null}
     </>
+  )
+}
+
+/**
+ * Papitas cayendo sobre los especiales: adorno para que la sección llame la atención.
+ * Cada una arranca en otro punto, con su propia demora, duración, deriva y giro, así
+ * la lluvia no se ve en formación. Va detrás de las tarjetas y no captura clics; con
+ * `prefers-reduced-motion` desaparece (el CSS la oculta).
+ */
+const PAPAS = [
+  { izq: '6%', demora: '0s', dura: '9s', escala: 1, deriva: '18px', giro: '200deg' },
+  { izq: '18%', demora: '2.4s', dura: '11s', escala: 0.75, deriva: '-14px', giro: '-260deg', extra: true },
+  { izq: '31%', demora: '5.1s', dura: '8.5s', escala: 1.1, deriva: '24px', giro: '160deg' },
+  { izq: '44%', demora: '1.2s', dura: '12s', escala: 0.65, deriva: '-20px', giro: '300deg', extra: true },
+  { izq: '57%', demora: '6.8s', dura: '10s', escala: 0.95, deriva: '16px', giro: '-180deg' },
+  { izq: '69%', demora: '3.6s', dura: '9.5s', escala: 0.8, deriva: '-26px', giro: '240deg', extra: true },
+  { izq: '82%', demora: '7.9s', dura: '11.5s', escala: 1.05, deriva: '12px', giro: '-220deg' },
+  { izq: '93%', demora: '4.3s', dura: '8s', escala: 0.7, deriva: '-16px', giro: '280deg' },
+]
+
+function LluviaDePapas() {
+  return (
+    <div aria-hidden className="lluvia-papas">
+      {PAPAS.map((p, i) => (
+        <span
+          key={i}
+          className={`papa-cae${p.extra ? ' papa-extra' : ''}`}
+          style={
+            {
+              left: p.izq,
+              animationDelay: p.demora,
+              animationDuration: p.dura,
+              '--deriva': p.deriva,
+              '--giro': p.giro,
+            } as React.CSSProperties
+          }
+        >
+          <svg
+            width={14 * p.escala}
+            height={34 * p.escala}
+            viewBox="0 0 14 34"
+            fill="none"
+            className="drop-shadow"
+          >
+            {/* Bastón de papa: cuerpo dorado, cara clara y puntas tostadas. */}
+            <rect x="0.5" y="0.5" width="13" height="33" rx="3.5" fill="#F2C14E" />
+            <rect x="3" y="3" width="4.5" height="28" rx="2" fill="#F8DA8E" opacity="0.85" />
+            <rect x="0.5" y="0.5" width="13" height="5" rx="2.5" fill="#D89A2B" />
+            <rect x="0.5" y="28.5" width="13" height="5" rx="2.5" fill="#D89A2B" />
+          </svg>
+        </span>
+      ))}
+    </div>
   )
 }
 

@@ -312,3 +312,52 @@ body {
       linear-gradient(0deg, #141210 0%, transparent 38%);
   }
 }
+
+/* ---------- Papitas cayendo sobre "Nuestros especiales" ---------- */
+/* Adorno para llamar la atención: caen despacio, giran suave y se desvanecen.
+   Solo transform/opacity (no reflow) y sin capturar clics. Con reduced-motion
+   desaparecen: es decoración, no información. */
+.lluvia-papas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.papa-cae {
+  position: absolute;
+  top: -8%;
+  animation: caer-papa linear infinite;
+  will-change: transform, opacity;
+}
+@keyframes caer-papa {
+  0% {
+    transform: translate3d(0, -10%, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  85% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate3d(var(--deriva, 14px), 105vh, 0) rotate(var(--giro, 220deg));
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lluvia-papas {
+    display: none;
+  }
+}
+
+/* En celular la sección es angosta: menos papitas y más pequeñas, para que se vea
+   como un detalle y no como una cortina encima de los platos. */
+@media (max-width: 640px) {
+  .papa-cae svg {
+    transform: scale(0.62);
+  }
+  .papa-cae.papa-extra {
+    display: none;
+  }
+}
