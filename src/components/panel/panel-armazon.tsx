@@ -49,6 +49,7 @@ const MODULOS: Modulo[] = [
 const MONITOREO: Modulo[] = [
   { href: '/app/admin/monitoreo/cocina', titulo: 'Pantallas de cocina', Icono: IconoFuego },
   { href: '/app/admin/monitoreo/pase', titulo: 'Pase', Icono: IconoBolsa },
+  { href: '/app/admin/monitoreo/caja', titulo: 'Caja en vivo', Icono: IconoCaja },
   { href: '/app/admin/monitoreo/domicilios', titulo: 'Domicilios', Icono: IconoMoto },
 ]
 

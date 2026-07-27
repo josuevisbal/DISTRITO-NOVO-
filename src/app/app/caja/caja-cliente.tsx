@@ -104,6 +104,8 @@ type Props = {
   porCobrar: PorCobrar[]
   porLegalizar: PorLegalizar[]
   servidorAhoraISO: string
+  /** Monitoreo del admin: espejo sin controles. Observa, no cobra. */
+  soloLectura?: boolean
 }
 
 export function CajaCliente(props: Props) {
@@ -116,9 +118,12 @@ export function CajaCliente(props: Props) {
     porCobrar,
     porLegalizar,
     servidorAhoraISO,
+    soloLectura = false,
   } = props
 
-  useRefrescarEnCambios(['pedidos'], { intervaloMs: 15000 })
+  // El turno y sus movimientos también mueven esta pantalla (y la de monitoreo del
+  // admin, que es la misma): abrir turno, cobrar o legalizar se ve al instante.
+  useRefrescarEnCambios(['pedidos', 'caja_turnos', 'caja_movimientos'], { intervaloMs: 15000 })
 
   // Reloj corregido con el desfase del servidor, para los contadores de espera.
   const [ahora, setAhora] = useState(() => new Date(servidorAhoraISO).getTime())
@@ -160,11 +165,19 @@ export function CajaCliente(props: Props) {
 
   return (
     <div className="space-y-5 pb-24">
-      <PilaNotificaciones transferencias={transferencias} ahora={ahora} />
+      {/* Las notificaciones son para actuar: en monitoreo no aparecen. */}
+      {soloLectura ? null : (
+        <PilaNotificaciones transferencias={transferencias} ahora={ahora} />
+      )}
 
       {cierre ? <ResumenCierre arqueo={cierre} onCerrar={() => setCierre(null)} /> : null}
 
-      <SeccionTurno turno={turno} arqueo={arqueo} onCerrado={setCierre} />
+      <SeccionTurno
+        turno={turno}
+        arqueo={arqueo}
+        onCerrado={setCierre}
+        soloLectura={soloLectura}
+      />
 
       {/* Filtros con contador. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -223,7 +236,9 @@ export function CajaCliente(props: Props) {
             <Vacio texto="No hay pedidos en este filtro." Icono={IconoCheck} />
           </li>
         ) : (
-          visibles.map((f, i) => <FilaPedido key={f.key} fila={f} ahora={ahora} indice={i} />)
+          visibles.map((f, i) => (
+            <FilaPedido key={f.key} fila={f} ahora={ahora} indice={i} soloLectura={soloLectura} />
+          ))
         )}
       </ul>
 
@@ -236,7 +251,11 @@ export function CajaCliente(props: Props) {
           </h2>
           <div className="space-y-2.5">
             {porLegalizar.map((l) => (
-              <TarjetaLegalizar key={l.domiciliario_id} liquidacion={l} />
+              <TarjetaLegalizar
+                key={l.domiciliario_id}
+                liquidacion={l}
+                soloLectura={soloLectura}
+              />
             ))}
           </div>
         </section>
@@ -443,17 +462,62 @@ function ColPago({ monto, medio }: { monto: number; medio: string }) {
   )
 }
 
-function FilaPedido({ fila, ahora, indice }: { fila: FilaCaja; ahora: number; indice: number }) {
+function FilaPedido({
+  fila,
+  ahora,
+  indice,
+  soloLectura,
+}: {
+  fila: FilaCaja
+  ahora: number
+  indice: number
+  soloLectura: boolean
+}) {
   if (fila.tipo === 'verificar') {
-    return <FilaVerificar t={fila.transferencia} ahora={ahora} indice={indice} />
+    return (
+      <FilaVerificar
+        t={fila.transferencia}
+        ahora={ahora}
+        indice={indice}
+        soloLectura={soloLectura}
+      />
+    )
   }
   if (fila.tipo === 'confirmar') {
-    return <FilaConfirmar c={fila.contraentrega} ahora={ahora} indice={indice} />
+    return (
+      <FilaConfirmar
+        c={fila.contraentrega}
+        ahora={ahora}
+        indice={indice}
+        soloLectura={soloLectura}
+      />
+    )
   }
-  return <FilaCobrar p={fila.cobro} indice={indice} />
+  return <FilaCobrar p={fila.cobro} indice={indice} soloLectura={soloLectura} />
 }
 
-function FilaVerificar({ t, ahora, indice }: { t: Transferencia; ahora: number; indice: number }) {
+/** En monitoreo, donde iría el botón va el estado en texto. */
+function EstadoSoloLectura({ texto }: { texto: string }) {
+  return (
+    <div className="flex justify-end">
+      <span className="min-h-11 rounded-lg px-4 text-sm font-semibold text-marca-texto-suave">
+        {texto}
+      </span>
+    </div>
+  )
+}
+
+function FilaVerificar({
+  t,
+  ahora,
+  indice,
+  soloLectura,
+}: {
+  t: Transferencia
+  ahora: number
+  indice: number
+  soloLectura: boolean
+}) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { mostrar } = useToast()
@@ -484,20 +548,34 @@ function FilaVerificar({ t, ahora, indice }: { t: Transferencia; ahora: number; 
       />
       <ColCliente nombre={t.cliente} telefono={t.telefono} extra={t.zona} />
       <ColPago monto={t.monto_exacto} medio="transferencia" />
-      <div className="flex items-center justify-end gap-2">
-        <Boton variante="exito" onClick={() => verificar(true)} disabled={ocupado}>
-          Verifiqué
-        </Boton>
-        <Boton variante="secundario" onClick={() => verificar(false)} disabled={ocupado}>
-          No llegó
-        </Boton>
-      </div>
+      {soloLectura ? (
+        <EstadoSoloLectura texto="Esperando verificación" />
+      ) : (
+        <div className="flex items-center justify-end gap-2">
+          <Boton variante="exito" onClick={() => verificar(true)} disabled={ocupado}>
+            Verifiqué
+          </Boton>
+          <Boton variante="secundario" onClick={() => verificar(false)} disabled={ocupado}>
+            No llegó
+          </Boton>
+        </div>
+      )}
       {error ? <Error texto={error} /> : null}
     </EnvolturaFila>
   )
 }
 
-function FilaConfirmar({ c, ahora, indice }: { c: Contraentrega; ahora: number; indice: number }) {
+function FilaConfirmar({
+  c,
+  ahora,
+  indice,
+  soloLectura,
+}: {
+  c: Contraentrega
+  ahora: number
+  indice: number
+  soloLectura: boolean
+}) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [anulando, setAnulando] = useState(false)
@@ -535,31 +613,43 @@ function FilaConfirmar({ c, ahora, indice }: { c: Contraentrega; ahora: number; 
       />
       <ColCliente nombre={c.cliente} telefono={c.telefono} extra={c.zona ?? c.direccion} />
       <ColPago monto={c.total} medio="efectivo" />
-      <div className="flex flex-col items-end gap-2">
-        {anulando ? (
-          <MotivoInline
-            marcador="Motivo de la anulación"
-            disabled={ocupado}
-            onConfirmar={anular}
-            onCancelar={() => setAnulando(false)}
-          />
-        ) : (
-          <div className="flex items-center gap-2">
-            <Boton variante="exito" onClick={confirmar} disabled={ocupado}>
-              Confirmar
-            </Boton>
-            <Boton variante="secundario" onClick={() => setAnulando(true)} disabled={ocupado}>
-              Anular
-            </Boton>
-          </div>
-        )}
-      </div>
+      {soloLectura ? (
+        <EstadoSoloLectura texto="Por confirmar" />
+      ) : (
+        <div className="flex flex-col items-end gap-2">
+          {anulando ? (
+            <MotivoInline
+              marcador="Motivo de la anulación"
+              disabled={ocupado}
+              onConfirmar={anular}
+              onCancelar={() => setAnulando(false)}
+            />
+          ) : (
+            <div className="flex items-center gap-2">
+              <Boton variante="exito" onClick={confirmar} disabled={ocupado}>
+                Confirmar
+              </Boton>
+              <Boton variante="secundario" onClick={() => setAnulando(true)} disabled={ocupado}>
+                Anular
+              </Boton>
+            </div>
+          )}
+        </div>
+      )}
       {error ? <Error texto={error} /> : null}
     </EnvolturaFila>
   )
 }
 
-function FilaCobrar({ p, indice }: { p: PorCobrar; indice: number }) {
+function FilaCobrar({
+  p,
+  indice,
+  soloLectura,
+}: {
+  p: PorCobrar
+  indice: number
+  soloLectura: boolean
+}) {
   const [medio, setMedio] = useState<'efectivo' | 'transferencia' | 'datafono'>('efectivo')
   const [abierto, setAbierto] = useState(false)
   const [ocupado, setOcupado] = useState(false)
@@ -593,6 +683,9 @@ function FilaCobrar({ p, indice }: { p: PorCobrar; indice: number }) {
         ) : null}
       </div>
       <ColPago monto={p.total} medio={medio} />
+      {soloLectura ? (
+        <EstadoSoloLectura texto="Por cobrar" />
+      ) : (
       <div className="flex flex-col items-end gap-2">
         {abierto ? (
           <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -621,6 +714,7 @@ function FilaCobrar({ p, indice }: { p: PorCobrar; indice: number }) {
           </Boton>
         )}
       </div>
+      )}
       {error ? <Error texto={error} /> : null}
     </EnvolturaFila>
   )
@@ -832,7 +926,13 @@ function NotificacionTransferencia({
   )
 }
 
-function TarjetaLegalizar({ liquidacion }: { liquidacion: PorLegalizar }) {
+function TarjetaLegalizar({
+  liquidacion,
+  soloLectura = false,
+}: {
+  liquidacion: PorLegalizar
+  soloLectura?: boolean
+}) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [oculto, setOculto] = useState(false)
@@ -868,15 +968,17 @@ function TarjetaLegalizar({ liquidacion }: { liquidacion: PorLegalizar }) {
 
       {error ? <Error texto={error} /> : null}
 
-      <button
-        type="button"
-        onClick={legalizar}
-        disabled={ocupado}
-        className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento font-medium text-marca-acento-texto disabled:opacity-60"
-      >
-        <IconoCheck className="size-5" />
-        Recibí {formatearPesos(liquidacion.total)}
-      </button>
+      {soloLectura ? null : (
+        <button
+          type="button"
+          onClick={legalizar}
+          disabled={ocupado}
+          className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento font-medium text-marca-acento-texto disabled:opacity-60"
+        >
+          <IconoCheck className="size-5" />
+          Recibí {formatearPesos(liquidacion.total)}
+        </button>
+      )}
     </article>
   )
 }
@@ -887,12 +989,20 @@ function SeccionTurno({
   turno,
   arqueo,
   onCerrado,
+  soloLectura = false,
 }: {
   turno: Turno
   arqueo: Record<string, ArqueoMedio>
   onCerrado: (arqueo: ArqueoCierre) => void
+  soloLectura?: boolean
 }) {
-  if (!turno) return <AbrirTurno />
+  if (!turno) {
+    return soloLectura ? (
+      <Vacio texto="El cajero aún no ha abierto turno." Icono={IconoReloj} />
+    ) : (
+      <AbrirTurno />
+    )
+  }
 
   const total = Object.values(arqueo).reduce((s, v) => s + v.monto, 0)
   const desde = new Date(turno.abierto_en).toLocaleTimeString('es-CO', {
@@ -910,7 +1020,7 @@ function SeccionTurno({
             Base: {formatearPesos(turno.base_inicial)} · desde {desde}
           </p>
         </div>
-        <CerrarTurno onCerrado={onCerrado} />
+        {soloLectura ? null : <CerrarTurno onCerrado={onCerrado} />}
       </div>
 
       {/* Los cuatro medios con la tarjeta-indicador estándar: la composición del día de un vistazo. */}

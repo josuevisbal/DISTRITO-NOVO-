@@ -10,10 +10,14 @@ export default async function PaginaCaja() {
   const staff = await exigirRol('cajero', 'admin')
   const datos = await cargarCaja(staff.restaurante_id)
 
+  // El contenido respira como el panel del dueño: ancho máximo centrado y aire lateral,
+  // en vez de pegarse a los bordes de la pantalla.
   return (
     <>
       <BarraStaff staff={staff} titulo="Caja" />
-      <CajaCliente {...datos} servidorAhoraISO={new Date().toISOString()} />
+      <main className="mx-auto w-full max-w-[1150px] px-6 py-6 sm:px-8">
+        <CajaCliente {...datos} servidorAhoraISO={new Date().toISOString()} />
+      </main>
     </>
   )
 }

@@ -21,7 +21,9 @@ import { useRefrescarEnCambios } from '@/lib/realtime'
 
 export function TableroCliente({ datos, dia }: { datos: DatosTablero; dia: string }) {
   // El resumen se refresca solo cuando cambian los pedidos.
-  useRefrescarEnCambios(['pedidos'], { intervaloMs: 20000 })
+  // También los turnos: si el cajero abre o cierra uno, la alerta y la píldora del
+  // Tablero deben reflejarlo al instante, no esperar al refresco periódico.
+  useRefrescarEnCambios(['pedidos', 'caja_turnos'], { intervaloMs: 20000 })
 
   return (
     <div className="space-y-6">

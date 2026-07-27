@@ -38,15 +38,19 @@ export type DatosCaja = {
 export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   const supabase = await crearClienteServidor()
 
-  const { data: turnoRow } = await supabase
+  // El turno abierto es del RESTAURANTE, no de un usuario: lo mismo ve el cajero que lo
+  // abrió, el dueño en su Tablero y el monitoreo. Se toma el más reciente con `limit(1)`
+  // y no `maybeSingle()`: si por lo que sea quedaran dos turnos abiertos, maybeSingle
+  // devuelve error y la pantalla diría "no hay turno" mientras otra dice que sí.
+  const { data: turnoRows } = await supabase
     .from('caja_turnos')
     .select('id, base_inicial, abierto_en')
     .eq('restaurante_id', restauranteId)
     .is('cerrado_en', null)
     .order('abierto_en', { ascending: false })
-    .maybeSingle()
+    .limit(1)
 
-  const turno: Turno = turnoRow ?? null
+  const turno: Turno = turnoRows?.[0] ?? null
 
   // Arqueo en vivo: ingresos y legalizaciones del turno, sumados y contados por medio.
   // La misma pasada arma "Cobrados hoy": cada cobro con su pedido, del más reciente al primero.
