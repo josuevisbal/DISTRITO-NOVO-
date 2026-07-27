@@ -12,13 +12,15 @@ import {
   IconoMas,
   IconoMenos,
 } from '@/components/iconos'
-import type { Carta, ProductoCarta } from '@/lib/datos/carta'
+import type { Carta, ProductoCarta, PromocionCarta } from '@/lib/datos/carta'
 import { formatearPesos } from '@/lib/formato'
 import { crearPedido } from './acciones'
 import { BannerPromociones } from './promociones'
 import { Checkout, type DatosCheckout } from './checkout'
 
 type Linea = { producto: ProductoCarta; cantidad: number; notas: string }
+/** Un combo en el carrito: va y se quita COMPLETO, al precio especial del combo. */
+type LineaCombo = { promo: PromocionCarta; precio: number; contenido: string; cantidad: number }
 type Vista = 'carta' | 'carrito' | 'checkout'
 
 type Props = {
@@ -30,12 +32,16 @@ type Props = {
 export function CartaCliente({ carta, mesa }: Props) {
   const router = useRouter()
   const [lineas, setLineas] = useState<Linea[]>([])
+  const [combos, setCombos] = useState<LineaCombo[]>([])
   const [vista, setVista] = useState<Vista>('carta')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const subtotal = lineas.reduce((s, l) => s + l.producto.precio * l.cantidad, 0)
-  const unidades = lineas.reduce((s, l) => s + l.cantidad, 0)
+  const subtotal =
+    lineas.reduce((s, l) => s + l.producto.precio * l.cantidad, 0) +
+    combos.reduce((s, c) => s + c.precio * c.cantidad, 0)
+  const unidades =
+    lineas.reduce((s, l) => s + l.cantidad, 0) + combos.reduce((s, c) => s + c.cantidad, 0)
 
   const umbralEnvioGratis =
     carta.promociones.find((p) => p.tipo === 'envio')?.monto_minimo ?? null
@@ -50,6 +56,41 @@ export function CartaCliente({ carta, mesa }: Props) {
       }
       return [...previas, { producto, cantidad, notas: '' }]
     })
+  }
+
+  /** El combo entra como UNA unidad al precio especial; el detalle se arma para mostrarlo. */
+  function agregarCombo(promo: PromocionCarta) {
+    const porId = new Map(carta.productos.map((p) => [p.id, p]))
+    const contenido = promo.items
+      .map((i) => {
+        const producto = porId.get(i.producto_id)
+        return producto ? `${i.cantidad}× ${producto.nombre}` : null
+      })
+      .filter(Boolean)
+      .join(' · ')
+    const valorNormal = promo.items.reduce(
+      (s, i) => s + (porId.get(i.producto_id)?.precio ?? 0) * i.cantidad,
+      0,
+    )
+    const precio = promo.precio_combo && promo.precio_combo > 0 ? promo.precio_combo : valorNormal
+
+    setCombos((previos) => {
+      const existente = previos.find((c) => c.promo.id === promo.id)
+      if (existente) {
+        return previos.map((c) =>
+          c.promo.id === promo.id ? { ...c, cantidad: c.cantidad + 1 } : c,
+        )
+      }
+      return [...previos, { promo, precio, contenido, cantidad: 1 }]
+    })
+  }
+
+  function cambiarCantidadCombo(promoId: string, delta: number) {
+    setCombos((previos) =>
+      previos
+        .map((c) => (c.promo.id === promoId ? { ...c, cantidad: c.cantidad + delta } : c))
+        .filter((c) => c.cantidad > 0),
+    )
   }
 
   function cambiarCantidad(id: string, delta: number) {
@@ -84,6 +125,8 @@ export function CartaCliente({ carta, mesa }: Props) {
         cantidad: l.cantidad,
         notas: l.notas,
       })),
+      // Solo cuál combo y cuántos: el precio lo pone el servidor (precio_combo).
+      combos: combos.map((c) => ({ promocion_id: c.promo.id, cantidad: c.cantidad })),
     })
 
     if (!resultado.ok) {
@@ -123,7 +166,7 @@ export function CartaCliente({ carta, mesa }: Props) {
       <BannerPromociones
         promociones={carta.promociones}
         productos={carta.productos}
-        onAgregarCombo={(items) => items.forEach((i) => agregar(i.producto, i.cantidad))}
+        onAgregarCombo={agregarCombo}
       />
 
       <Menu carta={carta} lineas={lineas} onAgregar={agregar} />
@@ -139,12 +182,14 @@ export function CartaCliente({ carta, mesa }: Props) {
       {vista === 'carrito' ? (
         <HojaCarrito
           lineas={lineas}
+          combos={combos}
           subtotal={subtotal}
           mesa={mesa}
           enviando={enviando}
           error={error}
           onCerrar={() => setVista('carta')}
           onCambiarCantidad={cambiarCantidad}
+          onCambiarCantidadCombo={cambiarCantidadCombo}
           onCambiarNotas={cambiarNotas}
           onContinuar={() => (mesa ? void enviar() : setVista('checkout'))}
         />
@@ -445,22 +490,26 @@ function BarraCarrito({
 
 function HojaCarrito({
   lineas,
+  combos,
   subtotal,
   mesa,
   enviando,
   error,
   onCerrar,
   onCambiarCantidad,
+  onCambiarCantidadCombo,
   onCambiarNotas,
   onContinuar,
 }: {
   lineas: Linea[]
+  combos: LineaCombo[]
   subtotal: number
   mesa?: { numero: number }
   enviando: boolean
   error: string | null
   onCerrar: () => void
   onCambiarCantidad: (id: string, delta: number) => void
+  onCambiarCantidadCombo: (promoId: string, delta: number) => void
   onCambiarNotas: (id: string, notas: string) => void
   onContinuar: () => void
 }) {
@@ -480,6 +529,50 @@ function HojaCarrito({
 
       <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-8">
         <ul className="mx-auto max-w-2xl divide-y divide-marca-borde">
+          {/* Combos primero: van y se quitan completos, al precio especial. */}
+          {combos.map((combo) => (
+            <li key={combo.promo.id} className="py-4">
+              <div className="flex items-start gap-4">
+                <div className="min-w-0 flex-1">
+                  <h3 className="flex items-center gap-2 font-medium text-marca-texto">
+                    <IconoBolsa className="size-4 shrink-0 text-marca-acento-fuerte" />
+                    {combo.promo.titulo}
+                  </h3>
+                  <p className="mt-0.5 text-sm text-marca-texto-suave">{combo.contenido}</p>
+                  <p className="mt-0.5 text-sm text-marca-texto-suave">
+                    {formatearPesos(combo.precio)} el combo
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onCambiarCantidadCombo(combo.promo.id, -1)}
+                    aria-label={`Quitar un ${combo.promo.titulo}`}
+                    className="flex size-11 items-center justify-center rounded-lg border border-marca-borde text-marca-texto"
+                  >
+                    <IconoMenos className="size-4" />
+                  </button>
+                  <span className="w-9 text-center text-lg font-medium text-marca-texto">
+                    {combo.cantidad}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onCambiarCantidadCombo(combo.promo.id, 1)}
+                    aria-label={`Agregar otro ${combo.promo.titulo}`}
+                    className="flex size-11 items-center justify-center rounded-lg border border-marca-borde text-marca-texto"
+                  >
+                    <IconoMas className="size-4" />
+                  </button>
+                </div>
+
+                <p className="w-24 shrink-0 text-right font-medium text-marca-acento-fuerte">
+                  {formatearPesos(combo.precio * combo.cantidad)}
+                </p>
+              </div>
+            </li>
+          ))}
+
           {lineas.map((linea) => (
             <li key={linea.producto.id} className="py-4">
               <div className="flex items-start gap-4">

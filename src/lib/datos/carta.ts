@@ -24,6 +24,8 @@ export type PromocionCarta = {
   titulo: string
   descripcion: string | null
   monto_minimo: number | null
+  /** Precio especial del combo (lo fija el admin; lo cobra el servidor). */
+  precio_combo: number | null
   imagen_url: string | null
   /** Productos que el combo mete al carrito de un toque. */
   items: { producto_id: string; cantidad: number }[]
@@ -84,7 +86,7 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
         .order('orden'),
       supabase
         .from('promociones')
-        .select('id, tipo, etiqueta, titulo, descripcion, monto_minimo, imagen_url, orden, desde, hasta, promocion_items(producto_id, cantidad)')
+        .select('id, tipo, etiqueta, titulo, descripcion, monto_minimo, precio_combo, imagen_url, orden, desde, hasta, promocion_items(producto_id, cantidad)')
         .eq('restaurante_id', restaurante.id)
         .eq('activa', true)
         .or(`desde.is.null,desde.lte.${ahora}`)
@@ -117,6 +119,7 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
       titulo: p.titulo,
       descripcion: p.descripcion,
       monto_minimo: p.monto_minimo,
+      precio_combo: p.precio_combo,
       imagen_url: p.imagen_url,
       items: (p.promocion_items ?? []).map((i) => ({
         producto_id: i.producto_id,

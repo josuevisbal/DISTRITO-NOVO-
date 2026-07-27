@@ -212,7 +212,12 @@ export function Checkout({
         </div>
       </dl>
 
-      {faltaParaEnvioGratis !== null ? (
+      {envioGratis ? (
+        <p className="mt-3 flex items-center gap-2 text-sm font-semibold" style={{ color: '#2E9E8F' }}>
+          <IconoCheck className="size-4 shrink-0" />
+          ¡Domicilio gratis aplicado!
+        </p>
+      ) : faltaParaEnvioGratis !== null ? (
         <p className="mt-3 flex items-center gap-2 text-sm text-marca-texto-suave">
           <IconoMoto className="size-4 shrink-0 text-marca-acento-fuerte" />
           Te faltan {formatearPesos(faltaParaEnvioGratis)} para el domicilio gratis.

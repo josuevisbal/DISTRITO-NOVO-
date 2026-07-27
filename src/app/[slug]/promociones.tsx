@@ -7,15 +7,15 @@ import { formatearPesos } from '@/lib/formato'
 type Props = {
   promociones: PromocionCarta[]
   productos: ProductoCarta[]
-  onAgregarCombo: (items: { producto: ProductoCarta; cantidad: number }[]) => void
+  onAgregarCombo: (promo: PromocionCarta) => void
 }
 
 /**
  * Lo primero que ve el comensal al abrir la carta.
  *
- * El precio del combo se muestra sumando los productos a su precio real, no el campo
- * `precio_combo`: `crear_pedido` cobra la suma de `productos`, así que anunciar otro valor
- * sería cobrarle al cliente algo distinto de lo que le prometimos.
+ * El combo se anuncia a su `precio_combo` (el precio especial que fija el admin y que
+ * `crear_pedido` cobra desde el servidor), con el valor normal tachado para que se vea
+ * el ahorro. Sin `precio_combo` cargado, se anuncia la suma normal.
  */
 export function BannerPromociones({ promociones, productos, onAgregarCombo }: Props) {
   if (promociones.length === 0) return null
@@ -38,7 +38,10 @@ export function BannerPromociones({ promociones, productos, onAgregarCombo }: Pr
             .filter((i): i is { producto: ProductoCarta; cantidad: number } => i !== null)
 
           const disponible = items.length > 0 && items.every((i) => i.producto.disponible)
-          const valor = items.reduce((s, i) => s + i.producto.precio * i.cantidad, 0)
+          const valorNormal = items.reduce((s, i) => s + i.producto.precio * i.cantidad, 0)
+          const precioCombo =
+            promo.precio_combo && promo.precio_combo > 0 ? promo.precio_combo : valorNormal
+          const conAhorro = precioCombo < valorNormal
 
           return (
             <li
@@ -93,6 +96,10 @@ export function BannerPromociones({ promociones, productos, onAgregarCombo }: Pr
                 <p className="relative mt-1.5 text-sm text-marca-texto-suave">
                   {promo.descripcion}
                 </p>
+              ) : promo.tipo === 'envio' && promo.monto_minimo ? (
+                <p className="relative mt-1.5 text-sm text-marca-texto-suave">
+                  En pedidos desde {formatearPesos(promo.monto_minimo)}.
+                </p>
               ) : null}
 
               {promo.tipo === 'combo' && items.length > 0 ? (
@@ -105,16 +112,23 @@ export function BannerPromociones({ promociones, productos, onAgregarCombo }: Pr
                     ))}
                   </ul>
 
+                  {conAhorro ? (
+                    <p className="relative mt-2 text-sm text-marca-texto-suave">
+                      Por separado:{' '}
+                      <span className="line-through">{formatearPesos(valorNormal)}</span>
+                    </p>
+                  ) : null}
+
                   <button
                     type="button"
                     disabled={!disponible}
-                    onClick={() => onAgregarCombo(items)}
-                    className="relative mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto disabled:cursor-not-allowed disabled:bg-marca-borde disabled:text-marca-texto-suave"
+                    onClick={() => onAgregarCombo(promo)}
+                    className="relative mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto disabled:cursor-not-allowed disabled:bg-marca-borde disabled:text-marca-texto-suave"
                   >
                     {disponible ? (
                       <>
                         <IconoBolsa className="size-4 shrink-0" />
-                        Agregar por {formatearPesos(valor)}
+                        Agregar combo · {formatearPesos(precioCombo)}
                       </>
                     ) : (
                       'Agotado por ahora'

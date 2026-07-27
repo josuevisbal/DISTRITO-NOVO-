@@ -2,10 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 
+import type { Database } from '@/lib/database.types'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 type Resultado = { ok: true } | { ok: false; error: string }
+type TipoPromo = Database['public']['Enums']['tipo_promo']
 
 const BUCKET = 'productos'
 const TIPOS = ['image/jpeg', 'image/png', 'image/webp']
@@ -104,7 +106,13 @@ export async function alternarPromo(id: string, activa: boolean): Promise<Result
 
 export async function guardarPromo(
   id: string,
-  campos: { etiqueta: string; titulo: string; descripcion: string; monto_minimo: number | null },
+  campos: {
+    etiqueta: string
+    titulo: string
+    descripcion: string
+    monto_minimo: number | null
+    precio_combo?: number | null
+  },
 ): Promise<Resultado> {
   await exigirRol('admin')
   const supabase = await crearClienteServidor()
@@ -119,8 +127,124 @@ export async function guardarPromo(
       descripcion: campos.descripcion.trim() || null,
       monto_minimo:
         campos.monto_minimo === null ? null : Math.max(0, Math.trunc(campos.monto_minimo)),
+      ...(campos.precio_combo !== undefined
+        ? {
+            precio_combo:
+              campos.precio_combo === null ? null : Math.max(0, Math.trunc(campos.precio_combo)),
+          }
+        : {}),
     })
     .eq('id', id)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/app/admin/promociones')
+  return { ok: true }
+}
+
+/** Crea una promoción nueva del tipo elegido, apagada, lista para editar. */
+export async function crearPromo(tipo: TipoPromo): Promise<Resultado & { id?: string }> {
+  const staff = await exigirRol('admin')
+  const supabase = await crearClienteServidor()
+
+  const TITULO: Record<string, string> = {
+    envio: 'Domicilio GRATIS',
+    combo: 'Nuevo combo',
+    aviso: 'Nuevo aviso',
+  }
+
+  const { data: ultima } = await supabase
+    .from('promociones')
+    .select('orden')
+    .eq('restaurante_id', staff.restaurante_id)
+    .order('orden', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const { data, error } = await supabase
+    .from('promociones')
+    .insert({
+      restaurante_id: staff.restaurante_id,
+      tipo,
+      titulo: TITULO[tipo] ?? 'Nueva promoción',
+      activa: false,
+      orden: (ultima?.orden ?? 0) + 1,
+    })
+    .select('id')
+    .single()
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/app/admin/promociones')
+  return { ok: true, id: data.id }
+}
+
+/** Elimina una promoción (sus items caen en cascada) y su foto de Storage. */
+export async function eliminarPromo(id: string): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  const supabase = await crearClienteServidor()
+
+  const { data: promo } = await supabase
+    .from('promociones')
+    .select('imagen_url, restaurante_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (!promo || promo.restaurante_id !== staff.restaurante_id) {
+    return { ok: false, error: 'Promoción no encontrada.' }
+  }
+
+  const { error } = await supabase.from('promociones').delete().eq('id', id)
+  if (error) return { ok: false, error: error.message }
+
+  const ruta = rutaDeUrl(promo.imagen_url)
+  if (ruta) await supabase.storage.from(BUCKET).remove([ruta])
+
+  revalidatePath('/app/admin/promociones')
+  return { ok: true }
+}
+
+/** Reemplaza los productos que componen un combo (la RLS exige admin/dueño). */
+export async function guardarItemsCombo(
+  promoId: string,
+  items: { producto_id: string; cantidad: number }[],
+): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  const supabase = await crearClienteServidor()
+
+  const { data: promo } = await supabase
+    .from('promociones')
+    .select('id, tipo, restaurante_id')
+    .eq('id', promoId)
+    .maybeSingle()
+  if (!promo || promo.restaurante_id !== staff.restaurante_id) {
+    return { ok: false, error: 'Promoción no encontrada.' }
+  }
+  if (promo.tipo !== 'combo') return { ok: false, error: 'Esta promoción no es un combo.' }
+
+  // Un renglón por producto: si viene repetido, se suman las cantidades (la PK lo exige).
+  const porProducto = new Map<string, number>()
+  for (const i of items) {
+    if (!i.producto_id) continue
+    porProducto.set(
+      i.producto_id,
+      (porProducto.get(i.producto_id) ?? 0) + Math.max(1, Math.trunc(i.cantidad)),
+    )
+  }
+  const limpios = [...porProducto.entries()].map(([producto_id, cantidad]) => ({
+    producto_id,
+    cantidad,
+  }))
+  if (limpios.length === 0) {
+    return { ok: false, error: 'El combo necesita al menos un producto.' }
+  }
+
+  const { error: errBorrar } = await supabase
+    .from('promocion_items')
+    .delete()
+    .eq('promocion_id', promoId)
+  if (errBorrar) return { ok: false, error: errBorrar.message }
+
+  const { error } = await supabase
+    .from('promocion_items')
+    .insert(limpios.map((i) => ({ promocion_id: promoId, ...i })))
   if (error) return { ok: false, error: error.message }
 
   revalidatePath('/app/admin/promociones')

@@ -9,6 +9,9 @@ type MedioPago = Database['public']['Enums']['medio_pago']
 /** Lo único que el navegador puede mandar de cada renglón. Nunca un precio. */
 export type ItemPedido = { producto_id: string; cantidad: number; notas?: string }
 
+/** Un combo del carrito: solo cuál y cuántos; el precio lo pone el servidor. */
+export type ComboPedido = { promocion_id: string; cantidad: number }
+
 export type DatosPedido = {
   canal: Canal
   medio_pago: MedioPago | null
@@ -19,6 +22,7 @@ export type DatosPedido = {
   zona_id?: string
   indicaciones?: string
   items: ItemPedido[]
+  combos?: ComboPedido[]
 }
 
 export type ResultadoPedido =
@@ -39,7 +43,7 @@ export async function crearPedido(
   slug: string,
   datos: DatosPedido,
 ): Promise<ResultadoPedido> {
-  if (datos.items.length === 0) {
+  if (datos.items.length === 0 && (datos.combos?.length ?? 0) === 0) {
     return { ok: false, error: 'Tu pedido está vacío.' }
   }
   if (datos.canal === 'domicilio' && !datos.zona_id) {
@@ -74,6 +78,10 @@ export async function crearPedido(
         producto_id: i.producto_id,
         cantidad: Math.max(1, Math.trunc(i.cantidad)),
         notas: i.notas?.trim() ?? '',
+      })),
+      combos: (datos.combos ?? []).map((c) => ({
+        promocion_id: c.promocion_id,
+        cantidad: Math.max(1, Math.trunc(c.cantidad)),
       })),
     },
   })
