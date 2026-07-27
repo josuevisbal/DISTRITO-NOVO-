@@ -13,10 +13,18 @@ import { LOGO_URL } from '@/config/tema'
  *
  * `className` controla el tamaño: usa cuadrados (size-12, size-24…) para el circular.
  */
-export function LogoMarca({ className = 'size-20' }: { className?: string }) {
+export function LogoMarca({
+  className = 'size-20',
+  url,
+}: {
+  className?: string
+  /** Logo subido desde el panel (restaurantes.logo_url). Manda sobre LOGO_URL. */
+  url?: string | null
+}) {
   const [fallo, setFallo] = useState(false)
+  const fuente = url ?? LOGO_URL
 
-  if (LOGO_URL && !fallo) {
+  if (fuente && !fallo) {
     return (
       <span
         className={`relative inline-block shrink-0 rounded-full p-[3px] ${className}`}
@@ -27,7 +35,7 @@ export function LogoMarca({ className = 'size-20' }: { className?: string }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={LOGO_URL}
+          src={fuente}
           alt="Logo"
           onError={() => setFallo(true)}
           className="size-full rounded-full object-cover"

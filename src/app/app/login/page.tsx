@@ -4,19 +4,19 @@ import { LoginForm } from './login-form'
 
 export const dynamic = 'force-dynamic'
 
-/** El nombre del restaurante sale de la base: una instancia, un restaurante. */
-async function nombreRestaurante(): Promise<string | null> {
+/** Nombre y logo salen de la base: una instancia, un restaurante. */
+async function marcaDelRestaurante(): Promise<{ nombre: string | null; logo: string | null }> {
   const supabase = await crearClienteServidor()
   const { data } = await supabase
     .from('restaurantes')
-    .select('slug')
+    .select('slug, logo_url')
     .eq('activo', true)
     .order('creado_en')
     .limit(1)
     .maybeSingle()
-  if (!data) return null
+  if (!data) return { nombre: null, logo: null }
   const rest = await restaurantePorSlug(data.slug)
-  return rest?.nombre ?? null
+  return { nombre: rest?.nombre ?? null, logo: data.logo_url }
 }
 
 export default async function PaginaLogin({
@@ -25,7 +25,7 @@ export default async function PaginaLogin({
   searchParams: Promise<{ destino?: string }>
 }) {
   const { destino } = await searchParams
-  const nombre = await nombreRestaurante()
+  const { nombre, logo } = await marcaDelRestaurante()
 
-  return <LoginForm destino={destino ?? ''} nombre={nombre} />
+  return <LoginForm destino={destino ?? ''} nombre={nombre} logo={logo} />
 }

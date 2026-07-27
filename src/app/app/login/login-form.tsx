@@ -14,7 +14,15 @@ import { iniciarSesion, type ResultadoLogin } from './acciones'
  * salen del sistema central y respetan reduced-motion (con menos movimiento, la escena
  * queda iluminada y sin animación). El logo se referencia desde config (LOGO_URL).
  */
-export function LoginForm({ destino, nombre }: { destino: string; nombre: string | null }) {
+export function LoginForm({
+  destino,
+  nombre,
+  logo,
+}: {
+  destino: string
+  nombre: string | null
+  logo?: string | null
+}) {
   const [estado, accion] = useActionState<ResultadoLogin, FormData>(iniciarSesion, undefined)
   // Encendida por defecto: con reduced-motion nadie queda a oscuras.
   const [encendida, setEncendida] = useState(true)
@@ -56,7 +64,7 @@ export function LoginForm({ destino, nombre }: { destino: string; nombre: string
 
           {/* Logo de la marca, dentro del recuadro y con aire antes del título. */}
           <div className="mb-4 flex justify-center">
-            <LogoMarca className="size-[92px]" />
+            <LogoMarca className="size-[92px]" url={logo} />
           </div>
 
           <h1 className="text-center font-titulo text-2xl font-bold" style={{ color: '#ECCB79' }}>

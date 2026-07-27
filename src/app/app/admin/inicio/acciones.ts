@@ -13,7 +13,7 @@ const TIPOS = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_BYTES = 5 * 1024 * 1024
 
 /** Qué foto de la página de inicio se está cambiando. */
-export type CampoFoto = 'portada_url' | 'foto_local_url'
+export type CampoFoto = 'portada_url' | 'foto_local_url' | 'logo_url'
 
 // El video del héroe es decorativo y debe cargar rápido en datos móviles: corto y liviano.
 const TIPOS_VIDEO = ['video/mp4', 'video/webm']
@@ -44,7 +44,7 @@ export async function subirFotoInicio(campo: CampoFoto, form: FormData): Promise
   const supabase = await crearClienteServidor()
   const { data: rest } = await supabase
     .from('restaurantes')
-    .select('portada_url, foto_local_url')
+    .select('portada_url, foto_local_url, logo_url')
     .eq('id', staff.restaurante_id)
     .maybeSingle()
   if (!rest) return { ok: false, error: 'Restaurante no encontrado.' }
@@ -64,7 +64,9 @@ export async function subirFotoInicio(campo: CampoFoto, form: FormData): Promise
     .update(
       campo === 'portada_url'
         ? { portada_url: publica.publicUrl }
-        : { foto_local_url: publica.publicUrl },
+        : campo === 'logo_url'
+          ? { logo_url: publica.publicUrl }
+          : { foto_local_url: publica.publicUrl },
     )
     .eq('id', staff.restaurante_id)
   if (error) return { ok: false, error: error.message }
@@ -83,7 +85,7 @@ export async function quitarFotoInicio(campo: CampoFoto): Promise<Resultado> {
 
   const { data: rest } = await supabase
     .from('restaurantes')
-    .select('portada_url, foto_local_url')
+    .select('portada_url, foto_local_url, logo_url')
     .eq('id', staff.restaurante_id)
     .maybeSingle()
   if (!rest) return { ok: false, error: 'Restaurante no encontrado.' }
@@ -93,7 +95,13 @@ export async function quitarFotoInicio(campo: CampoFoto): Promise<Resultado> {
 
   const { error } = await supabase
     .from('restaurantes')
-    .update(campo === 'portada_url' ? { portada_url: null } : { foto_local_url: null })
+    .update(
+      campo === 'portada_url'
+        ? { portada_url: null }
+        : campo === 'logo_url'
+          ? { logo_url: null }
+          : { foto_local_url: null },
+    )
     .eq('id', staff.restaurante_id)
   if (error) return { ok: false, error: error.message }
 

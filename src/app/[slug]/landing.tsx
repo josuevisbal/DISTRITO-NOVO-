@@ -68,7 +68,7 @@ export function LandingCliente({ carta }: { carta: Carta }) {
       {/* ----- Barra superior ----- */}
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <Link href={base} className="flex items-center gap-3">
-          <LogoMarca className="size-12" />
+          <LogoMarca className="size-12" url={restaurante.logo_url} />
           <span className="hidden font-titulo text-lg font-bold sm:block">
             {restaurante.nombre}
           </span>

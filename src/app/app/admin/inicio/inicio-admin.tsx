@@ -23,6 +23,7 @@ import {
  */
 export function InicioAdmin({
   slug,
+  logoUrl,
   portadaUrl,
   fotoLocalUrl,
   heroVideoUrl,
@@ -32,6 +33,7 @@ export function InicioAdmin({
   frases: frasesIniciales,
 }: {
   slug: string
+  logoUrl: string | null
   portadaUrl: string | null
   fotoLocalUrl: string | null
   heroVideoUrl: string | null
@@ -84,6 +86,12 @@ export function InicioAdmin({
       <section className="tarjeta p-4">
         <h2 className="font-medium text-marca-texto">Fotos</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <CargadorFoto
+            campo="logo_url"
+            url={logoUrl}
+            titulo="Logo del restaurante"
+            ayuda="Va en el login, la portada y el menú, en marco circular. Sirve con fondo blanco: el borde se funde solo."
+          />
           <CargadorFoto
             campo="portada_url"
             url={portadaUrl}

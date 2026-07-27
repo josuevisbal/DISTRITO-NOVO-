@@ -160,6 +160,7 @@ export function CartaCliente({ carta, mesa }: Props) {
       <Encabezado
         nombre={carta.restaurante.nombre}
         portada={carta.restaurante.portada_url}
+        logo={carta.restaurante.logo_url}
         mesa={mesa}
         slug={carta.restaurante.slug}
       />
@@ -202,11 +203,13 @@ export function CartaCliente({ carta, mesa }: Props) {
 function Encabezado({
   nombre,
   portada,
+  logo,
   mesa,
   slug,
 }: {
   nombre: string
   portada?: string | null
+  logo?: string | null
   mesa?: { numero: number }
   slug: string
 }) {
@@ -236,7 +239,7 @@ function Encabezado({
       <div className="relative">
       {/* El logo real de la casa, en su marco circular degradado. */}
       <div className="animate-aparecer mb-4 flex justify-center">
-        <LogoMarca className="size-24" />
+        <LogoMarca className="size-24" url={logo} />
       </div>
 
       {mesa ? (

@@ -15,7 +15,7 @@ export default async function PaginaAdminInicio() {
   const { data } = await supabase
     .from('restaurantes')
     .select(
-      'slug, portada_url, foto_local_url, hero_video_url, direccion, horario, whatsapp, landing',
+      'slug, logo_url, portada_url, foto_local_url, hero_video_url, direccion, horario, whatsapp, landing',
     )
     .eq('id', staff.restaurante_id)
     .maybeSingle()
@@ -29,6 +29,7 @@ export default async function PaginaAdminInicio() {
       </p>
       <InicioAdmin
         slug={data?.slug ?? ''}
+        logoUrl={data?.logo_url ?? null}
         portadaUrl={data?.portada_url ?? null}
         fotoLocalUrl={data?.foto_local_url ?? null}
         heroVideoUrl={data?.hero_video_url ?? null}
