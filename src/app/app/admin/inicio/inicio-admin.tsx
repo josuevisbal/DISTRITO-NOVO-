@@ -109,6 +109,22 @@ export function InicioAdmin({
         <CargadorVideo url={heroVideoUrl} />
       </section>
 
+      {/* De dónde salen los especiales: se marcan en la Carta, no aquí. */}
+      <section className="tarjeta p-4">
+        <h2 className="font-medium text-marca-texto">Nuestros especiales</h2>
+        <p className="mt-1 text-sm text-marca-texto-suave">
+          Los platos que aparecen en “Nuestros especiales” son los que marcas como{' '}
+          <span className="font-semibold text-marca-texto">POPULAR</span> en la Carta. Si no
+          hay ninguno marcado, esa sección no se muestra en la página del cliente.
+        </p>
+        <Link
+          href="/app/admin/carta"
+          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-marca-borde px-4 text-sm text-marca-texto transition-colors hover:border-marca-acento"
+        >
+          Ir a la Carta a marcar platos
+        </Link>
+      </section>
+
       {/* ----- Frases del héroe ----- */}
       <section className="tarjeta space-y-2 p-4">
         <h2 className="font-medium text-marca-texto">Frases de bienvenida</h2>
