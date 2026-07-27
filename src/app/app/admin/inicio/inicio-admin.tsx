@@ -227,12 +227,19 @@ function CargadorVideo({ url }: { url: string | null }) {
   async function subir(archivo: File) {
     setOcupado(true)
     setError(null)
-    const form = new FormData()
-    form.set('video', archivo)
-    const r = await subirVideoHero(form)
-    setOcupado(false)
-    if (!r.ok) setError(r.error)
-    if (inputRef.current) inputRef.current.value = ''
+    try {
+      const form = new FormData()
+      form.set('video', archivo)
+      const r = await subirVideoHero(form)
+      if (!r.ok) setError(r.error)
+    } catch {
+      // Si el envío falla (video muy pesado para el servidor, conexión caída), no dejamos
+      // el botón en "Subiendo…" para siempre: se avisa y se puede reintentar.
+      setError('No se pudo subir el video. Revisa que pese menos de 10 MB y reintenta.')
+    } finally {
+      setOcupado(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
   }
 
   return (
@@ -324,12 +331,17 @@ function CargadorFoto({
     if (!pendiente) return
     setOcupado(true)
     setError(null)
-    const form = new FormData()
-    form.set('foto', pendiente)
-    const r = await subirFotoInicio(campo, form)
-    setOcupado(false)
-    if (!r.ok) setError(r.error)
-    else limpiar()
+    try {
+      const form = new FormData()
+      form.set('foto', pendiente)
+      const r = await subirFotoInicio(campo, form)
+      if (!r.ok) setError(r.error)
+      else limpiar()
+    } catch {
+      setError('No se pudo subir la foto. Revisa que pese menos de 5 MB y reintenta.')
+    } finally {
+      setOcupado(false)
+    }
   }
 
   const mostrada = previa ?? url

@@ -285,3 +285,30 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .hero-video { display: none; }
 }
+
+/* ---------- Héroe de la landing del cliente ---------- */
+/* El plato va detrás del título. En celular la foto se encuadra a la derecha y el velo
+   cierra fuerte por la izquierda y abajo: ahí viven las letras y deben leerse. */
+.hero-fondo img,
+.hero-fondo video {
+  object-position: 75% 50%;
+}
+.hero-velo {
+  background:
+    linear-gradient(90deg, #141210 0%, rgba(20, 18, 16, 0.92) 30%, rgba(20, 18, 16, 0.55) 65%, rgba(20, 18, 16, 0.25) 100%),
+    linear-gradient(180deg, #141210 0%, transparent 22%),
+    linear-gradient(0deg, #141210 0%, rgba(20, 18, 16, 0.35) 30%, transparent 55%);
+}
+/* En pantalla grande la foto respira más: el texto ocupa solo la mitad izquierda. */
+@media (min-width: 768px) {
+  .hero-fondo img,
+  .hero-fondo video {
+    object-position: 70% 50%;
+  }
+  .hero-velo {
+    background:
+      linear-gradient(90deg, #141210 18%, rgba(20, 18, 16, 0.75) 42%, transparent 70%),
+      linear-gradient(180deg, #141210 0%, transparent 30%),
+      linear-gradient(0deg, #141210 0%, transparent 38%);
+  }
+}

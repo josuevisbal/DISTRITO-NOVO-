@@ -103,19 +103,17 @@ export function LandingCliente({ carta }: { carta: Carta }) {
       <section id="inicio" className="relative overflow-hidden">
         {/* La foto del plato estrella, full-bleed a la derecha y fundida al negro con
             degradados (nada de marcos): como la referencia. */}
+        {/* El plato va DETRÁS del título, a la derecha: claro a ese lado y oscureciéndose
+            hacia la izquierda, donde vive el texto. En celular ocupa todo el héroe (es
+            donde más se abre) con el degradado más cerrado para que las letras se lean. */}
         {restaurante.portada_url || restaurante.hero_video_url ? (
-          <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 hidden w-[55%] md:block">
+          <div aria-hidden className="hero-fondo pointer-events-none absolute inset-0">
             <FondoHero
               foto={restaurante.portada_url}
               video={restaurante.hero_video_url}
               nombre={restaurante.nombre}
             />
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `linear-gradient(90deg, ${NEGRO} 8%, transparent 55%), linear-gradient(180deg, ${NEGRO} 0%, transparent 35%), linear-gradient(0deg, ${NEGRO} 0%, transparent 40%)`,
-              }}
-            />
+            <div className="hero-velo absolute inset-0" />
           </div>
         ) : null}
 
@@ -162,23 +160,8 @@ export function LandingCliente({ carta }: { carta: Carta }) {
           </div>
         </div>
 
-        {/* En celular va debajo del texto, también fundida al negro. */}
-        {restaurante.portada_url || restaurante.hero_video_url ? (
-          <div className="entra relative -mx-5 h-72 sm:-mx-8 md:hidden" style={{ '--i': 1 } as React.CSSProperties}>
-            <FondoHero
-              foto={restaurante.portada_url}
-              video={restaurante.hero_video_url}
-              nombre={restaurante.nombre}
-            />
-            <div
-              aria-hidden
-              className="absolute inset-0"
-              style={{
-                background: `linear-gradient(180deg, ${NEGRO} 0%, transparent 30%), linear-gradient(0deg, ${NEGRO} 0%, transparent 35%)`,
-              }}
-            />
-          </div>
-        ) : (
+        {/* Sin foto ni video: un marcador discreto, nunca un hueco. */}
+        {restaurante.portada_url || restaurante.hero_video_url ? null : (
           <div
             aria-hidden
             className="mx-auto flex size-64 items-center justify-center rounded-full md:hidden"
