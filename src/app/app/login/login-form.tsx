@@ -8,11 +8,11 @@ import { LogoMarca } from '@/components/logo-marca'
 import { iniciarSesion, type ResultadoLogin } from './acciones'
 
 /**
- * Escena de acceso: una salchipapa de la casa bajo un foco cálido. El botón enciende y
- * apaga la luz de esa zona (a todo color con resplandor dorado, o en penumbra) y a la
- * derecha va la tarjeta de acceso con el logo de la marca adentro. Las transiciones
- * salen del sistema central y respetan reduced-motion (con menos movimiento, la escena
- * queda iluminada y sin animación). El logo se referencia desde config (LOGO_URL).
+ * Escena de acceso: la foto del plato de la casa (la portada que el dueño sube en el
+ * panel) a pantalla completa y oscurecida, con la tarjeta de acceso centrada encima.
+ * El velo mantiene el formulario legible sobre cualquier foto. El botón de la luz
+ * atenúa el fondo sin tocar el formulario; con reduced-motion no hay animación y la
+ * escena queda iluminada.
  */
 export function LoginForm({
   destino,
@@ -32,39 +32,42 @@ export function LoginForm({
 
   return (
     <div
-      className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10 transition-colors duration-300 motion-reduce:transition-none"
-      style={{ backgroundColor: encendida ? '#17140E' : '#0B0B0C' }}
+      className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10"
+      style={{ backgroundColor: '#0B0B0C' }}
     >
-      {/* Resplandor cálido del foco sobre el plato: aparece al encender. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -z-0 transition-opacity duration-300 motion-reduce:transition-none"
-        style={{
-          left: '22%',
-          top: '42%',
-          width: 640,
-          height: 640,
-          transform: 'translate(-50%, -50%)',
-          background:
-            'radial-gradient(circle, rgba(224,135,43,0.32), rgba(216,172,78,0.12) 38%, transparent 64%)',
-          opacity: encendida ? 1 : 0,
-        }}
-      />
+      {/* La foto del plato ocupa toda la pantalla, oscurecida, y el acceso va encima. */}
+      {foto ? (
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={foto}
+            alt=""
+            className="size-full object-cover transition-[opacity,filter] duration-300 ease-out motion-reduce:transition-none"
+            style={{
+              opacity: encendida ? 1 : 0.18,
+              filter: encendida ? 'none' : 'brightness(0.35) saturate(0.4)',
+            }}
+          />
+          {/* Velo oscuro: la foto se ve, pero el formulario manda. */}
+          <div
+            className="absolute inset-0 transition-opacity duration-300 motion-reduce:transition-none"
+            style={{
+              background:
+                'radial-gradient(circle at 50% 45%, rgba(11,11,12,0.55) 0%, rgba(11,11,12,0.82) 55%, #0B0B0C 100%)',
+              opacity: encendida ? 1 : 0.6,
+            }}
+          />
+        </div>
+      ) : null}
 
-      <div className="relative z-10 grid w-full max-w-4xl items-center gap-10 md:grid-cols-2">
-        <PlatoDeLaCasa
-          foto={foto}
-          encendida={encendida}
-          onToggle={() => setEncendida((v) => !v)}
-        />
-
+      <div className="relative z-10 flex w-full max-w-sm flex-col items-center gap-4">
         {/* Tarjeta de acceso, tipo vidrio. */}
         <form
           action={accion}
-          className="animate-subir mx-auto w-full max-w-sm rounded-2xl border border-white/10 p-6 backdrop-blur-md transition-colors duration-300 motion-reduce:transition-none"
+          className="animate-subir w-full rounded-2xl border border-white/10 p-6 backdrop-blur-md"
           style={{
-            backgroundColor: encendida ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
+            backgroundColor: 'rgba(18,16,14,0.72)',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.55)',
           }}
         >
           <input type="hidden" name="destino" value={destino} />
@@ -112,90 +115,21 @@ export function LoginForm({
           ) : null}
 
           <Boton />
-
-          {!encendida ? (
-            <p className="mt-4 text-center text-xs" style={{ color: '#7c766a' }}>
-              Enciende la luz para ver el plato de la casa.
-            </p>
-          ) : null}
         </form>
-      </div>
-    </div>
-  )
-}
 
-/**
- * El plato de la casa: la misma foto de portada que el dueno sube en el panel, fundida
- * con el negro por los bordes (nada de marcos). El boton de la luz la ilumina: a todo
- * color con resplandor calido, o en penumbra. Fade de 300 ms del sistema, anulado con
- * reduced-motion. Sin foto todavia, queda un circulo tenue en vez de un hueco.
- */
-function PlatoDeLaCasa({
-  foto,
-  encendida,
-  onToggle,
-}: {
-  foto?: string | null
-  encendida: boolean
-  onToggle: () => void
-}) {
-  return (
-    <div className="mx-auto flex flex-col items-center">
-      <div
-        className="relative size-64 transition-[opacity,filter] duration-300 ease-out motion-reduce:transition-none sm:size-72 md:size-80"
-        style={{
-          opacity: encendida ? 1 : 0.16,
-          filter: encendida ? 'none' : 'brightness(0.4) saturate(0.4)',
-        }}
-      >
-        {/* Resplandor calido detras del plato. */}
-        <div
-          aria-hidden
-          className="absolute inset-0 -z-10 rounded-full blur-2xl transition-opacity duration-300 motion-reduce:transition-none"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(224,135,43,0.55), rgba(216,172,78,0.18) 45%, transparent 70%)',
-            opacity: encendida ? 1 : 0,
-            transform: 'scale(1.15)',
-          }}
-        />
-
+        {/* El juego de la luz: atenúa la foto del fondo sin tocar el formulario. */}
         {foto ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={foto}
-              alt="El plato de la casa"
-              className="size-full rounded-full object-cover"
-            />
-            {/* Los bordes se funden con el fondo: se ve el plato, no un recorte. */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 rounded-full"
-              style={{
-                background:
-                  'radial-gradient(circle at 50% 45%, transparent 42%, rgba(11,11,12,0.55) 68%, #0B0B0C 92%)',
-              }}
-            />
-          </>
-        ) : (
-          <div
-            aria-hidden
-            className="size-full rounded-full"
-            style={{ background: 'radial-gradient(circle, #2a231a, transparent 70%)' }}
-          />
-        )}
+          <button
+            type="button"
+            onClick={() => setEncendida((v) => !v)}
+            aria-pressed={encendida}
+            className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-medium backdrop-blur-sm"
+            style={{ color: '#C9A24A', backgroundColor: 'rgba(11,11,12,0.45)' }}
+          >
+            {encendida ? 'Apagar luz' : 'Encender luz'}
+          </button>
+        ) : null}
       </div>
-
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={encendida}
-        className="mt-3 min-h-11 rounded-full border border-white/15 px-4 text-xs font-medium"
-        style={{ color: '#C9A24A' }}
-      >
-        {encendida ? 'Apagar luz' : 'Encender luz'}
-      </button>
     </div>
   )
 }

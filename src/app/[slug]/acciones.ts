@@ -26,7 +26,15 @@ export type DatosPedido = {
 }
 
 export type ResultadoPedido =
-  | { ok: true; token: string; numero: number }
+  | {
+      ok: true
+      token: string
+      numero: number
+      /** Valores ya calculados por el servidor, para el aviso de WhatsApp. */
+      subtotal: number
+      domicilio: number
+      total: number
+    }
   | { ok: false; error: string }
 
 /** Lo que devuelve `crear_pedido`. La función es la dueña de las cuentas, no el front. */
@@ -34,6 +42,8 @@ type RespuestaCrearPedido = {
   id: string
   numero: number
   token: string
+  subtotal: number
+  domicilio: number
   total: number
   monto_exacto: number
   estado: string
@@ -91,5 +101,12 @@ export async function crearPedido(
   }
 
   const pedido = data as unknown as RespuestaCrearPedido
-  return { ok: true, token: pedido.token, numero: pedido.numero }
+  return {
+    ok: true,
+    token: pedido.token,
+    numero: pedido.numero,
+    subtotal: pedido.subtotal,
+    domicilio: pedido.domicilio,
+    total: pedido.total,
+  }
 }
