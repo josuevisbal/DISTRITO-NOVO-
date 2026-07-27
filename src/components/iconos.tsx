@@ -370,6 +370,17 @@ export function IconoWhatsApp(props: Props) {
   )
 }
 
+/** Impresora: la factura que se le entrega al cliente. */
+export function IconoImprimir(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M7 9V4h10v5" />
+      <path d="M7 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" />
+      <rect x="7" y="14" width="10" height="7" rx="1" />
+    </Svg>
+  )
+}
+
 /** Teléfono: contacto del restaurante. */
 export function IconoTelefono(props: Props) {
   return (

@@ -13,6 +13,8 @@ export type ArqueoMedio = { monto: number; pedidos: number }
 /** Un cobro ya hecho en el turno: la trazabilidad de "Cobrados hoy". */
 export type Cobrado = {
   movimiento_id: string
+  /** Para abrir la factura del pedido. Null si el movimiento no venía de un pedido. */
+  pedido_id: string | null
   numero: number | null
   cliente: string | null
   mesa: number | null
@@ -59,7 +61,9 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   if (turno) {
     const { data: movs } = await supabase
       .from('caja_movimientos')
-      .select('id, medio, monto, tipo, creado_en, pedidos(numero, cliente_nombre, mesas(numero))')
+      .select(
+        'id, medio, monto, tipo, creado_en, pedido_id, pedidos(numero, cliente_nombre, mesas(numero))',
+      )
       .eq('turno_id', turno.id)
       .in('tipo', ['ingreso', 'legalizacion'])
       .order('creado_en', { ascending: false })
@@ -69,6 +73,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       arqueo[m.medio] = { monto: previo.monto + m.monto, pedidos: previo.pedidos + 1 }
       cobrados.push({
         movimiento_id: m.id,
+        pedido_id: m.pedido_id,
         numero: m.pedidos?.numero ?? null,
         cliente: m.pedidos?.cliente_nombre ?? null,
         mesa: m.pedidos?.mesas?.numero ?? null,

@@ -361,3 +361,23 @@ body {
     display: none;
   }
 }
+
+/* ---------- Factura para el cliente ---------- */
+/* Sale sola en la hoja: sin fondos ni sombras que gasten tinta, y a 80 mm para que
+   encaje en impresora de tirilla. */
+@media print {
+  .factura {
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 80mm !important;
+    width: 80mm !important;
+  }
+  .factura + *,
+  body:has(.factura) > div > .no-imprimir {
+    display: none !important;
+  }
+}
+@page {
+  margin: 8mm;
+}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type CSSProperties } from 'react'
+import Link from 'next/link'
 
 import {
   IconoAlerta,
@@ -8,6 +9,7 @@ import {
   IconoCampana,
   IconoCheck,
   IconoGlobo,
+  IconoImprimir,
   IconoIntercambio,
   IconoMoto,
   IconoReloj,
@@ -242,7 +244,9 @@ export function CajaCliente(props: Props) {
         )}
       </ul>
 
-      {turno && verCobrados ? <CobradosHoy cobrados={cobrados} /> : null}
+      {turno && verCobrados ? (
+        <CobradosHoy cobrados={cobrados} soloLectura={soloLectura} />
+      ) : null}
 
       {porLegalizar.length > 0 ? (
         <section className="pt-2">
@@ -281,7 +285,13 @@ function VentasTurno({ total }: { total: number }) {
  * Todo lo que ya entró a la caja en este turno, del más reciente al primero. Se puede
  * filtrar por medio de pago y buscar por pedido o cliente. Solo lectura: es el rastro.
  */
-function CobradosHoy({ cobrados }: { cobrados: Cobrado[] }) {
+function CobradosHoy({
+  cobrados,
+  soloLectura,
+}: {
+  cobrados: Cobrado[]
+  soloLectura: boolean
+}) {
   const [buscar, setBuscar] = useState('')
   const [medio, setMedio] = useState<string>('todos')
 
@@ -350,7 +360,12 @@ function CobradosHoy({ cobrados }: { cobrados: Cobrado[] }) {
           ) : (
             <ul className="tarjeta divide-y divide-marca-borde overflow-hidden">
               {visibles.map((c, i) => (
-                <FilaCobrado key={c.movimiento_id} cobrado={c} indice={i} />
+                <FilaCobrado
+                  key={c.movimiento_id}
+                  cobrado={c}
+                  indice={i}
+                  soloLectura={soloLectura}
+                />
               ))}
             </ul>
           )}
@@ -360,7 +375,15 @@ function CobradosHoy({ cobrados }: { cobrados: Cobrado[] }) {
   )
 }
 
-function FilaCobrado({ cobrado, indice }: { cobrado: Cobrado; indice: number }) {
+function FilaCobrado({
+  cobrado,
+  indice,
+  soloLectura,
+}: {
+  cobrado: Cobrado
+  indice: number
+  soloLectura: boolean
+}) {
   const info = MEDIO_INFO[cobrado.medio]
   const hora = new Date(cobrado.cobrado_en).toLocaleTimeString('es-CO', {
     hour: 'numeric',
@@ -371,7 +394,7 @@ function FilaCobrado({ cobrado, indice }: { cobrado: Cobrado; indice: number }) 
 
   return (
     <li
-      className="entra grid grid-cols-[4.5rem_1fr_auto_auto_6rem] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-marca-superficie-tenue"
+      className="entra grid grid-cols-[4.5rem_1fr_auto_auto_6rem_auto] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-marca-superficie-tenue"
       style={{ '--i': Math.min(indice, 8) } as CSSProperties}
     >
       <span className="font-semibold tabular-nums text-marca-texto">
@@ -391,6 +414,19 @@ function FilaCobrado({ cobrado, indice }: { cobrado: Cobrado; indice: number }) 
       <span className="text-right font-semibold tabular-nums text-marca-texto">
         {formatearPesos(cobrado.monto)}
       </span>
+
+      {/* La factura que se le entrega al cliente. En monitoreo no se imprime. */}
+      {soloLectura || !cobrado.pedido_id ? (
+        <span />
+      ) : (
+        <Link
+          href={`/app/caja/factura/${cobrado.pedido_id}`}
+          className="flex min-h-9 items-center gap-1 rounded-lg border border-marca-borde px-2.5 text-xs font-medium text-marca-texto-suave transition-colors hover:border-marca-acento hover:text-marca-texto"
+        >
+          <IconoImprimir className="size-4 shrink-0" />
+          Factura
+        </Link>
+      )}
     </li>
   )
 }
