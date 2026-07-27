@@ -86,6 +86,19 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
 
         <hr className="my-3 border-dashed border-[#bbb]" />
 
+        {/* Qué documento es: la cuenta que se lleva antes de pagar, o la factura ya
+            cobrada. Se dice claro para que nadie confunda una con otra. */}
+        <p
+          className="mb-2 rounded border py-1 text-center text-[11px] font-bold uppercase tracking-wider"
+          style={
+            factura.pagado
+              ? { borderColor: '#0F6E56', color: '#0F6E56', backgroundColor: '#E1F5EE' }
+              : { borderColor: '#854F0B', color: '#854F0B', backgroundColor: '#FAEEDA' }
+          }
+        >
+          {factura.pagado ? 'Pagado' : 'Cuenta de cobro · pendiente de pago'}
+        </p>
+
         <div className="space-y-0.5 text-[11px]">
           <p className="text-sm font-bold">Pedido #{factura.numero}</p>
           <p suppressHydrationWarning>{fecha}</p>
@@ -138,17 +151,27 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
           </div>
           {factura.medio_pago ? (
             <Renglon
-              termino="Pagado con"
+              termino={factura.pagado ? 'Pagado con' : 'Va a pagar con'}
               valor={NOMBRE_MEDIO[factura.medio_pago] ?? factura.medio_pago}
             />
           ) : null}
         </dl>
 
-        <p className="mt-4 text-center text-[11px] leading-snug">
-          ¡Gracias por tu compra!
-          <br />
-          Te esperamos pronto.
-        </p>
+        {factura.pagado ? (
+          <p className="mt-4 text-center text-[11px] leading-snug">
+            ¡Gracias por tu compra!
+            <br />
+            Te esperamos pronto.
+          </p>
+        ) : (
+          <p className="mt-4 border-t border-dashed border-[#bbb] pt-3 text-center text-[11px] leading-snug">
+            <span className="font-bold">Este documento no es su factura de venta.</span>
+            <br />
+            {factura.canal === 'domicilio' || factura.canal === 'whatsapp'
+              ? 'Pague este valor al domiciliario al recibir.'
+              : 'Presente esta cuenta en la caja para pagar.'}
+          </p>
+        )}
       </article>
     </div>
   )

@@ -4,6 +4,12 @@ export type Factura = {
   numero: number
   creado_en: string
   canal: string
+  /**
+   * Si el pedido ya se cobró. Cuando no, el documento sale como CUENTA DE COBRO: es la
+   * que el mesero lleva a la mesa antes de pagar, o la que el domiciliario lleva en una
+   * contraentrega. Cuando sí, sale como factura con el sello de PAGADO.
+   */
+  pagado: boolean
   mesa: number | null
   cliente: string | null
   telefono: string | null
@@ -35,7 +41,7 @@ export async function cargarFactura(
   const { data } = await supabase
     .from('pedidos')
     .select(
-      'numero, creado_en, canal, cliente_nombre, cliente_tel, direccion, medio_pago, subtotal, domicilio, total, mesas(numero), zonas_domicilio(nombre), pedido_items(nombre_snap, cantidad, precio_snap)',
+      'numero, creado_en, canal, estado, cliente_nombre, cliente_tel, direccion, medio_pago, subtotal, domicilio, total, mesas(numero), zonas_domicilio(nombre), pagos(estado), pedido_items(nombre_snap, cantidad, precio_snap)',
     )
     .eq('id', pedidoId)
     .eq('restaurante_id', restauranteId)
@@ -53,6 +59,10 @@ export async function cargarFactura(
     numero: data.numero,
     creado_en: data.creado_en,
     canal: data.canal,
+    // Cobrado = el pedido quedó cerrado en caja, o ya tiene un pago verificado
+    // (la transferencia que caja aprobó antes de mandarlo a cocina).
+    pagado:
+      data.estado === 'cerrado' || (data.pagos ?? []).some((p) => p.estado === 'verificado'),
     mesa: data.mesas?.numero ?? null,
     cliente: data.cliente_nombre,
     telefono: data.cliente_tel,

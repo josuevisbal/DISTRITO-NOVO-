@@ -532,6 +532,23 @@ function FilaPedido({
   return <FilaCobrar p={fila.cobro} indice={indice} soloLectura={soloLectura} />
 }
 
+/**
+ * La cuenta que se entrega ANTES de pagar: el mesero la lleva a la mesa cuando piden la
+ * cuenta, y el domiciliario la lleva en una contraentrega. Sale marcada como pendiente
+ * de pago, para que no se confunda con la factura ya cobrada.
+ */
+function BotonCuenta({ pedidoId }: { pedidoId: string }) {
+  return (
+    <Link
+      href={`/app/caja/factura/${pedidoId}`}
+      className="flex min-h-11 items-center gap-1 rounded-lg border border-marca-borde px-2.5 text-xs font-medium text-marca-texto-suave transition-colors hover:border-marca-acento hover:text-marca-texto"
+    >
+      <IconoImprimir className="size-4 shrink-0" />
+      Cuenta
+    </Link>
+  )
+}
+
 /** En monitoreo, donde iría el botón va el estado en texto. */
 function EstadoSoloLectura({ texto }: { texto: string }) {
   return (
@@ -662,6 +679,8 @@ function FilaConfirmar({
             />
           ) : (
             <div className="flex items-center gap-2">
+              {/* Contraentrega: el domiciliario se lleva la cuenta para cobrar al entregar. */}
+              <BotonCuenta pedidoId={c.pedido_id} />
               <Boton variante="exito" onClick={confirmar} disabled={ocupado}>
                 Confirmar
               </Boton>
@@ -745,9 +764,18 @@ function FilaCobrar({
             </Boton>
           </div>
         ) : (
-          <Boton variante="negro" className="px-4" onClick={() => setAbierto(true)} disabled={ocupado}>
-            Cobrar
-          </Boton>
+          <div className="flex items-center gap-2">
+            {/* "La cuenta, por favor": se imprime y el cliente la lleva a la caja. */}
+            <BotonCuenta pedidoId={p.pedido_id} />
+            <Boton
+              variante="negro"
+              className="px-4"
+              onClick={() => setAbierto(true)}
+              disabled={ocupado}
+            >
+              Cobrar
+            </Boton>
+          </div>
         )}
       </div>
       )}
