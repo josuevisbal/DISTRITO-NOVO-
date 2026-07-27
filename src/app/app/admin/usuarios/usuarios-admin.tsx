@@ -44,9 +44,10 @@ export function UsuariosAdmin({
   const [creando, setCreando] = useState(false)
   const [origen, setOrigen] = useState<{ x: number; y: number } | null>(null)
 
-  // El dueño otorga cualquier rol; el admin solo roles de operación.
+  // Un solo rol de mando: dueño. "admin" queda en la base por compatibilidad, pero ya
+  // no se ofrece al crear ni al cambiar de rol; quien manda es el dueño.
   const rolesDisponibles: Rol[] =
-    miRol === 'dueno' ? ['dueno', 'admin', ...ROLES_OPERACION] : ROLES_OPERACION
+    miRol === 'dueno' ? ['dueno', ...ROLES_OPERACION] : ROLES_OPERACION
 
   return (
     <div className="space-y-4">

@@ -30,7 +30,7 @@ export async function actualizarUsuario(
 
   // Solo el dueño nombra dueños o admins. (La base lo impone también con un disparador.)
   if ((cambios.rol === 'dueno' || cambios.rol === 'admin') && staff.rol !== 'dueno') {
-    return { ok: false, error: 'Solo el dueño puede nombrar administradores.' }
+    return { ok: false, error: 'Solo el dueño puede nombrar a otro dueño.' }
   }
 
   const supabase = await crearClienteServidor()
