@@ -1,5 +1,7 @@
+import { PestanasModulo } from '@/components/panel/pestanas-modulo'
 import type { FrasesLanding } from '@/lib/datos/carta'
 import { exigirRol } from '@/lib/sesion'
+import { PESTANAS_MENU } from '../carta/page'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { InicioAdmin } from './inicio-admin'
 
@@ -17,7 +19,8 @@ export default async function PaginaAdminInicio() {
     .maybeSingle()
 
   return (
-    <>
+    <div className="space-y-4">
+      <PestanasModulo opciones={PESTANAS_MENU} activa="/app/admin/inicio" />
       <p className="text-sm text-marca-texto-suave">
         Lo que ve el cliente al abrir el link: las fotos y las frases de la pantalla de
         bienvenida. Lo que dejes vacío usa el texto de la plantilla.
@@ -31,6 +34,6 @@ export default async function PaginaAdminInicio() {
         whatsapp={data?.whatsapp ?? ''}
         frases={(data?.landing ?? {}) as FrasesLanding}
       />
-    </>
+    </div>
   )
 }

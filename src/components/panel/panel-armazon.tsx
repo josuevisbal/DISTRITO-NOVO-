@@ -11,7 +11,6 @@ import {
   IconoCampana,
   IconoCarta,
   IconoCerrar,
-  IconoDestello,
   IconoEquipo,
   IconoFuego,
   IconoGrafica,
@@ -35,12 +34,11 @@ type Modulo = {
 const MODULOS: Modulo[] = [
   { href: '/app/admin/tablero', titulo: 'Tablero', Icono: IconoTablero },
   { href: '/app/admin/pedidos', titulo: 'Pedidos en vivo', Icono: IconoCampana },
-  { href: '/app/admin/inicio', titulo: 'Página de inicio', Icono: IconoDestello },
-  { href: '/app/admin/carta', titulo: 'Carta', Icono: IconoCarta },
+  // Menú Digital agrupa la Carta y la Página de inicio; adentro se cambia con pestañas.
+  { href: '/app/admin/carta', titulo: 'Menú Digital', Icono: IconoCarta },
   { href: '/app/admin/promociones', titulo: 'Promociones', Icono: IconoPorcentaje },
   { href: '/app/admin/zonas', titulo: 'Zonas', Icono: IconoPin },
   { href: '/app/admin/mesas', titulo: 'Mesas · QR', Icono: IconoTablero },
-  { href: '/app/admin/caja', titulo: 'Caja y finanzas', Icono: IconoCaja },
   { href: '/app/admin/usuarios', titulo: 'Equipo', Icono: IconoEquipo },
   { href: '/app/admin/reportes', titulo: 'Reportes', Icono: IconoGrafica },
 ]
@@ -108,7 +106,9 @@ export function PanelArmazon({ staff, nombreRestaurante, children }: Props) {
     }
   }, [])
 
-  const activo = [...MODULOS, ...MONITOREO].find((m) => ruta.startsWith(m.href))
+  // La Página de inicio es una pestaña del Menú Digital: resalta el mismo módulo.
+  const rutaModulo = ruta.startsWith('/app/admin/inicio') ? '/app/admin/carta' : ruta
+  const activo = [...MODULOS, ...MONITOREO].find((m) => rutaModulo.startsWith(m.href))
 
   return (
     <div className="flex min-h-screen">
@@ -238,7 +238,9 @@ function LinkModulo({
   ruta: string
   enVivo: number | null
 }) {
-  const activo = ruta.startsWith(modulo.href)
+  // La Página de inicio vive dentro del Menú Digital: resalta esa entrada.
+  const rutaModulo = ruta.startsWith('/app/admin/inicio') ? '/app/admin/carta' : ruta
+  const activo = rutaModulo.startsWith(modulo.href)
   return (
     <Link
       href={modulo.href}

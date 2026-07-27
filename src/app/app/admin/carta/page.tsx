@@ -1,8 +1,15 @@
+import { PestanasModulo } from '@/components/panel/pestanas-modulo'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { CartaAdmin, type CategoriaAdmin } from './carta-admin'
 
 export const dynamic = 'force-dynamic'
+
+/** Las dos caras del Menú Digital: lo que se pide y lo que se ve al entrar. */
+export const PESTANAS_MENU = [
+  { href: '/app/admin/carta', etiqueta: 'Carta' },
+  { href: '/app/admin/inicio', etiqueta: 'Página de inicio' },
+]
 
 export default async function PaginaAdminCarta() {
   const staff = await exigirRol('admin')
@@ -48,12 +55,13 @@ export default async function PaginaAdminCarta() {
     .filter((c) => c.productos.length > 0)
 
   return (
-    <>
+    <div className="space-y-4">
+      <PestanasModulo opciones={PESTANAS_MENU} activa="/app/admin/carta" />
       <p className="text-sm text-marca-texto-suave">
         Sube una foto por plato, márcalo como POPULAR o agótalo. La foto se ve al instante en
         la carta del cliente.
       </p>
       <CartaAdmin categorias={grupos} />
-    </>
+    </div>
   )
 }

@@ -2,7 +2,8 @@
 
 import { useRef, useState, type CSSProperties } from 'react'
 
-import { IconoAlerta, IconoCheck, IconoDestello } from '@/components/iconos'
+import { IconoAlerta, IconoCarta, IconoCheck, IconoDestello } from '@/components/iconos'
+import { Vacio } from '@/components/ui/vacio'
 import { formatearPesos } from '@/lib/formato'
 import { alternarProducto, quitarFotoProducto, subirFotoProducto } from './acciones'
 
@@ -19,19 +20,94 @@ export type ProductoAdmin = {
 export type CategoriaAdmin = { id: string; nombre: string; productos: ProductoAdmin[] }
 
 export function CartaAdmin({ categorias }: { categorias: CategoriaAdmin[] }) {
+  const [familia, setFamilia] = useState<string>('todos')
+  const [buscar, setBuscar] = useState('')
+
+  const total = categorias.reduce((s, c) => s + c.productos.length, 0)
+  const texto = buscar.trim().toLowerCase()
+
+  // Primero la familia elegida, luego el buscador; las que quedan vacías no se pintan.
+  const visibles = categorias
+    .filter((c) => familia === 'todos' || c.id === familia)
+    .map((c) => ({
+      ...c,
+      productos: texto
+        ? c.productos.filter((p) => p.nombre.toLowerCase().includes(texto))
+        : c.productos,
+    }))
+    .filter((c) => c.productos.length > 0)
+
   return (
-    <div className="mx-auto max-w-3xl space-y-8 p-4 pb-16">
-      {categorias.map((cat) => (
-        <section key={cat.id}>
-          <h2 className="mb-3 font-titulo text-lg text-marca-texto">{cat.nombre}</h2>
-          <ul className="space-y-3">
-            {cat.productos.map((p, i) => (
-              <FilaProducto key={p.id} producto={p} indice={i} />
-            ))}
-          </ul>
-        </section>
-      ))}
+    <div className="mx-auto max-w-3xl space-y-4 p-4 pb-16">
+      {/* Filtros por familia + buscador: con tantos platos, bajar a buscar es incómodo. */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <ChipFamilia
+            activo={familia === 'todos'}
+            onClick={() => setFamilia('todos')}
+            etiqueta={`Todos · ${total}`}
+          />
+          {categorias.map((c) => (
+            <ChipFamilia
+              key={c.id}
+              activo={familia === c.id}
+              onClick={() => setFamilia(c.id)}
+              etiqueta={`${c.nombre} · ${c.productos.length}`}
+            />
+          ))}
+        </div>
+
+        <input
+          value={buscar}
+          onChange={(e) => setBuscar(e.target.value)}
+          placeholder="Buscar un plato por nombre"
+          className="min-h-11 w-full max-w-sm rounded-lg border border-marca-borde bg-marca-superficie px-3 text-sm text-marca-texto placeholder:text-marca-texto-suave/60"
+        />
+      </div>
+
+      {visibles.length === 0 ? (
+        <Vacio texto="Ningún plato coincide con la búsqueda." Icono={IconoCarta} />
+      ) : (
+        // key por filtro: la entrada escalonada se reinicia y el cambio se ve suave.
+        <div key={`${familia}-${texto}`} className="space-y-8">
+          {visibles.map((cat) => (
+            <section key={cat.id}>
+              <h2 className="mb-3 font-titulo text-lg text-marca-texto">{cat.nombre}</h2>
+              <ul className="space-y-3">
+                {cat.productos.map((p, i) => (
+                  <FilaProducto key={p.id} producto={p} indice={Math.min(i, 8)} />
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
+  )
+}
+
+function ChipFamilia({
+  activo,
+  onClick,
+  etiqueta,
+}: {
+  activo: boolean
+  onClick: () => void
+  etiqueta: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      className={`min-h-11 rounded-lg border px-3 text-sm font-medium transition-colors ${
+        activo
+          ? 'border-transparent bg-[#0B0B0C] text-marca-acento'
+          : 'border-marca-borde bg-marca-superficie text-marca-texto-suave hover:text-marca-texto'
+      }`}
+    >
+      {etiqueta}
+    </button>
   )
 }
 
