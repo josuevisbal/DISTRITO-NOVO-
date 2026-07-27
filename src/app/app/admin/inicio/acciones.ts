@@ -15,6 +15,10 @@ const MAX_BYTES = 5 * 1024 * 1024
 /** Qué foto de la página de inicio se está cambiando. */
 export type CampoFoto = 'portada_url' | 'foto_local_url'
 
+// El video del héroe es decorativo y debe cargar rápido en datos móviles: corto y liviano.
+const TIPOS_VIDEO = ['video/mp4', 'video/webm']
+const MAX_BYTES_VIDEO = 10 * 1024 * 1024
+
 function rutaDeUrl(url: string | null): string | null {
   if (!url) return null
   const marca = `/object/public/${BUCKET}/`
@@ -90,6 +94,84 @@ export async function quitarFotoInicio(campo: CampoFoto): Promise<Resultado> {
   const { error } = await supabase
     .from('restaurantes')
     .update(campo === 'portada_url' ? { portada_url: null } : { foto_local_url: null })
+    .eq('id', staff.restaurante_id)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/app/admin/inicio')
+  return { ok: true }
+}
+
+/**
+ * Sube el video de fondo del héroe. Se valida corto y liviano (≤10 MB, MP4 o WebM)
+ * porque es decorativo: si pesa, la página tarda en celular. La foto del héroe queda
+ * como respaldo (poster) y se sigue mostrando mientras el video carga.
+ */
+export async function subirVideoHero(form: FormData): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  const archivo = form.get('video')
+
+  if (!(archivo instanceof File) || archivo.size === 0) {
+    return { ok: false, error: 'Escoge un video.' }
+  }
+  if (!TIPOS_VIDEO.includes(archivo.type)) {
+    return { ok: false, error: 'El video debe ser MP4 (H.264) o WebM.' }
+  }
+  if (archivo.size > MAX_BYTES_VIDEO) {
+    return {
+      ok: false,
+      error: 'El video pesa más de 10 MB. Usa uno de 5 a 12 segundos, más comprimido.',
+    }
+  }
+
+  const supabase = await crearClienteServidor()
+  const { data: rest } = await supabase
+    .from('restaurantes')
+    .select('hero_video_url')
+    .eq('id', staff.restaurante_id)
+    .maybeSingle()
+  if (!rest) return { ok: false, error: 'Restaurante no encontrado.' }
+
+  const ext = archivo.type === 'video/webm' ? 'webm' : 'mp4'
+  const ruta = `${staff.restaurante_id}/hero-video-${Date.now()}.${ext}`
+  const bytes = new Uint8Array(await archivo.arrayBuffer())
+
+  const subida = await supabase.storage
+    .from(BUCKET)
+    .upload(ruta, bytes, { contentType: archivo.type, upsert: true })
+  if (subida.error) return { ok: false, error: subida.error.message }
+
+  const { data: publica } = supabase.storage.from(BUCKET).getPublicUrl(ruta)
+  const { error } = await supabase
+    .from('restaurantes')
+    .update({ hero_video_url: publica.publicUrl })
+    .eq('id', staff.restaurante_id)
+  if (error) return { ok: false, error: error.message }
+
+  const anterior = rutaDeUrl(rest.hero_video_url)
+  if (anterior && anterior !== ruta) await supabase.storage.from(BUCKET).remove([anterior])
+
+  revalidatePath('/app/admin/inicio')
+  return { ok: true }
+}
+
+/** Quita el video del héroe: la portada vuelve a ser la foto. */
+export async function quitarVideoHero(): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  const supabase = await crearClienteServidor()
+
+  const { data: rest } = await supabase
+    .from('restaurantes')
+    .select('hero_video_url')
+    .eq('id', staff.restaurante_id)
+    .maybeSingle()
+  if (!rest) return { ok: false, error: 'Restaurante no encontrado.' }
+
+  const ruta = rutaDeUrl(rest.hero_video_url)
+  if (ruta) await supabase.storage.from(BUCKET).remove([ruta])
+
+  const { error } = await supabase
+    .from('restaurantes')
+    .update({ hero_video_url: null })
     .eq('id', staff.restaurante_id)
   if (error) return { ok: false, error: error.message }
 

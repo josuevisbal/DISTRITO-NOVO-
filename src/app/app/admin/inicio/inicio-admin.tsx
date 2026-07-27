@@ -7,7 +7,14 @@ import { IconoAlerta, IconoCheck } from '@/components/iconos'
 import { useToast } from '@/components/toast'
 import { Boton } from '@/components/ui/boton'
 import type { FrasesLanding } from '@/lib/datos/carta'
-import { guardarInicio, quitarFotoInicio, subirFotoInicio, type CampoFoto } from './acciones'
+import {
+  guardarInicio,
+  quitarFotoInicio,
+  quitarVideoHero,
+  subirFotoInicio,
+  subirVideoHero,
+  type CampoFoto,
+} from './acciones'
 
 /**
  * Panel de la página de inicio: el admin cambia las dos fotos grandes (el plato del
@@ -18,6 +25,7 @@ export function InicioAdmin({
   slug,
   portadaUrl,
   fotoLocalUrl,
+  heroVideoUrl,
   direccion: direccionInicial,
   horario: horarioInicial,
   whatsapp: whatsappInicial,
@@ -26,6 +34,7 @@ export function InicioAdmin({
   slug: string
   portadaUrl: string | null
   fotoLocalUrl: string | null
+  heroVideoUrl: string | null
   direccion: string
   horario: string
   whatsapp: string
@@ -88,6 +97,8 @@ export function InicioAdmin({
             ayuda="La de la sección “Sobre nosotros”."
           />
         </div>
+
+        <CargadorVideo url={heroVideoUrl} />
       </section>
 
       {/* ----- Frases del héroe ----- */}
@@ -195,6 +206,84 @@ export function InicioAdmin({
         {guardado ? <IconoCheck className="size-4" /> : null}
         {guardando ? 'Guardando…' : guardado ? 'Guardado' : 'Guardar cambios'}
       </Boton>
+    </div>
+  )
+}
+
+/** Video de fondo del héroe: opcional, corto y liviano. Si no hay, manda la foto. */
+function CargadorVideo({ url }: { url: string | null }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function subir(archivo: File) {
+    setOcupado(true)
+    setError(null)
+    const form = new FormData()
+    form.set('video', archivo)
+    const r = await subirVideoHero(form)
+    setOcupado(false)
+    if (!r.ok) setError(r.error)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-marca-borde p-3">
+      <p className="text-sm font-medium text-marca-texto">Video de fondo del héroe (opcional)</p>
+      <p className="mt-0.5 text-xs text-marca-texto-suave">
+        Si subes un video, la portada lo usa de fondo en vez de la foto. Corto (5–12 s),
+        MP4 o WebM, máximo 10 MB. Va sin sonido y en bucle; la foto de arriba queda como
+        respaldo mientras carga y en celulares que no lo reproducen.
+      </p>
+
+      {url ? (
+        <video
+          src={url}
+          muted
+          loop
+          playsInline
+          autoPlay
+          className="mt-2 h-32 w-full rounded-lg object-cover"
+        />
+      ) : (
+        <div className="mt-2 flex h-32 w-full items-center justify-center rounded-lg bg-marca-superficie-tenue text-xs text-marca-texto-suave">
+          Sin video · se usa la foto
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/mp4,video/webm"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) void subir(f)
+        }}
+      />
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Boton
+          variante="secundario"
+          className="px-3 text-marca-texto"
+          onClick={() => inputRef.current?.click()}
+          disabled={ocupado}
+        >
+          {ocupado ? 'Subiendo…' : url ? 'Cambiar video' : 'Subir video'}
+        </Boton>
+        {url ? (
+          <Boton variante="secundario" className="px-3" onClick={() => quitarVideoHero()}>
+            Quitar video
+          </Boton>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p role="alert" className="mt-2 flex items-center gap-2 text-sm text-marca-acento-fuerte">
+          <IconoAlerta className="size-4 shrink-0" />
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

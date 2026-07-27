@@ -51,6 +51,8 @@ export type Carta = {
     slug: string
     whatsapp: string | null
     portada_url: string | null
+    /** Video de fondo del héroe. Si no hay, manda la foto de portada. */
+    hero_video_url: string | null
     foto_local_url: string | null
     direccion: string | null
     horario: string | null
@@ -73,7 +75,9 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
 
   const { data: restaurante } = await supabase
     .from('restaurantes')
-    .select('id, nombre, slug, whatsapp, portada_url, foto_local_url, direccion, horario, landing')
+    .select(
+      'id, nombre, slug, whatsapp, portada_url, hero_video_url, foto_local_url, direccion, horario, landing',
+    )
     .eq('slug', slug)
     .eq('activo', true)
     .maybeSingle()

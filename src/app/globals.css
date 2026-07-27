@@ -279,3 +279,9 @@ body {
   main { padding: 0 !important; max-width: none !important; }
   [class*="lg:pl-60"] { padding-left: 0 !important; }
 }
+
+/* Video de fondo del héroe: si el usuario pide menos movimiento, se oculta y queda
+   la foto de respaldo que va detrás. La legibilidad y la calma mandan sobre el efecto. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-video { display: none; }
+}

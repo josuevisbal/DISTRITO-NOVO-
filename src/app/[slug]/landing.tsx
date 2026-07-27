@@ -103,10 +103,13 @@ export function LandingCliente({ carta }: { carta: Carta }) {
       <section id="inicio" className="relative overflow-hidden">
         {/* La foto del plato estrella, full-bleed a la derecha y fundida al negro con
             degradados (nada de marcos): como la referencia. */}
-        {restaurante.portada_url ? (
+        {restaurante.portada_url || restaurante.hero_video_url ? (
           <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 hidden w-[55%] md:block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={restaurante.portada_url} alt="" className="size-full object-cover" />
+            <FondoHero
+              foto={restaurante.portada_url}
+              video={restaurante.hero_video_url}
+              nombre={restaurante.nombre}
+            />
             <div
               className="absolute inset-0"
               style={{
@@ -159,14 +162,13 @@ export function LandingCliente({ carta }: { carta: Carta }) {
           </div>
         </div>
 
-        {/* En celular la foto va debajo del texto, también fundida al negro. */}
-        {restaurante.portada_url ? (
-          <div className="entra relative -mx-5 sm:-mx-8 md:hidden" style={{ '--i': 1 } as React.CSSProperties}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={restaurante.portada_url}
-              alt={`Plato estrella de ${restaurante.nombre}`}
-              className="h-72 w-full object-cover"
+        {/* En celular va debajo del texto, también fundida al negro. */}
+        {restaurante.portada_url || restaurante.hero_video_url ? (
+          <div className="entra relative -mx-5 h-72 sm:-mx-8 md:hidden" style={{ '--i': 1 } as React.CSSProperties}>
+            <FondoHero
+              foto={restaurante.portada_url}
+              video={restaurante.hero_video_url}
+              nombre={restaurante.nombre}
             />
             <div
               aria-hidden
@@ -499,6 +501,52 @@ function Contacto({
         <p className="mt-0.5 text-sm leading-snug">{children}</p>
       </div>
     </div>
+  )
+}
+
+/**
+ * Fondo del héroe: video si el admin subió uno, foto si no. La foto va SIEMPRE detrás
+ * (y como `poster` del video), así nunca se ve un hueco negro mientras carga o si el
+ * dispositivo no reproduce. El video va mudo, en bucle y `playsinline` para que en
+ * celular no se abra a pantalla completa; `preload="metadata"` para no bajarlo entero
+ * de golpe. Con `prefers-reduced-motion` el video se oculta y queda la foto.
+ */
+function FondoHero({
+  foto,
+  video,
+  nombre,
+}: {
+  foto: string | null
+  video: string | null
+  nombre: string
+}) {
+  return (
+    <>
+      {foto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={foto} alt={`Plato estrella de ${nombre}`} className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(135deg, ${NARANJA}44, ${NEGRO} 70%)` }}
+        />
+      )}
+
+      {video ? (
+        <video
+          src={video}
+          poster={foto ?? undefined}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-hidden
+          className="hero-video absolute inset-0 size-full object-cover"
+        />
+      ) : null}
+    </>
   )
 }
 

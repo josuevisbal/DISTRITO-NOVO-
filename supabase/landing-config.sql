@@ -15,3 +15,6 @@ alter table restaurantes add column if not exists foto_local_url text;
 alter table restaurantes add column if not exists direccion text;
 alter table restaurantes add column if not exists horario text;
 alter table restaurantes add column if not exists landing jsonb not null default '{}'::jsonb;
+
+-- Video de fondo del héroe (opcional). Si no hay video, manda la foto (portada_url).
+alter table restaurantes add column if not exists hero_video_url text;

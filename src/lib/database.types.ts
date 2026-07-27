@@ -728,6 +728,7 @@ export type Database = {
           cuenta_pago: string | null
           direccion: string | null
           foto_local_url: string | null
+          hero_video_url: string | null
           horario: string | null
           id: string
           landing: Json
@@ -745,6 +746,7 @@ export type Database = {
           cuenta_pago?: string | null
           direccion?: string | null
           foto_local_url?: string | null
+          hero_video_url?: string | null
           horario?: string | null
           id?: string
           landing?: Json
@@ -762,6 +764,7 @@ export type Database = {
           cuenta_pago?: string | null
           direccion?: string | null
           foto_local_url?: string | null
+          hero_video_url?: string | null
           horario?: string | null
           id?: string
           landing?: Json
