@@ -193,6 +193,9 @@ export async function guardarInicio(datos: {
   direccion: string
   horario: string
   whatsapp: string
+  whatsapp_pedidos: string
+  llave_pago: string
+  cuenta_pago: string
 }): Promise<Resultado> {
   const staff = await exigirRol('admin')
   const supabase = await crearClienteServidor()
@@ -212,6 +215,9 @@ export async function guardarInicio(datos: {
       direccion: datos.direccion.trim() || null,
       horario: datos.horario.trim() || null,
       whatsapp: datos.whatsapp.trim() || null,
+      whatsapp_pedidos: datos.whatsapp_pedidos.trim() || null,
+      llave_pago: datos.llave_pago.trim() || null,
+      cuenta_pago: datos.cuenta_pago.trim() || null,
     })
     .eq('id', staff.restaurante_id)
   if (error) return { ok: false, error: error.message }

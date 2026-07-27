@@ -15,6 +15,7 @@ import {
 import { LogoMarca } from '@/components/logo-marca'
 import type { Carta, ProductoCarta, PromocionCarta } from '@/lib/datos/carta'
 import { formatearPesos } from '@/lib/formato'
+import { armarMensajePedido, enlacePedidoWhatsApp } from '@/lib/mensaje-pedido'
 import { crearPedido } from './acciones'
 import { BannerPromociones } from './promociones'
 import { Checkout, type DatosCheckout } from './checkout'
@@ -134,6 +135,41 @@ export function CartaCliente({ carta, mesa }: Props) {
       setError(resultado.error)
       setEnviando(false)
       return
+    }
+
+    // El pedido YA quedó guardado y esperando aprobación en caja. El WhatsApp es solo el
+    // aviso: se arma con los valores que devolvió el servidor, nunca con los del carrito.
+    const numeroWa = carta.restaurante.whatsapp_pedidos ?? carta.restaurante.whatsapp
+    if (!mesa && numeroWa) {
+      const canal = datos?.entrega === 'recoger' ? 'recoger' : 'domicilio'
+      const mensaje = armarMensajePedido({
+        restaurante: carta.restaurante.nombre,
+        numero: resultado.numero,
+        canal,
+        cliente: datos?.nombre,
+        telefono: datos?.telefono,
+        direccion: datos?.entrega === 'domicilio' ? datos.direccion : null,
+        zona: carta.zonas.find((z) => z.id === datos?.zona_id)?.nombre ?? null,
+        indicaciones: datos?.indicaciones,
+        items: [
+          ...combos.map((c) => ({
+            nombre: `${c.promo.titulo} (${c.contenido})`,
+            cantidad: c.cantidad,
+            total: c.precio * c.cantidad,
+          })),
+          ...lineas.map((l) => ({
+            nombre: l.producto.nombre,
+            cantidad: l.cantidad,
+            total: l.producto.precio * l.cantidad,
+          })),
+        ],
+        subtotal: resultado.subtotal,
+        domicilio: resultado.domicilio,
+        total: resultado.total,
+        medioPago: datos?.medio ?? null,
+      })
+      // Si el navegador bloquea la ventana, el seguimiento ofrece el enlace de respaldo.
+      window.open(enlacePedidoWhatsApp(numeroWa, mensaje), '_blank', 'noopener')
     }
 
     // No se limpia el carrito ni se apaga `enviando`: la navegación desmonta esto, y

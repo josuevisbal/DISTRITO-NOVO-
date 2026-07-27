@@ -30,6 +30,9 @@ export function InicioAdmin({
   direccion: direccionInicial,
   horario: horarioInicial,
   whatsapp: whatsappInicial,
+  whatsappPedidos: whatsappPedidosInicial,
+  llavePago: llavePagoInicial,
+  cuentaPago: cuentaPagoInicial,
   frases: frasesIniciales,
 }: {
   slug: string
@@ -40,12 +43,18 @@ export function InicioAdmin({
   direccion: string
   horario: string
   whatsapp: string
+  whatsappPedidos: string
+  llavePago: string
+  cuentaPago: string
   frases: FrasesLanding
 }) {
   const [frases, setFrases] = useState<FrasesLanding>(frasesIniciales)
   const [direccion, setDireccion] = useState(direccionInicial)
   const [horario, setHorario] = useState(horarioInicial)
   const [whatsapp, setWhatsapp] = useState(whatsappInicial)
+  const [whatsappPedidos, setWhatsappPedidos] = useState(whatsappPedidosInicial)
+  const [llavePago, setLlavePago] = useState(llavePagoInicial)
+  const [cuentaPago, setCuentaPago] = useState(cuentaPagoInicial)
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,7 +67,15 @@ export function InicioAdmin({
   async function guardar() {
     setGuardando(true)
     setError(null)
-    const r = await guardarInicio({ frases, direccion, horario, whatsapp })
+    const r = await guardarInicio({
+      frases,
+      direccion,
+      horario,
+      whatsapp,
+      whatsapp_pedidos: whatsappPedidos,
+      llave_pago: llavePago,
+      cuenta_pago: cuentaPago,
+    })
     setGuardando(false)
     if (!r.ok) {
       setError(r.error)
@@ -210,6 +227,35 @@ export function InicioAdmin({
             valor={whatsapp}
             onChange={setWhatsapp}
             marcador="300 679 9163"
+          />
+        </div>
+      </section>
+
+      {/* ----- Pedidos y pagos ----- */}
+      <section className="tarjeta space-y-2 p-4">
+        <h2 className="font-medium text-marca-texto">Pedidos y pagos</h2>
+        <p className="text-xs text-marca-texto-suave">
+          A dónde llega el aviso de cada pedido nuevo, y qué ve el cliente cuando le toca
+          pagar por transferencia.
+        </p>
+        <Campo
+          etiqueta="WhatsApp donde llegan los pedidos"
+          valor={whatsappPedidos}
+          onChange={setWhatsappPedidos}
+          marcador="300 679 9163 (si lo dejas vacío se usa el de contacto)"
+        />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Campo
+            etiqueta="Llave de pago (Bre-B, Nequi…)"
+            valor={llavePago}
+            onChange={setLlavePago}
+            marcador="@distritonovo o 3006799163"
+          />
+          <Campo
+            etiqueta="Cuenta bancaria"
+            valor={cuentaPago}
+            onChange={setCuentaPago}
+            marcador="Bancolombia ahorros 000-000000-00"
           />
         </div>
       </section>
