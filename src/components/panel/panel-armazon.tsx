@@ -43,6 +43,9 @@ const MODULOS: Modulo[] = [
   { href: '/app/admin/reportes', titulo: 'Reportes', Icono: IconoGrafica },
 ]
 
+/** Sub-secciones que viven dentro del Menú Digital (se navegan con pestañas). */
+const SUBRUTAS_MENU = ['/app/admin/inicio', '/app/admin/estaciones']
+
 /** Espejo en vivo de cada puesto, en modo solo lectura. Ver, no operar. */
 const MONITOREO: Modulo[] = [
   { href: '/app/admin/monitoreo/cocina', titulo: 'Pantallas de cocina', Icono: IconoFuego },
@@ -106,8 +109,8 @@ export function PanelArmazon({ staff, nombreRestaurante, children }: Props) {
     }
   }, [])
 
-  // La Página de inicio es una pestaña del Menú Digital: resalta el mismo módulo.
-  const rutaModulo = ruta.startsWith('/app/admin/inicio') ? '/app/admin/carta' : ruta
+  // Página de inicio y Cocinas son pestañas del Menú Digital: resaltan el mismo módulo.
+  const rutaModulo = SUBRUTAS_MENU.some((r) => ruta.startsWith(r)) ? '/app/admin/carta' : ruta
   const activo = [...MODULOS, ...MONITOREO].find((m) => rutaModulo.startsWith(m.href))
 
   return (
@@ -238,8 +241,8 @@ function LinkModulo({
   ruta: string
   enVivo: number | null
 }) {
-  // La Página de inicio vive dentro del Menú Digital: resalta esa entrada.
-  const rutaModulo = ruta.startsWith('/app/admin/inicio') ? '/app/admin/carta' : ruta
+  // Las pestañas del Menú Digital resaltan esa entrada de la barra.
+  const rutaModulo = SUBRUTAS_MENU.some((r) => ruta.startsWith(r)) ? '/app/admin/carta' : ruta
   const activo = rutaModulo.startsWith(modulo.href)
   return (
     <Link

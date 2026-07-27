@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 /** Las dos caras del Menú Digital: lo que se pide y lo que se ve al entrar. */
 export const PESTANAS_MENU = [
   { href: '/app/admin/carta', etiqueta: 'Carta' },
+  { href: '/app/admin/estaciones', etiqueta: 'Cocinas' },
   { href: '/app/admin/inicio', etiqueta: 'Página de inicio' },
 ]
 
@@ -24,13 +25,14 @@ export default async function PaginaAdminCarta() {
       .order('orden'),
     supabase
       .from('productos')
-      .select('id, nombre, precio, foto_url, destacado, disponible, categoria_id, estacion_id')
+      .select('id, nombre, descripcion, precio, minutos_prep, foto_url, destacado, disponible, categoria_id, estacion_id')
       .eq('restaurante_id', staff.restaurante_id)
       .eq('activo', true)
       .order('orden'),
     supabase
       .from('estaciones')
-      .select('id, color')
+      .select('id, nombre, color')
+      .eq('activa', true)
       .eq('restaurante_id', staff.restaurante_id),
   ])
 
@@ -45,23 +47,30 @@ export default async function PaginaAdminCarta() {
         .map((p) => ({
           id: p.id,
           nombre: p.nombre,
+          descripcion: p.descripcion,
           precio: p.precio,
+          minutos_prep: p.minutos_prep,
           foto_url: p.foto_url,
           destacado: p.destacado,
           disponible: p.disponible,
+          categoria_id: p.categoria_id,
+          estacion_id: p.estacion_id,
           color_estacion: colorEstacion.get(p.estacion_id) ?? '#888888',
         })),
     }))
-    .filter((c) => c.productos.length > 0)
+
 
   return (
     <div className="space-y-4">
       <PestanasModulo opciones={PESTANAS_MENU} activa="/app/admin/carta" />
       <p className="text-sm text-marca-texto-suave">
-        Sube una foto por plato, márcalo como POPULAR o agótalo. La foto se ve al instante en
-        la carta del cliente.
+        Agrega platos, cambia precios y decide en qué cocina se preparan. Sube una foto,
+        márcalo como POPULAR o agótalo: se ve al instante en la carta del cliente.
       </p>
-      <CartaAdmin categorias={grupos} />
+      <CartaAdmin
+        categorias={grupos}
+        estaciones={(estaciones ?? []).map((e) => ({ id: e.id, nombre: e.nombre }))}
+      />
     </div>
   )
 }

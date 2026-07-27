@@ -2,26 +2,53 @@
 
 import { useRef, useState, type CSSProperties } from 'react'
 
-import { IconoAlerta, IconoCarta, IconoCheck, IconoDestello } from '@/components/iconos'
+import {
+  IconoAlerta,
+  IconoCarta,
+  IconoCheck,
+  IconoDestello,
+  IconoMas,
+} from '@/components/iconos'
+import { useToast } from '@/components/toast'
+import { Boton } from '@/components/ui/boton'
 import { Vacio } from '@/components/ui/vacio'
 import { formatearPesos } from '@/lib/formato'
-import { alternarProducto, quitarFotoProducto, subirFotoProducto } from './acciones'
+import {
+  alternarProducto,
+  crearProducto,
+  guardarProducto,
+  quitarFotoProducto,
+  retirarProducto,
+  subirFotoProducto,
+} from './acciones'
 
 export type ProductoAdmin = {
   id: string
   nombre: string
+  descripcion: string | null
   precio: number
+  minutos_prep: number
   foto_url: string | null
   destacado: boolean
   disponible: boolean
+  categoria_id: string
+  estacion_id: string
   color_estacion: string
 }
 
 export type CategoriaAdmin = { id: string; nombre: string; productos: ProductoAdmin[] }
+export type EstacionOpcion = { id: string; nombre: string }
 
-export function CartaAdmin({ categorias }: { categorias: CategoriaAdmin[] }) {
+export function CartaAdmin({
+  categorias,
+  estaciones,
+}: {
+  categorias: CategoriaAdmin[]
+  estaciones: EstacionOpcion[]
+}) {
   const [familia, setFamilia] = useState<string>('todos')
   const [buscar, setBuscar] = useState('')
+  const [creando, setCreando] = useState(false)
 
   const total = categorias.reduce((s, c) => s + c.productos.length, 0)
   const texto = buscar.trim().toLowerCase()
@@ -65,6 +92,27 @@ export function CartaAdmin({ categorias }: { categorias: CategoriaAdmin[] }) {
         />
       </div>
 
+      {/* Agregar un plato nuevo a la carta. */}
+      {creando ? (
+        <FormularioNuevo
+          categorias={categorias}
+          estaciones={estaciones}
+          familiaSugerida={familia !== 'todos' ? familia : (categorias[0]?.id ?? '')}
+          onListo={() => setCreando(false)}
+        />
+      ) : (
+        <div className="flex justify-end">
+          <Boton
+            variante="primario"
+            className="flex items-center gap-1.5 px-4"
+            onClick={() => setCreando(true)}
+          >
+            <IconoMas className="size-4" />
+            Agregar plato
+          </Boton>
+        </div>
+      )}
+
       {visibles.length === 0 ? (
         <Vacio texto="Ningún plato coincide con la búsqueda." Icono={IconoCarta} />
       ) : (
@@ -75,7 +123,13 @@ export function CartaAdmin({ categorias }: { categorias: CategoriaAdmin[] }) {
               <h2 className="mb-3 font-titulo text-lg text-marca-texto">{cat.nombre}</h2>
               <ul className="space-y-3">
                 {cat.productos.map((p, i) => (
-                  <FilaProducto key={p.id} producto={p} indice={Math.min(i, 8)} />
+                  <FilaProducto
+                    key={p.id}
+                    producto={p}
+                    indice={Math.min(i, 8)}
+                    categorias={categorias}
+                    estaciones={estaciones}
+                  />
                 ))}
               </ul>
             </section>
@@ -111,10 +165,198 @@ function ChipFamilia({
   )
 }
 
-function FilaProducto({ producto, indice }: { producto: ProductoAdmin; indice: number }) {
+/** Los campos que se editan de un plato, sin la foto ni los interruptores. */
+type DatosPlato = {
+  nombre: string
+  descripcion: string
+  precio: string
+  minutos_prep: string
+  categoria_id: string
+  estacion_id: string
+}
+
+/** Formulario para agregar un plato nuevo a la carta. */
+function FormularioNuevo({
+  categorias,
+  estaciones,
+  familiaSugerida,
+  onListo,
+}: {
+  categorias: CategoriaAdmin[]
+  estaciones: EstacionOpcion[]
+  familiaSugerida: string
+  onListo: () => void
+}) {
+  const [datos, setDatos] = useState<DatosPlato>({
+    nombre: '',
+    descripcion: '',
+    precio: '',
+    minutos_prep: '10',
+    categoria_id: familiaSugerida,
+    estacion_id: estaciones[0]?.id ?? '',
+  })
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
+
+  async function crear() {
+    setOcupado(true)
+    setError(null)
+    const r = await crearProducto({
+      nombre: datos.nombre,
+      descripcion: datos.descripcion,
+      precio: Number(datos.precio) || 0,
+      minutos_prep: Number(datos.minutos_prep) || 10,
+      categoria_id: datos.categoria_id,
+      estacion_id: datos.estacion_id,
+    })
+    setOcupado(false)
+    if (!r.ok) {
+      setError(r.error)
+      return
+    }
+    mostrar(`"${datos.nombre.trim()}" agregado a la carta`)
+    onListo()
+  }
+
+  return (
+    <section className="tarjeta space-y-3 p-4">
+      <h2 className="font-medium text-marca-texto">Nuevo plato</h2>
+      <CamposPlato
+        datos={datos}
+        onCambiar={setDatos}
+        categorias={categorias}
+        estaciones={estaciones}
+      />
+      {error ? <ErrorTexto texto={error} /> : null}
+      <div className="flex gap-2">
+        <Boton variante="primario" className="px-4" onClick={crear} disabled={ocupado}>
+          {ocupado ? 'Agregando…' : 'Agregar a la carta'}
+        </Boton>
+        <Boton variante="secundario" className="px-4" onClick={onListo} disabled={ocupado}>
+          Cancelar
+        </Boton>
+      </div>
+    </section>
+  )
+}
+
+/** Los campos de un plato, compartidos por el alta y la edición. */
+function CamposPlato({
+  datos,
+  onCambiar,
+  categorias,
+  estaciones,
+}: {
+  datos: DatosPlato
+  onCambiar: (d: DatosPlato) => void
+  categorias: CategoriaAdmin[]
+  estaciones: EstacionOpcion[]
+}) {
+  const set = (campo: keyof DatosPlato, valor: string) =>
+    onCambiar({ ...datos, [campo]: valor })
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="block sm:col-span-2">
+        <span className="text-xs text-marca-texto-suave">Nombre</span>
+        <input
+          value={datos.nombre}
+          onChange={(e) => set('nombre', e.target.value)}
+          placeholder="Salchipapa sencilla"
+          className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 text-marca-texto"
+        />
+      </label>
+
+      <label className="block sm:col-span-2">
+        <span className="text-xs text-marca-texto-suave">Descripción (opcional)</span>
+        <input
+          value={datos.descripcion}
+          onChange={(e) => set('descripcion', e.target.value)}
+          placeholder="Con salsas de la casa"
+          className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 text-marca-texto"
+        />
+      </label>
+
+      <label className="block">
+        <span className="text-xs text-marca-texto-suave">Precio</span>
+        <input
+          inputMode="numeric"
+          value={datos.precio}
+          onChange={(e) => set('precio', e.target.value.replace(/\D/g, ''))}
+          placeholder="14000"
+          className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 tabular-nums text-marca-texto"
+        />
+      </label>
+
+      <label className="block">
+        <span className="text-xs text-marca-texto-suave">Minutos de preparación</span>
+        <input
+          inputMode="numeric"
+          value={datos.minutos_prep}
+          onChange={(e) => set('minutos_prep', e.target.value.replace(/\D/g, ''))}
+          placeholder="10"
+          className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 tabular-nums text-marca-texto"
+        />
+      </label>
+
+      <label className="block">
+        <span className="text-xs text-marca-texto-suave">Familia</span>
+        <select
+          value={datos.categoria_id}
+          onChange={(e) => set('categoria_id', e.target.value)}
+          className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-2 text-marca-texto"
+        >
+          {categorias.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nombre}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="text-xs text-marca-texto-suave">Se prepara en</span>
+        <select
+          value={datos.estacion_id}
+          onChange={(e) => set('estacion_id', e.target.value)}
+          className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-2 text-marca-texto"
+        >
+          {estaciones.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.nombre}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  )
+}
+
+function ErrorTexto({ texto }: { texto: string }) {
+  return (
+    <p role="alert" className="flex items-center gap-2 text-sm text-marca-acento-fuerte">
+      <IconoAlerta className="size-5 shrink-0" />
+      {texto}
+    </p>
+  )
+}
+
+function FilaProducto({
+  producto,
+  indice,
+  categorias,
+  estaciones,
+}: {
+  producto: ProductoAdmin
+  indice: number
+  categorias: CategoriaAdmin[]
+  estaciones: EstacionOpcion[]
+}) {
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [editando, setEditando] = useState(false)
 
   async function alSubir(form: FormData) {
     setSubiendo(true)
@@ -222,7 +464,25 @@ function FilaProducto({ producto, indice }: { producto: ProductoAdmin; indice: n
           onCambiar={(v) => alternar('disponible', v)}
           etiqueta={producto.disponible ? 'Disponible' : 'Agotado'}
         />
+
+        <button
+          type="button"
+          onClick={() => setEditando((v) => !v)}
+          aria-expanded={editando}
+          className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto"
+        >
+          {editando ? 'Cerrar' : 'Editar'}
+        </button>
       </div>
+
+      {editando ? (
+        <EditorPlato
+          producto={producto}
+          categorias={categorias}
+          estaciones={estaciones}
+          onListo={() => setEditando(false)}
+        />
+      ) : null}
 
       {error ? (
         <p role="alert" className="flex w-full gap-2 text-sm text-marca-acento-fuerte">
@@ -231,6 +491,113 @@ function FilaProducto({ producto, indice }: { producto: ProductoAdmin; indice: n
         </p>
       ) : null}
     </li>
+  )
+}
+
+/** Editar un plato ya existente: nombre, precio, familia y en qué cocina se prepara. */
+function EditorPlato({
+  producto,
+  categorias,
+  estaciones,
+  onListo,
+}: {
+  producto: ProductoAdmin
+  categorias: CategoriaAdmin[]
+  estaciones: EstacionOpcion[]
+  onListo: () => void
+}) {
+  const [datos, setDatos] = useState<DatosPlato>({
+    nombre: producto.nombre,
+    descripcion: producto.descripcion ?? '',
+    precio: String(producto.precio),
+    minutos_prep: String(producto.minutos_prep),
+    categoria_id: producto.categoria_id,
+    estacion_id: producto.estacion_id,
+  })
+  const [ocupado, setOcupado] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
+
+  async function guardar() {
+    setOcupado(true)
+    setError(null)
+    const r = await guardarProducto(producto.id, {
+      nombre: datos.nombre,
+      descripcion: datos.descripcion,
+      precio: Number(datos.precio) || 0,
+      minutos_prep: Number(datos.minutos_prep) || 10,
+      categoria_id: datos.categoria_id,
+      estacion_id: datos.estacion_id,
+    })
+    setOcupado(false)
+    if (!r.ok) {
+      setError(r.error)
+      return
+    }
+    mostrar('Plato guardado')
+    onListo()
+  }
+
+  async function retirar() {
+    setOcupado(true)
+    const r = await retirarProducto(producto.id)
+    setOcupado(false)
+    if (!r.ok) setError(r.error)
+    else mostrar(`"${producto.nombre}" salió de la carta`)
+  }
+
+  return (
+    <div className="mt-3 w-full space-y-3 rounded-xl border border-marca-borde p-3">
+      <CamposPlato
+        datos={datos}
+        onCambiar={setDatos}
+        categorias={categorias}
+        estaciones={estaciones}
+      />
+
+      {error ? <ErrorTexto texto={error} /> : null}
+
+      <div className="flex flex-wrap gap-2">
+        <Boton variante="primario" className="px-4" onClick={guardar} disabled={ocupado}>
+          {ocupado ? 'Guardando…' : 'Guardar cambios'}
+        </Boton>
+        <Boton variante="secundario" className="px-4" onClick={onListo} disabled={ocupado}>
+          Cancelar
+        </Boton>
+
+        <span className="ml-auto flex gap-2">
+          {confirmando ? (
+            <>
+              <Boton variante="peligro" className="px-3" onClick={retirar} disabled={ocupado}>
+                Sí, retirar
+              </Boton>
+              <Boton
+                variante="secundario"
+                className="px-3"
+                onClick={() => setConfirmando(false)}
+                disabled={ocupado}
+              >
+                No
+              </Boton>
+            </>
+          ) : (
+            <Boton
+              variante="secundario"
+              className="px-3 transition-colors hover:border-[#D64533] hover:text-[#D64533]"
+              onClick={() => setConfirmando(true)}
+            >
+              Retirar de la carta
+            </Boton>
+          )}
+        </span>
+      </div>
+
+      <p className="text-xs text-marca-texto-suave">
+        Retirar no borra el plato: deja de verse en la carta pero los pedidos viejos siguen
+        cuadrando.
+      </p>
+    </div>
   )
 }
 

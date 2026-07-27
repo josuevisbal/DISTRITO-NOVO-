@@ -120,3 +120,91 @@ export async function alternarProducto(
   revalidatePath('/app/admin/carta')
   return { ok: true }
 }
+
+/* ---------- Editar la carta: productos, precios, estación y categoría ---------- */
+
+/** Guarda los datos de un plato. Los precios y minutos vienen validados del servidor. */
+export async function guardarProducto(
+  productoId: string,
+  campos: {
+    nombre: string
+    descripcion: string
+    precio: number
+    minutos_prep: number
+    categoria_id: string
+    estacion_id: string
+  },
+): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  const supabase = await crearClienteServidor()
+
+  if (!campos.nombre.trim()) return { ok: false, error: 'El plato necesita un nombre.' }
+  if (campos.precio < 0) return { ok: false, error: 'El precio no puede ser negativo.' }
+
+  const { error } = await supabase
+    .from('productos')
+    .update({
+      nombre: campos.nombre.trim(),
+      descripcion: campos.descripcion.trim() || null,
+      precio: Math.max(0, Math.trunc(campos.precio)),
+      minutos_prep: Math.min(120, Math.max(1, Math.trunc(campos.minutos_prep))),
+      categoria_id: campos.categoria_id,
+      estacion_id: campos.estacion_id,
+    })
+    .eq('id', productoId)
+    .eq('restaurante_id', staff.restaurante_id)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/app/admin/carta')
+  return { ok: true }
+}
+
+/** Agrega un plato nuevo a la carta. */
+export async function crearProducto(campos: {
+  nombre: string
+  descripcion: string
+  precio: number
+  minutos_prep: number
+  categoria_id: string
+  estacion_id: string
+}): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  const supabase = await crearClienteServidor()
+
+  if (!campos.nombre.trim()) return { ok: false, error: 'El plato necesita un nombre.' }
+  if (!campos.categoria_id) return { ok: false, error: 'Escoge la familia del plato.' }
+  if (!campos.estacion_id) return { ok: false, error: 'Escoge en qué cocina se prepara.' }
+
+  const { error } = await supabase.from('productos').insert({
+    restaurante_id: staff.restaurante_id,
+    nombre: campos.nombre.trim(),
+    descripcion: campos.descripcion.trim() || null,
+    precio: Math.max(0, Math.trunc(campos.precio)),
+    minutos_prep: Math.min(120, Math.max(1, Math.trunc(campos.minutos_prep))),
+    categoria_id: campos.categoria_id,
+    estacion_id: campos.estacion_id,
+  })
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/app/admin/carta')
+  return { ok: true }
+}
+
+/**
+ * Retira un plato de la carta. No se borra: se marca inactivo, porque los pedidos
+ * viejos lo referencian y el historial tiene que seguir cuadrando.
+ */
+export async function retirarProducto(productoId: string): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  const supabase = await crearClienteServidor()
+
+  const { error } = await supabase
+    .from('productos')
+    .update({ activo: false })
+    .eq('id', productoId)
+    .eq('restaurante_id', staff.restaurante_id)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/app/admin/carta')
+  return { ok: true }
+}
