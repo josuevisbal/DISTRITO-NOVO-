@@ -11,6 +11,7 @@ import {
   IconoCampana,
   IconoCarta,
   IconoCerrar,
+  IconoDestello,
   IconoEquipo,
   IconoFuego,
   IconoGrafica,
@@ -34,6 +35,7 @@ type Modulo = {
 const MODULOS: Modulo[] = [
   { href: '/app/admin/tablero', titulo: 'Tablero', Icono: IconoTablero },
   { href: '/app/admin/pedidos', titulo: 'Pedidos en vivo', Icono: IconoCampana },
+  { href: '/app/admin/inicio', titulo: 'Página de inicio', Icono: IconoDestello },
   { href: '/app/admin/carta', titulo: 'Carta', Icono: IconoCarta },
   { href: '/app/admin/promociones', titulo: 'Promociones', Icono: IconoPorcentaje },
   { href: '/app/admin/zonas', titulo: 'Zonas', Icono: IconoPin },

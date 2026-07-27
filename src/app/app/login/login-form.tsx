@@ -56,7 +56,7 @@ export function LoginForm({ destino, nombre }: { destino: string; nombre: string
 
           {/* Logo de la marca, dentro del recuadro y con aire antes del título. */}
           <div className="mb-4 flex justify-center">
-            <LogoMarca className="h-[86px] w-auto" />
+            <LogoMarca className="size-[92px]" />
           </div>
 
           <h1 className="text-center font-titulo text-2xl font-bold" style={{ color: '#ECCB79' }}>

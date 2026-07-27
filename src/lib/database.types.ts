@@ -349,6 +349,7 @@ export type Database = {
           pedido_id: string
           precio_snap: number
           producto_id: string
+          promocion_id: string | null
         }
         Insert: {
           cantidad: number
@@ -360,6 +361,7 @@ export type Database = {
           pedido_id: string
           precio_snap: number
           producto_id: string
+          promocion_id?: string | null
         }
         Update: {
           cantidad?: number
@@ -371,6 +373,7 @@ export type Database = {
           pedido_id?: string
           precio_snap?: number
           producto_id?: string
+          promocion_id?: string | null
         }
         Relationships: [
           {
@@ -723,7 +726,11 @@ export type Database = {
           base_caja: number
           creado_en: string
           cuenta_pago: string | null
+          direccion: string | null
+          foto_local_url: string | null
+          horario: string | null
           id: string
+          landing: Json
           llave_pago: string | null
           logo_url: string | null
           nombre: string
@@ -736,7 +743,11 @@ export type Database = {
           base_caja?: number
           creado_en?: string
           cuenta_pago?: string | null
+          direccion?: string | null
+          foto_local_url?: string | null
+          horario?: string | null
           id?: string
+          landing?: Json
           llave_pago?: string | null
           logo_url?: string | null
           nombre: string
@@ -749,7 +760,11 @@ export type Database = {
           base_caja?: number
           creado_en?: string
           cuenta_pago?: string | null
+          direccion?: string | null
+          foto_local_url?: string | null
+          horario?: string | null
           id?: string
+          landing?: Json
           llave_pago?: string | null
           logo_url?: string | null
           nombre?: string

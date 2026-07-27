@@ -12,6 +12,7 @@ import {
   IconoMas,
   IconoMenos,
 } from '@/components/iconos'
+import { LogoMarca } from '@/components/logo-marca'
 import type { Carta, ProductoCarta, PromocionCarta } from '@/lib/datos/carta'
 import { formatearPesos } from '@/lib/formato'
 import { crearPedido } from './acciones'
@@ -233,6 +234,11 @@ function Encabezado({
         </>
       ) : null}
       <div className="relative">
+      {/* El logo real de la casa, en su marco circular degradado. */}
+      <div className="animate-aparecer mb-4 flex justify-center">
+        <LogoMarca className="size-24" />
+      </div>
+
       {mesa ? (
         <p className="animate-escala mx-auto mb-4 inline-flex items-center gap-1.5 rounded-full border border-marca-acento bg-marca-superficie px-3 py-1 text-sm font-medium text-marca-acento-fuerte">
           <IconoDestello className="size-3.5" />

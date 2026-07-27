@@ -1,19 +1,49 @@
+'use client'
+
+import { useState } from 'react'
+
 import { LOGO_URL } from '@/config/tema'
 
 /**
- * Logo de la marca. Si hay archivo real configurado (LOGO_URL en config/tema.ts) se usa
- * ese; si no, se pinta esta recreación vectorial del logotipo de Distrito Novo: la D
- * grande, la banda dorada "-DISTRITO-" cruzándola y el óvalo con "Nv" abajo. Pensado
- * para fondo oscuro (trazos marfil + dorado de marca), sin fondo propio.
+ * Logo de la marca. Con LOGO_URL configurado (config/tema.ts) muestra la imagen real
+ * dentro de un marco circular dorado que se degrada, con una viñeta interior que funde
+ * la foto con el fondo oscuro — así sirve incluso la foto del logo en la pared, sin
+ * necesitar fondo transparente. Si el archivo no existe (o falla), cae sola a la
+ * recreación vectorial del logotipo (la D, la banda -DISTRITO- y el óvalo Nv).
+ *
+ * `className` controla el tamaño: usa cuadrados (size-12, size-24…) para el circular.
  */
-export function LogoMarca({ className = 'h-20 w-auto' }: { className?: string }) {
-  if (LOGO_URL) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={LOGO_URL} alt="Logo" className={className} />
+export function LogoMarca({ className = 'size-20' }: { className?: string }) {
+  const [fallo, setFallo] = useState(false)
+
+  if (LOGO_URL && !fallo) {
+    return (
+      <span
+        className={`relative inline-block shrink-0 rounded-full p-[3px] ${className}`}
+        style={{
+          background:
+            'conic-gradient(from 210deg, #D4A64A, #F0A93C 25%, rgba(212,166,74,0.12) 55%, #B8862B 80%, #D4A64A)',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={LOGO_URL}
+          alt="Logo"
+          onError={() => setFallo(true)}
+          className="size-full rounded-full object-cover"
+        />
+        {/* Viñeta: el borde de la foto se degrada hacia el fondo oscuro. */}
+        <span
+          aria-hidden
+          className="absolute inset-[3px] rounded-full"
+          style={{ boxShadow: 'inset 0 0 26px 12px rgba(11,11,12,0.55)' }}
+        />
+      </span>
+    )
   }
 
   return (
-    <svg viewBox="0 0 200 232" className={className} role="img" aria-label="Distrito Novo">
+    <svg viewBox="0 0 200 232" className={className} role="img" aria-label="Logo">
       {/* La D grande, en serif de la marca. */}
       <text
         x="100"

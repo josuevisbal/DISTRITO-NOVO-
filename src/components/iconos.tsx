@@ -370,6 +370,15 @@ export function IconoWhatsApp(props: Props) {
   )
 }
 
+/** Teléfono: contacto del restaurante. */
+export function IconoTelefono(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1Z" />
+    </Svg>
+  )
+}
+
 /** Corazón: favoritos y "hecho con amor". */
 export function IconoCorazon(props: Props) {
   return (

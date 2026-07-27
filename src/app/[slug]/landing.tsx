@@ -8,11 +8,14 @@ import {
   IconoFloritura,
   IconoFuego,
   IconoMoto,
+  IconoPin,
   IconoReloj,
+  IconoTelefono,
 } from '@/components/iconos'
 import { LogoMarca } from '@/components/logo-marca'
 import type { Carta } from '@/lib/datos/carta'
 import { formatearPesos } from '@/lib/formato'
+import { enlaceWhatsApp } from '@/lib/telefono'
 
 /**
  * Pantalla 1 — la bienvenida que VENDE (estilo landing de referencia): héroe con el
@@ -31,9 +34,25 @@ const CREMA = '#F6F1E7'
 const TEXTO = '#F4EFE4'
 const TEXTO_SUAVE = '#A9A294'
 
+/** Textos de plantilla: lo que se ve si el admin no ha escrito los suyos. */
+const POR_DEFECTO = {
+  script: 'Del carbón a tu mesa',
+  titulo_blanco: 'BUENA COMIDA',
+  titulo_naranja: 'BUEN SABOR',
+  bienvenida:
+    'Platos hechos al momento con ingredientes frescos, servidos con amor. Pide y te lo llevamos caliente hasta tu puerta.',
+  nosotros_titulo: 'Un lugar donde la buena comida y los buenos momentos se encuentran',
+  nosotros_texto:
+    'Creemos que cada comida es una experiencia. Del ambiente a los platos, estamos para hacer tus momentos memorables.',
+  dato: '10+',
+  dato_texto: 'Años de experiencia',
+}
+
 export function LandingCliente({ carta }: { carta: Carta }) {
   const { restaurante } = carta
   const base = `/${restaurante.slug}`
+  // Lo que escribió el admin manda; si está vacío, el texto de plantilla.
+  const t = { ...POR_DEFECTO, ...restaurante.landing }
 
   const umbralEnvio =
     carta.promociones.find((p) => p.tipo === 'envio')?.monto_minimo ?? null
@@ -49,7 +68,7 @@ export function LandingCliente({ carta }: { carta: Carta }) {
       {/* ----- Barra superior ----- */}
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <Link href={base} className="flex items-center gap-3">
-          <LogoMarca className="h-12 w-auto" />
+          <LogoMarca className="size-12" />
           <span className="hidden font-titulo text-lg font-bold sm:block">
             {restaurante.nombre}
           </span>
@@ -103,12 +122,12 @@ export function LandingCliente({ carta }: { carta: Carta }) {
             className="text-3xl"
             style={{ fontFamily: 'var(--fuente-script)', color: NARANJA_CLARO }}
           >
-            Del carbón a tu mesa
+            {t.script}
           </p>
           <h1 className="mt-2 text-5xl font-black leading-[1.05] tracking-tight sm:text-6xl">
-            BUENA COMIDA
+            {t.titulo_blanco}
             <br />
-            <span style={{ color: NARANJA }}>BUEN SABOR</span>
+            <span style={{ color: NARANJA }}>{t.titulo_naranja}</span>
           </h1>
 
           <p className="mt-4 flex items-center gap-3" style={{ color: NARANJA }}>
@@ -118,8 +137,7 @@ export function LandingCliente({ carta }: { carta: Carta }) {
           </p>
 
           <p className="mt-4 max-w-md text-sm leading-relaxed" style={{ color: TEXTO_SUAVE }}>
-            Platos hechos al momento con ingredientes frescos, servidos con amor. Pide y te
-            lo llevamos caliente hasta tu puerta.
+            {t.bienvenida}
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
@@ -357,10 +375,129 @@ export function LandingCliente({ carta }: { carta: Carta }) {
         </div>
       </section>
 
-      {/* ----- Pie mínimo (la franja naranja completa llega con Nosotros/Contacto) ----- */}
-      <footer className="border-t px-5 py-6 text-center text-xs" style={{ borderColor: 'rgba(244,239,228,0.08)', color: TEXTO_SUAVE }}>
+      {/* ----- Sobre nosotros ----- */}
+      <section id="nosotros" className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
+        <div className="grid items-center gap-8 md:grid-cols-2">
+          <div className="entra relative" style={{ '--i': 8 } as React.CSSProperties}>
+            {restaurante.foto_local_url ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={restaurante.foto_local_url}
+                  alt={`El local de ${restaurante.nombre}`}
+                  loading="lazy"
+                  className="h-80 w-full rounded-2xl object-cover"
+                />
+                {/* Recuadro naranja con el dato de la casa, como la referencia. */}
+                <div
+                  className="absolute -bottom-5 left-5 rounded-xl px-5 py-3 text-center shadow-xl"
+                  style={{ backgroundColor: NARANJA, color: NEGRO }}
+                >
+                  <p className="text-2xl font-black leading-none">{t.dato}</p>
+                  <p className="mt-1 text-[11px] font-semibold leading-tight">{t.dato_texto}</p>
+                </div>
+              </>
+            ) : (
+              <div
+                aria-hidden
+                className="flex h-80 w-full items-center justify-center rounded-2xl"
+                style={{ backgroundColor: NEGRO_SUAVE }}
+              >
+                <IconoCubiertos className="size-16 opacity-30" />
+              </div>
+            )}
+          </div>
+
+          <div className="entra" style={{ '--i': 9 } as React.CSSProperties}>
+            <p
+              className="text-xs font-bold uppercase tracking-[0.25em]"
+              style={{ color: NARANJA_CLARO }}
+            >
+              Sobre nosotros
+            </p>
+            <h2 className="mt-3 font-titulo text-3xl font-bold leading-tight">
+              {t.nosotros_titulo}
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed" style={{ color: TEXTO_SUAVE }}>
+              {t.nosotros_texto}
+            </p>
+            <Link
+              href={`${base}/menu`}
+              className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-full px-6 font-bold transition-transform hover:scale-[1.03] motion-reduce:transform-none"
+              style={{ backgroundColor: NARANJA, color: NEGRO }}
+            >
+              Ver el menú
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ----- Franja naranja de contacto ----- */}
+      <section id="contacto" className="mx-auto max-w-6xl px-5 pb-10 sm:px-8">
+        <div
+          className="entra grid gap-6 rounded-2xl p-6 sm:grid-cols-2 sm:p-8 lg:grid-cols-4"
+          style={{ backgroundColor: NARANJA, color: NEGRO, '--i': 10 } as React.CSSProperties}
+        >
+          <Contacto Icono={IconoPin} titulo="Dónde estamos">
+            {restaurante.direccion ?? 'Pídelo a domicilio o pasa por el local.'}
+          </Contacto>
+          <Contacto Icono={IconoReloj} titulo="Horario">
+            {restaurante.horario ?? 'Escríbenos y te confirmamos.'}
+          </Contacto>
+          <Contacto Icono={IconoTelefono} titulo="Escríbenos">
+            {restaurante.whatsapp ? (
+              <a
+                href={enlaceWhatsApp(restaurante.whatsapp)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2"
+              >
+                {restaurante.whatsapp}
+              </a>
+            ) : (
+              'WhatsApp disponible pronto.'
+            )}
+          </Contacto>
+          <Contacto Icono={IconoMoto} titulo="Domicilios">
+            {umbralEnvio
+              ? `Gratis desde ${formatearPesos(umbralEnvio)}.`
+              : 'Te lo llevamos calientico.'}
+          </Contacto>
+        </div>
+      </section>
+
+      <footer
+        className="border-t px-5 py-6 text-center text-xs"
+        style={{ borderColor: 'rgba(244,239,228,0.08)', color: TEXTO_SUAVE }}
+      >
         © {new Date().getFullYear()} {restaurante.nombre} · Todos los derechos reservados
       </footer>
+    </div>
+  )
+}
+
+function Contacto({
+  Icono,
+  titulo,
+  children,
+}: {
+  Icono: (p: { className?: string }) => React.ReactNode
+  titulo: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        className="flex size-11 shrink-0 items-center justify-center rounded-full"
+        style={{ backgroundColor: NEGRO, color: NARANJA_CLARO }}
+      >
+        <Icono className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-bold uppercase tracking-wider">{titulo}</p>
+        <p className="mt-0.5 text-sm leading-snug">{children}</p>
+      </div>
     </div>
   )
 }

@@ -31,6 +31,19 @@ export type PromocionCarta = {
   items: { producto_id: string; cantidad: number }[]
 }
 
+/** Frases de la landing que el admin puede cambiar; sin valor se usan las de plantilla. */
+export type FrasesLanding = {
+  script?: string
+  titulo_blanco?: string
+  titulo_naranja?: string
+  bienvenida?: string
+  nosotros_titulo?: string
+  nosotros_texto?: string
+  /** Recuadro naranja del "sobre nosotros": el dato grande ("10+") y su texto. */
+  dato?: string
+  dato_texto?: string
+}
+
 export type Carta = {
   restaurante: {
     id: string
@@ -38,6 +51,10 @@ export type Carta = {
     slug: string
     whatsapp: string | null
     portada_url: string | null
+    foto_local_url: string | null
+    direccion: string | null
+    horario: string | null
+    landing: FrasesLanding
   }
   categorias: CategoriaCarta[]
   productos: ProductoCarta[]
@@ -56,7 +73,7 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
 
   const { data: restaurante } = await supabase
     .from('restaurantes')
-    .select('id, nombre, slug, whatsapp, portada_url')
+    .select('id, nombre, slug, whatsapp, portada_url, foto_local_url, direccion, horario, landing')
     .eq('slug', slug)
     .eq('activo', true)
     .maybeSingle()
@@ -107,7 +124,10 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
     ])
 
   return {
-    restaurante,
+    restaurante: {
+      ...restaurante,
+      landing: (restaurante.landing ?? {}) as FrasesLanding,
+    },
     categorias: categorias ?? [],
     productos: productos ?? [],
     zonas: zonas ?? [],
