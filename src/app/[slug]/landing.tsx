@@ -213,31 +213,53 @@ export function LandingCliente({ carta }: { carta: Carta }) {
             {promos.map((p, i) => (
               <li
                 key={p.id}
-                className="entra rounded-2xl border p-4"
+                className="entra relative overflow-hidden rounded-2xl border p-4"
                 style={{
                   backgroundColor: NEGRO_SUAVE,
                   borderColor: `${NARANJA}55`,
                   '--i': 3 + i,
                 } as React.CSSProperties}
               >
+                {/* La foto que el admin le subió a la promoción, de fondo y atenuada
+                    para que el texto encima se siga leyendo. */}
+                {p.imagen_url ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.imagen_url}
+                      alt=""
+                      aria-hidden
+                      loading="lazy"
+                      className="pointer-events-none absolute inset-0 size-full object-cover"
+                    />
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0"
+                      style={{
+                        background: `linear-gradient(100deg, ${NEGRO_SUAVE} 30%, rgba(30,25,21,0.75) 70%, rgba(30,25,21,0.45) 100%)`,
+                      }}
+                    />
+                  </>
+                ) : null}
+
                 {p.etiqueta ? (
                   <p
-                    className="text-[11px] font-bold uppercase tracking-[0.18em]"
+                    className="relative text-[11px] font-bold uppercase tracking-[0.18em]"
                     style={{ color: NARANJA_CLARO }}
                   >
                     {p.etiqueta}
                   </p>
                 ) : null}
-                <p className="mt-1 font-titulo text-lg font-bold">{p.titulo}</p>
+                <p className="relative mt-1 font-titulo text-lg font-bold">{p.titulo}</p>
                 {p.descripcion ? (
-                  <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXTO_SUAVE }}>
+                  <p className="relative mt-1 text-xs leading-relaxed" style={{ color: TEXTO_SUAVE }}>
                     {p.descripcion}
                   </p>
                 ) : null}
                 {p.tipo === 'combo' ? (
                   <Link
                     href={`${base}/menu`}
-                    className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 text-sm font-bold"
+                    className="relative mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 text-sm font-bold"
                     style={{ backgroundColor: NARANJA, color: NEGRO }}
                   >
                     Pedir combo
