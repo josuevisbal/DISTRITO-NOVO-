@@ -370,6 +370,15 @@ export function IconoWhatsApp(props: Props) {
   )
 }
 
+/** Corazón: favoritos y "hecho con amor". */
+export function IconoCorazon(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M12 20.5 4.7 13a4.9 4.9 0 0 1 0-6.9 4.7 4.7 0 0 1 6.8 0l.5.6.5-.6a4.7 4.7 0 0 1 6.8 0 4.9 4.9 0 0 1 0 6.9Z" />
+    </Svg>
+  )
+}
+
 /** Ojo: monitoreo en vivo (vista de solo lectura). */
 export function IconoOjo(props: Props) {
   return (

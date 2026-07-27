@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Cinzel, Cinzel_Decorative, Inter } from 'next/font/google'
+import { Cinzel, Cinzel_Decorative, Dancing_Script, Inter } from 'next/font/google'
 
 import './globals.css'
 
@@ -14,6 +14,13 @@ const fuenteLogo = Cinzel_Decorative({
   variable: '--fuente-logo',
   subsets: ['latin'],
   weight: ['700', '900'],
+})
+
+// Script para los detalles cursivos de la landing ("Del carbón a tu mesa").
+const fuenteScript = Dancing_Script({
+  variable: '--fuente-script',
+  subsets: ['latin'],
+  weight: ['600', '700'],
 })
 
 const fuenteTexto = Inter({
@@ -38,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${fuenteTitulo.variable} ${fuenteLogo.variable} ${fuenteTexto.variable} antialiased`}
+        className={`${fuenteTitulo.variable} ${fuenteLogo.variable} ${fuenteScript.variable} ${fuenteTexto.variable} antialiased`}
       >
         {children}
       </body>

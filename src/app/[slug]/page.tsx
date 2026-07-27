@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation'
 
 import { cargarCarta } from '@/lib/datos/carta'
-import { CartaCliente } from './carta-cliente'
+import { LandingCliente } from './landing'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PaginaCarta({
+/** Pantalla 1 — la bienvenida que vende. El menú con carrito vive en /[slug]/menu. */
+export default async function PaginaBienvenida({
   params,
 }: {
   params: Promise<{ slug: string }>
@@ -14,5 +15,5 @@ export default async function PaginaCarta({
   const carta = await cargarCarta(slug)
   if (!carta) notFound()
 
-  return <CartaCliente carta={carta} />
+  return <LandingCliente carta={carta} />
 }
