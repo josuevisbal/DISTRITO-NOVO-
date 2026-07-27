@@ -8,12 +8,15 @@ type Props = {
   params: Promise<{ slug: string }>
 }
 
-/** El título sale del nombre en la base, nunca escrito en el código. */
+/**
+ * El título sale del nombre en la base, nunca escrito en el código. Va como "Menú …"
+ * para que en la pestaña se distinga del área del equipo, que se llama "App …".
+ */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const restaurante = await restaurantePorSlug(slug)
   return {
-    title: restaurante?.nombre ?? 'Carta',
+    title: restaurante ? `Menú ${restaurante.nombre}` : 'Menú',
     description: restaurante ? `Pide en ${restaurante.nombre}` : undefined,
   }
 }
