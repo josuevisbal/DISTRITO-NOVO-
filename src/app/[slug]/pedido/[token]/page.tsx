@@ -23,6 +23,7 @@ export default async function PaginaSeguimiento({
   return (
     <SeguimientoCliente
       token={token}
+      slug={slug}
       inicial={pedido}
       pago={{
         llave: restaurante.llave_pago,

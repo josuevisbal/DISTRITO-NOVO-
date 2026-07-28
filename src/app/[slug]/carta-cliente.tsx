@@ -48,6 +48,35 @@ export function CartaCliente({ carta, mesa }: Props) {
   const umbralEnvioGratis =
     carta.promociones.find((p) => p.tipo === 'envio')?.monto_minimo ?? null
 
+  // Vuelve de "Modificar mi pedido": se rearma el carrito con lo que ya había pedido,
+  // resolviendo cada producto contra la carta de ahora (precios y disponibilidad al día).
+  useEffect(() => {
+    const guardado = sessionStorage.getItem('carrito-recuperado')
+    if (!guardado) return
+    sessionStorage.removeItem('carrito-recuperado')
+
+    try {
+      const items = JSON.parse(guardado) as {
+        producto_id: string
+        cantidad: number
+        notas: string
+      }[]
+      const porId = new Map(carta.productos.map((p) => [p.id, p]))
+      const recuperadas = items
+        .map((i) => {
+          const producto = porId.get(i.producto_id)
+          return producto && producto.disponible
+            ? { producto, cantidad: i.cantidad, notas: i.notas ?? '' }
+            : null
+        })
+        .filter((l): l is Linea => l !== null)
+
+      if (recuperadas.length > 0) setLineas(recuperadas)
+    } catch {
+      // Si el guardado viene dañado, se ignora: mejor carrito vacío que uno inventado.
+    }
+  }, [carta.productos])
+
   function agregar(producto: ProductoCarta, cantidad = 1) {
     setLineas((previas) => {
       const existente = previas.find((l) => l.producto.id === producto.id)

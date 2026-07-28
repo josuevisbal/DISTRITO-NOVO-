@@ -8,14 +8,16 @@ import { pasoDe, pasosVisibles, type EstadoPedido } from '@/lib/estados'
 import { formatearPesos } from '@/lib/formato'
 import { crearClienteConToken } from '@/lib/supabase/token'
 import { armarMensajePedido, enlacePedidoWhatsApp } from '@/lib/mensaje-pedido'
+import { modificarPedido } from './acciones'
 
 type Props = {
   token: string
+  slug: string
   inicial: PedidoSeguimiento
   pago: { llave: string | null; cuenta: string | null; whatsapp: string | null; restaurante: string }
 }
 
-export function SeguimientoCliente({ token, inicial, pago }: Props) {
+export function SeguimientoCliente({ token, slug, inicial, pago }: Props) {
   const [pedido, setPedido] = useState(inicial)
 
   // El estado avanza en cocina/caja, no aquí. Se relee del servidor cada 15 s: la verdad
@@ -56,7 +58,7 @@ export function SeguimientoCliente({ token, inicial, pago }: Props) {
       </header>
 
       {esperandoPago ? (
-        <PanelTransferencia pedido={pedido} pago={pago} />
+        <PanelTransferencia pedido={pedido} pago={pago} token={token} slug={slug} />
       ) : null}
 
       {anulado ? (
@@ -76,9 +78,13 @@ export function SeguimientoCliente({ token, inicial, pago }: Props) {
 function PanelTransferencia({
   pedido,
   pago,
+  token,
+  slug,
 }: {
   pedido: PedidoSeguimiento
   pago: { llave: string | null; cuenta: string | null; whatsapp: string | null; restaurante: string }
+  token: string
+  slug: string
 }) {
   return (
     <section className="mt-6 rounded-xl border border-marca-acento bg-marca-superficie p-5">
@@ -135,7 +141,85 @@ function PanelTransferencia({
           Enviar mi pedido y el comprobante
         </a>
       ) : null}
+
+      {/* Todavía no ha pagado y nada entró a cocina: puede rehacerlo sin problema. */}
+      <BotonModificar token={token} slug={slug} />
     </section>
+  )
+}
+
+/**
+ * "Modificar mi pedido": anula este (que nadie ha pagado ni preparado) y devuelve al
+ * cliente a la carta con sus productos ya en el carrito, para que cambie lo que quiera.
+ */
+function BotonModificar({ token, slug }: { token: string; slug: string }) {
+  const [confirmando, setConfirmando] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function modificar() {
+    setOcupado(true)
+    setError(null)
+    const r = await modificarPedido(token)
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+      return
+    }
+    // La carta lee esto al abrir y rearma el carrito con lo que ya había pedido.
+    sessionStorage.setItem('carrito-recuperado', JSON.stringify(r.items))
+    window.location.href = `/${slug}/menu`
+  }
+
+  if (!confirmando) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setConfirmando(true)}
+          className="mt-3 min-h-11 w-full rounded-lg border border-marca-borde text-sm text-marca-texto-suave"
+        >
+          Modificar mi pedido
+        </button>
+        {error ? (
+          <p role="alert" className="mt-2 text-sm text-marca-acento-fuerte">
+            {error}
+          </p>
+        ) : null}
+      </>
+    )
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-marca-borde p-3">
+      <p className="text-sm text-marca-texto">
+        Vuelves a la carta con tu pedido en el carrito para cambiar lo que quieras. Este
+        pedido se anula y al confirmar te damos un número nuevo.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={modificar}
+          disabled={ocupado}
+          className="min-h-11 flex-1 rounded-lg bg-marca-acento text-sm font-semibold text-marca-acento-texto disabled:opacity-60"
+        >
+          {ocupado ? 'Un momento…' : 'Sí, modificar'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirmando(false)}
+          disabled={ocupado}
+          className="min-h-11 rounded-lg border border-marca-borde px-4 text-sm text-marca-texto-suave"
+        >
+          No
+        </button>
+      </div>
+      {error ? (
+        <p role="alert" className="mt-2 text-sm text-marca-acento-fuerte">
+          {error}
+        </p>
+      ) : null}
+    </div>
   )
 }
 

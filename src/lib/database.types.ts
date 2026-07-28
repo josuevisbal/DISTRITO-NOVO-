@@ -909,6 +909,7 @@ export type Database = {
         Returns: undefined
       }
       legalizar_domiciliario: { Args: { p_domi: string }; Returns: number }
+      modificar_pedido_cliente: { Args: { p_token: string }; Returns: Json }
       mi_estacion: { Args: never; Returns: string }
       mi_restaurante: { Args: never; Returns: string }
       mi_rol: {
