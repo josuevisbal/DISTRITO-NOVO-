@@ -42,3 +42,5 @@ next-env.d.ts
 
 # lanzador local: lleva rutas de esta máquina
 /dev.cmd
+scripts/capturas/
+MANUAL-DISTRITO-NOVO.html
