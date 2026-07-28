@@ -156,7 +156,7 @@ function ChipFamilia({
       aria-pressed={activo}
       className={`min-h-11 rounded-lg border px-3 text-sm font-medium transition-colors ${
         activo
-          ? 'border-transparent bg-[#0B0B0C] text-marca-acento'
+          ? 'border-transparent bg-panel-lateral text-marca-acento'
           : 'border-marca-borde bg-marca-superficie text-marca-texto-suave hover:text-marca-texto'
       }`}
     >

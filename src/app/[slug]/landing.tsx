@@ -13,6 +13,7 @@ import {
   IconoTelefono,
 } from '@/components/iconos'
 import { LogoMarca } from '@/components/logo-marca'
+import { MARCA, MARCA_NEGRO_RGB } from '@/config/tema'
 import type { Carta } from '@/lib/datos/carta'
 import { formatearPesos } from '@/lib/formato'
 import { enlaceWhatsApp } from '@/lib/telefono'
@@ -26,13 +27,13 @@ import { enlaceWhatsApp } from '@/lib/telefono'
  * dorado de marca). Las fotos las sube el admin: portada_url es el plato del héroe y
  * productos.foto_url alimenta los especiales (los `destacado`).
  */
-const NEGRO = '#141210'
-const NEGRO_SUAVE = '#1E1915'
-const NARANJA = '#E0872B'
-const NARANJA_CLARO = '#F0A93C'
-const CREMA = '#F6F1E7'
-const TEXTO = '#F4EFE4'
-const TEXTO_SUAVE = '#A9A294'
+const NEGRO = MARCA.negro
+const NEGRO_SUAVE = MARCA.negroSuave
+const NARANJA = MARCA.naranja
+const NARANJA_CLARO = MARCA.naranjaClara
+const CREMA = MARCA.crema
+const TEXTO = MARCA.texto
+const TEXTO_SUAVE = MARCA.textoSuave
 
 /** Textos de plantilla: lo que se ve si el admin no ha escrito los suyos. */
 const POR_DEFECTO = {
@@ -64,7 +65,16 @@ export function LandingCliente({ carta }: { carta: Carta }) {
   const colorEstacion = new Map(carta.estaciones.map((e) => [e.id, e.color]))
 
   return (
-    <div style={{ backgroundColor: NEGRO, color: TEXTO }} className="min-h-screen">
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundColor: NEGRO,
+        color: TEXTO,
+        // El velo del héroe (globals.css) toma el negro de la marca desde aquí.
+        '--hero-negro': NEGRO,
+        '--hero-negro-rgb': MARCA_NEGRO_RGB,
+      } as React.CSSProperties}
+    >
       {/* ----- Barra superior ----- */}
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <Link href={base} className="flex items-center gap-3">

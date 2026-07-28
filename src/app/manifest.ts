@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 
+import { MARCA } from '@/config/tema'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 /**
@@ -30,8 +31,8 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     scope: '/app',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#0B0B0C',
-    theme_color: '#B8862B',
+    background_color: MARCA.fondoApp,
+    theme_color: MARCA.dorado,
     icons: [{ src: '/icono.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
   }
 }

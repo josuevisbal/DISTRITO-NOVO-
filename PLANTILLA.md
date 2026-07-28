@@ -65,49 +65,38 @@ Apenas suben su logo desde el panel, este respaldo deja de verse.
 ### 3. `public/icono.svg` — el ícono de la app
 Mismo logotipo, en versión ícono. Se ve en la pestaña del navegador y al instalar la app.
 
-### 4. Colores sueltos por mover a tokens
-Quedaron unos **12 valores de color escritos a mano** fuera de `tema.ts`, casi todos el
-dorado `#B8862B` o el naranja `#E0872B` de la landing:
-
-```
-src/app/[slug]/landing.tsx          src/app/app/admin/tablero/tablero-cliente.tsx
-src/app/[slug]/manifest.webmanifest/route.ts   src/app/app/admin/reportes/reportes-cliente.tsx
-src/app/manifest.ts                 src/app/app/admin/estaciones/estaciones-admin.tsx
-src/app/layout.tsx                  src/app/app/caja/caja-cliente.tsx
-src/app/app/login/login-form.tsx    src/components/logo-marca.tsx
-```
-
-No rompen nada, pero para un segundo cliente conviene moverlos a los tokens `--marca-*`
-de una vez. Es trabajo de una sola pasada.
+### 4. Colores sueltos: YA NO HAY
+Toda la marca vive en `tema.ts`: los dos temas, el objeto `MARCA` (paleta de la
+landing, manifiestos, acentos del panel) y los degradados (`DEGRADADO_DORADO`,
+`DEGRADADO_LOGO`). El resto del código los importa de ahí o usa los tokens
+`--marca-*` / `bg-panel-lateral`. Las únicas excepciones son el arte propio de
+Distrito Novo (`src/app/icon.svg` y el dibujo vectorial de respaldo en
+`logo-marca.tsx`), que de todas formas se reemplazan enteros (puntos 2 y 3), y los
+valores de respaldo del velo del héroe en `globals.css`, que solo aplican si la
+landing no colgó sus variables.
 
 ---
 
 ## Pasos para montar un cliente nuevo
 
 1. **Repositorio**: copiar este proyecto a uno nuevo (no un fork: son negocios distintos).
-2. **Supabase**: crear proyecto nuevo y correr, en orden:
-   - `supabase/schema.sql` (todo el esquema, funciones y RLS)
-   - `supabase/roles-dueno.sql` — **en dos pasos**, como dice el archivo
-   - `supabase/actualizar-equipo.sql`
-   - `supabase/actualizar-transferencia.sql`
-   - `supabase/cocina-unica.sql`
-   - `supabase/promos-aplicables.sql`
-   - `supabase/landing-config.sql`
-   - `supabase/cierre-caja-sin-pendientes.sql`
+2. **Supabase**: crear proyecto nuevo y correr **`supabase/schema.sql` completo, una sola
+   vez**. Ese único archivo trae todo: esquema, funciones, RLS, el bucket `productos` con
+   sus políticas y el realtime. Es idempotente (re-correrlo no rompe nada).
 
-   > Estos archivos son el historial de cambios de Distrito Novo. **Vale la pena
-   > consolidarlos en un `schema.sql` único y al día** antes de montar el segundo cliente:
-   > se corre uno solo y no hay riesgo de saltarse alguno.
+   > Los scripts viejos viven en `supabase/historial/` solo como referencia; ya no se
+   > corren. `schema.sql` los consolidó todos.
 
-3. **Bucket de Storage**: crear `productos` como público, con las políticas de escritura
-   para `admin`/`dueno` (están en `roles-dueno.sql`).
-4. **Datos base**: insertar el restaurante, sus cocinas, categorías, productos, zonas y
+3. **Datos base**: insertar el restaurante, sus cocinas, categorías, productos, zonas y
    mesas. `supabase/seed-distrito-novo.sql` sirve de molde.
-5. **Cuenta del dueño**: crearla y ponerle `rol = 'dueno'`.
-6. **Vercel**: proyecto nuevo apuntando al repo, con las variables de entorno de la
+4. **Cuenta del dueño**: crearla y ponerle `rol = 'dueno'` (la consulta exacta está al
+   final de `schema.sql`).
+5. **Vercel**: proyecto nuevo apuntando al repo, con las variables de entorno de la
    Supabase nueva.
-7. **Marca**: ajustar `tema.ts`, el logo de respaldo y el ícono.
-8. **Carga desde el panel**: logo, fotos, frases, carta, zonas y promociones.
+6. **Marca**: ajustar `tema.ts`, el logo de respaldo y el ícono.
+7. **Carga desde el panel**: logo, fotos, frases, carta, zonas y promociones.
+8. **Antes de operar de verdad**: `supabase/limpieza.sql` deja pedidos y caja en ceros
+   sin tocar la carta ni los usuarios.
 
 ---
 

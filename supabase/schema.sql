@@ -1,12 +1,28 @@
 -- =====================================================================
--- DISTRITO NOVO · Esquema base (multi-tenant desde el día uno)
+-- ESQUEMA COMPLETO · sistema de pedidos multicocina (multi-tenant)
 -- Postgres / Supabase
--- Ejecutar completo en el SQL Editor o como migración.
+--
+-- ESTE ES EL ÚNICO ARCHIVO QUE HAY QUE CORRER para montar un restaurante
+-- nuevo. Se pega entero en el SQL Editor y se le da Run: una sola vez, de
+-- arriba a abajo. No hace falta partirlo en pasos.
+--
+-- Es idempotente: volver a correrlo sobre una base ya montada no rompe
+-- nada ni borra datos (crea lo que falte y reemplaza funciones y
+-- políticas por su versión al día).
+--
+-- Después de este archivo:
+--   1. `seed-<restaurante>.sql`  — los datos del cliente (carta, zonas, mesas)
+--   2. `limpieza.sql`            — solo si quedaron datos de prueba por borrar
+--
+-- El historial de cómo se llegó hasta aquí vive en `historial/`. Esos
+-- archivos ya NO se corren: todo su contenido está incorporado abajo.
 -- =====================================================================
 
 create extension if not exists "pgcrypto";
 
 -- ---------- TIPOS ----------
+-- 'dueno' va incluido desde la creación del enum: en una base nueva no hace
+-- falta el viejo truco de correr `alter type ... add value` en dos pasos.
 do $$ begin
   create type rol_usuario   as enum ('dueno','admin','cajero','mesero','cocina','pase','domiciliario');
   create type canal_pedido  as enum ('mesa','whatsapp','domicilio','recoger','mostrador');
@@ -17,20 +33,34 @@ do $$ begin
   create type estado_pago   as enum ('pendiente','verificado','rechazado');
 exception when duplicate_object then null; end $$;
 
--- ---------- TABLAS ----------
+-- Por si la base viene de una instalación vieja donde 'dueno' no existía.
+alter type rol_usuario add value if not exists 'dueno';
+
+-- =====================================================================
+-- TABLAS
+-- =====================================================================
 create table if not exists restaurantes (
   id uuid primary key default gen_random_uuid(),
   nombre text not null,
   slug text not null unique,
   logo_url text,
-  portada_url text,         -- imagen de portada (hero) detrás del logo en la carta
-  whatsapp text,
+  portada_url text,         -- foto del héroe de la landing y de la carta
+  whatsapp text,            -- el que ve el comensal
   llave_pago text,          -- llave Bre-B / Nequi
   cuenta_pago text,         -- cuenta bancaria mostrada al cliente
   base_caja bigint not null default 200000,
   activo boolean not null default true,
   creado_en timestamptz not null default now()
 );
+
+-- --- Página de inicio editable desde el panel (Menú Digital › Página de inicio).
+-- Sin valor, la landing usa sus textos por defecto: nada se rompe si están vacíos.
+alter table restaurantes add column if not exists foto_local_url text;   -- foto del local ("Sobre nosotros")
+alter table restaurantes add column if not exists direccion text;
+alter table restaurantes add column if not exists horario text;
+alter table restaurantes add column if not exists landing jsonb not null default '{}'::jsonb;
+alter table restaurantes add column if not exists hero_video_url text;   -- si hay video, manda sobre portada_url
+alter table restaurantes add column if not exists whatsapp_pedidos text; -- adonde llega el aviso de cada pedido
 
 create table if not exists usuarios (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -43,6 +73,7 @@ create table if not exists usuarios (
   creado_en timestamptz not null default now()
 );
 create index if not exists ix_usuarios_rest on usuarios(restaurante_id);
+alter table usuarios add column if not exists correo text;
 
 create table if not exists estaciones (
   id uuid primary key default gen_random_uuid(),
@@ -81,6 +112,7 @@ create table if not exists productos (
   orden int not null default 1
 );
 create index if not exists ix_productos_rest on productos(restaurante_id, categoria_id);
+alter table productos add column if not exists destacado boolean not null default false;
 
 create table if not exists zonas_domicilio (
   id uuid primary key default gen_random_uuid(),
@@ -142,7 +174,7 @@ create table if not exists pedidos (
   subtotal bigint not null default 0,
   domicilio bigint not null default 0,
   total bigint not null default 0,
-  codigo_pago int,          -- 3 cifras que hacen unico el valor a transferir
+  codigo_pago int,          -- 3 cifras que hacen unico el valor a transferir (en desuso)
   monto_exacto bigint,      -- total ajustado con el codigo
   creado_en timestamptz not null default now(),
   confirmado_en timestamptz,
@@ -152,10 +184,12 @@ create table if not exists pedidos (
   entregado_en timestamptz,
   motivo_anulacion text,
   nota_entrega text,        -- motivo cuando el domiciliario no pudo entregar
-  anulado_por uuid references usuarios(id)
+  anulado_por uuid references usuarios(id),
+  en_edicion timestamptz    -- el cliente está modificando su pedido: caja lo ve congelado
 );
 create index if not exists ix_pedidos_rest_estado on pedidos(restaurante_id, estado);
 create index if not exists ix_pedidos_token on pedidos(token);
+alter table pedidos add column if not exists en_edicion timestamptz;
 
 create table if not exists pedido_items (
   id uuid primary key default gen_random_uuid(),
@@ -166,9 +200,11 @@ create table if not exists pedido_items (
   precio_snap bigint not null,
   minutos_snap int not null,
   cantidad int not null check (cantidad > 0),
-  notas text
+  notas text,
+  promocion_id uuid references promociones(id) on delete set null  -- de qué combo salió el renglón
 );
 create index if not exists ix_items_pedido on pedido_items(pedido_id);
+alter table pedido_items add column if not exists promocion_id uuid references promociones(id) on delete set null;
 
 create table if not exists comandas (
   id uuid primary key default gen_random_uuid(),
@@ -221,6 +257,14 @@ create table if not exists caja_movimientos (
   creado_en timestamptz not null default now()
 );
 
+-- Costos por plato: tabla APARTE para que la RLS los proteja de verdad.
+-- 'productos' es de lectura pública; el costo solo lo ve el dueño.
+create table if not exists producto_costos (
+  producto_id uuid primary key references productos(id) on delete cascade,
+  costo bigint not null default 0 check (costo >= 0),
+  actualizado_en timestamptz not null default now()
+);
+
 -- =====================================================================
 -- FUNCIONES DE APOYO
 -- =====================================================================
@@ -244,7 +288,14 @@ $$;
 -- El cliente NUNCA envía precios. El servidor los recalcula desde productos.
 -- payload: { canal, mesa_id, cliente_nombre, cliente_tel, direccion,
 --            zona_id, indicaciones, medio_pago,
---            items: [{producto_id, cantidad, notas}] }
+--            items:  [{producto_id, cantidad, notas}],
+--            combos: [{promocion_id, cantidad}] }
+--
+-- Los combos entran con su precio especial: se valida la promo (activa,
+-- vigente, del restaurante, con precio_combo y sin productos agotados), sus
+-- productos van a las estaciones normales —el disparo escalonado no se toca—
+-- y el precio_combo se prorratea entre los renglones. El renglón más caro
+-- absorbe el redondeo para que la suma dé exacta.
 -- =====================================================================
 create or replace function crear_pedido(p_slug text, p_payload jsonb)
 returns jsonb
@@ -254,6 +305,9 @@ declare
   v_umbral bigint; v_zona_valor bigint := 0; v_canal canal_pedido;
   v_medio medio_pago; v_total bigint;
   v_estado estado_pedido; v_num bigint; v_token uuid;
+  r_combo jsonb; v_promo record; v_cant_combo int; v_normal bigint;
+  v_repartido bigint; v_unit bigint; v_resto bigint; v_primera boolean;
+  r_item record; v_n int;
 begin
   select id into v_rest from restaurantes where slug = p_slug and activo;
   if v_rest is null then raise exception 'Restaurante no encontrado'; end if;
@@ -281,13 +335,76 @@ begin
           v_medio, v_estado)
   returning id, numero, token into v_pedido, v_num, v_token;
 
-  -- items con precio del servidor
+  -- items sueltos con precio del servidor
   insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas)
   select v_pedido, pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep,
          greatest((it->>'cantidad')::int, 1), nullif(it->>'notas','')
-  from jsonb_array_elements(p_payload->'items') it
+  from jsonb_array_elements(coalesce(p_payload->'items','[]'::jsonb)) it
   join productos pr on pr.id = (it->>'producto_id')::uuid
   where pr.restaurante_id = v_rest and pr.activo and pr.disponible;
+
+  -- combos: precio especial del servidor, productos a sus estaciones normales
+  for r_combo in select * from jsonb_array_elements(coalesce(p_payload->'combos','[]'::jsonb))
+  loop
+    select pm.id, pm.titulo, pm.precio_combo into v_promo
+    from promociones pm
+    where pm.id = (r_combo->>'promocion_id')::uuid
+      and pm.restaurante_id = v_rest and pm.tipo = 'combo' and pm.activa
+      and (pm.desde is null or pm.desde <= now())
+      and (pm.hasta is null or pm.hasta >= now())
+      and coalesce(pm.precio_combo, 0) > 0;
+    if v_promo.id is null then raise exception 'El combo ya no está disponible'; end if;
+
+    -- valor normal del combo y validación: TODOS sus productos activos y disponibles
+    select coalesce(sum(pr.precio * pi.cantidad), 0), count(*) into v_normal, v_n
+    from promocion_items pi
+    join productos pr on pr.id = pi.producto_id
+    where pi.promocion_id = v_promo.id
+      and pr.restaurante_id = v_rest and pr.activo and pr.disponible;
+    if v_n = 0 or v_normal <= 0
+       or v_n <> (select count(*) from promocion_items where promocion_id = v_promo.id) then
+      raise exception 'El combo "%" tiene productos agotados', v_promo.titulo;
+    end if;
+
+    v_cant_combo := greatest(coalesce((r_combo->>'cantidad')::int, 1), 1);
+
+    -- una pasada por cada combo pedido: el redondeo cuadra exacto por combo
+    for v_n in 1..v_cant_combo loop
+      v_repartido := 0;
+      v_primera := true;
+      for r_item in
+        select pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep, pi.cantidad
+        from promocion_items pi
+        join productos pr on pr.id = pi.producto_id
+        where pi.promocion_id = v_promo.id
+        order by (pr.precio * pi.cantidad) desc, pr.id
+      loop
+        -- parte del precio del combo que le toca a cada unidad de este producto
+        v_unit := (v_promo.precio_combo * r_item.precio) / v_normal;
+        v_resto := 0;
+        if v_primera then
+          -- el renglón más caro absorbe el redondeo para que la suma dé exacta
+          v_resto := v_promo.precio_combo
+                     - (v_unit * r_item.cantidad)
+                     - (select coalesce(sum(((v_promo.precio_combo * pr2.precio) / v_normal) * pi2.cantidad), 0)
+                        from promocion_items pi2
+                        join productos pr2 on pr2.id = pi2.producto_id
+                        where pi2.promocion_id = v_promo.id and pi2.producto_id <> r_item.id);
+        end if;
+
+        if v_resto <> 0 and r_item.cantidad > 1 then
+          -- una unidad carga el ajuste, el resto va parejo
+          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id)
+          values (v_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, 1, v_promo.titulo, v_promo.id),
+                 (v_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit, r_item.minutos_prep, r_item.cantidad - 1, v_promo.titulo, v_promo.id);
+        else
+          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id)
+          values (v_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, r_item.cantidad, v_promo.titulo, v_promo.id);
+        end if;
+        v_primera := false;
+      end loop;
+    end loop;
+  end loop;
 
   if not exists (select 1 from pedido_items where pedido_id = v_pedido) then
     raise exception 'El pedido no tiene productos disponibles';
@@ -326,6 +443,151 @@ begin
     'subtotal', v_sub, 'domicilio', v_dom, 'total', v_total,
     'codigo_pago', null, 'monto_exacto', v_total, 'estado', v_estado
   );
+end $$;
+
+-- =====================================================================
+-- EL CLIENTE EDITA SU MISMO PEDIDO
+-- Solo mientras nadie le haya aprobado el pago (estado 'esperando_pago') y
+-- solo con el token de SU pedido. Mientras edita, el pedido queda marcado
+-- (`en_edicion`) para que caja lo vea congelado y no apruebe algo que está
+-- cambiando. Los precios los sigue poniendo el servidor.
+-- =====================================================================
+create or replace function iniciar_edicion_pedido(p_token uuid)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_id uuid; v_estado estado_pedido; v_items jsonb;
+begin
+  select id, estado into v_id, v_estado from pedidos where token = p_token;
+  if v_id is null then raise exception 'Pedido no encontrado'; end if;
+  if v_estado <> 'esperando_pago' then
+    raise exception 'Tu pedido ya fue aprobado y está en preparación: escríbenos por WhatsApp';
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'producto_id', producto_id, 'cantidad', cantidad, 'notas', coalesce(notas,'')
+         )), '[]'::jsonb)
+    into v_items
+  from pedido_items where pedido_id = v_id and promocion_id is null;
+
+  update pedidos set en_edicion = now() where id = v_id;
+  return v_items;
+end $$;
+
+create or replace function actualizar_pedido_cliente(p_token uuid, p_payload jsonb)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid; v_rest uuid; v_estado estado_pedido; v_canal canal_pedido;
+  v_sub bigint := 0; v_dom bigint := 0; v_umbral bigint; v_zona_valor bigint := 0;
+  v_total bigint; v_num bigint;
+  r_combo jsonb; v_promo record; v_cant int; v_normal bigint;
+  v_unit bigint; v_resto bigint; v_primera boolean; r_item record; v_n int;
+begin
+  select id, restaurante_id, estado, canal, numero
+    into v_id, v_rest, v_estado, v_canal, v_num
+  from pedidos where token = p_token;
+  if v_id is null then raise exception 'Pedido no encontrado'; end if;
+  if v_estado <> 'esperando_pago' then
+    raise exception 'Tu pedido ya fue aprobado y está en preparación: escríbenos por WhatsApp';
+  end if;
+
+  -- Fuera lo viejo: se rearma completo con lo que el cliente dejó en el carrito.
+  delete from pedido_items where pedido_id = v_id;
+
+  insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas)
+  select v_id, pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep,
+         greatest((it->>'cantidad')::int, 1), nullif(it->>'notas','')
+  from jsonb_array_elements(coalesce(p_payload->'items','[]'::jsonb)) it
+  join productos pr on pr.id = (it->>'producto_id')::uuid
+  where pr.restaurante_id = v_rest and pr.activo and pr.disponible;
+
+  for r_combo in select * from jsonb_array_elements(coalesce(p_payload->'combos','[]'::jsonb))
+  loop
+    select pm.id, pm.titulo, pm.precio_combo into v_promo
+    from promociones pm
+    where pm.id = (r_combo->>'promocion_id')::uuid
+      and pm.restaurante_id = v_rest and pm.tipo = 'combo' and pm.activa
+      and (pm.desde is null or pm.desde <= now()) and (pm.hasta is null or pm.hasta >= now())
+      and coalesce(pm.precio_combo, 0) > 0;
+    if v_promo.id is null then raise exception 'El combo ya no está disponible'; end if;
+
+    select coalesce(sum(pr.precio * pi.cantidad),0), count(*) into v_normal, v_n
+    from promocion_items pi join productos pr on pr.id = pi.producto_id
+    where pi.promocion_id = v_promo.id and pr.restaurante_id = v_rest and pr.activo and pr.disponible;
+    if v_n = 0 or v_normal <= 0
+       or v_n <> (select count(*) from promocion_items where promocion_id = v_promo.id) then
+      raise exception 'El combo "%" tiene productos agotados', v_promo.titulo;
+    end if;
+
+    v_cant := greatest(coalesce((r_combo->>'cantidad')::int, 1), 1);
+    for v_n in 1..v_cant loop
+      v_primera := true;
+      for r_item in
+        select pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep, pi.cantidad
+        from promocion_items pi join productos pr on pr.id = pi.producto_id
+        where pi.promocion_id = v_promo.id
+        order by (pr.precio * pi.cantidad) desc, pr.id
+      loop
+        v_unit := (v_promo.precio_combo * r_item.precio) / v_normal;
+        v_resto := 0;
+        if v_primera then
+          v_resto := v_promo.precio_combo - (v_unit * r_item.cantidad)
+                     - (select coalesce(sum(((v_promo.precio_combo * pr2.precio) / v_normal) * pi2.cantidad),0)
+                        from promocion_items pi2 join productos pr2 on pr2.id = pi2.producto_id
+                        where pi2.promocion_id = v_promo.id and pi2.producto_id <> r_item.id);
+        end if;
+
+        if v_resto <> 0 and r_item.cantidad > 1 then
+          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id)
+          values (v_id, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, 1, v_promo.titulo, v_promo.id),
+                 (v_id, r_item.id, r_item.estacion_id, r_item.nombre, v_unit, r_item.minutos_prep, r_item.cantidad - 1, v_promo.titulo, v_promo.id);
+        else
+          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id)
+          values (v_id, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, r_item.cantidad, v_promo.titulo, v_promo.id);
+        end if;
+        v_primera := false;
+      end loop;
+    end loop;
+  end loop;
+
+  if not exists (select 1 from pedido_items where pedido_id = v_id) then
+    raise exception 'El pedido no tiene productos disponibles';
+  end if;
+
+  select coalesce(sum(precio_snap * cantidad),0) into v_sub from pedido_items where pedido_id = v_id;
+
+  if v_canal in ('domicilio','whatsapp') then
+    select z.valor into v_zona_valor from zonas_domicilio z
+      join pedidos p on p.zona_id = z.id
+     where p.id = v_id and z.activa;
+    v_zona_valor := coalesce(v_zona_valor, 0);
+
+    select monto_minimo into v_umbral from promociones
+     where restaurante_id = v_rest and tipo = 'envio' and activa
+       and (desde is null or desde <= now()) and (hasta is null or hasta >= now())
+     order by orden limit 1;
+
+    v_dom := case when v_umbral is not null and v_sub >= v_umbral then 0 else v_zona_valor end;
+  end if;
+
+  v_total := v_sub + v_dom;
+
+  update pedidos
+     set subtotal = v_sub, domicilio = v_dom, total = v_total,
+         monto_exacto = v_total, en_edicion = null
+   where id = v_id;
+
+  -- El cobro pendiente sigue el nuevo valor.
+  update pagos set monto = v_total where pedido_id = v_id and estado = 'pendiente';
+
+  return jsonb_build_object('numero', v_num, 'subtotal', v_sub, 'domicilio', v_dom, 'total', v_total);
+end $$;
+
+create or replace function cancelar_edicion_pedido(p_token uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update pedidos set en_edicion = null where token = p_token and estado = 'esperando_pago';
 end $$;
 
 -- =====================================================================
@@ -386,8 +648,9 @@ drop trigger if exists tr_comanda_listo on comandas;
 create trigger tr_comanda_listo before update on comandas
 for each row execute function _comanda_listo();
 
--- verificar una transferencia: caja la aprueba y el pedido entra a cocina.
--- Al aprobar, deja también el ingreso en el turno abierto para que cuente en el arqueo.
+-- Verificar una transferencia: caja la aprueba y el pedido entra a cocina.
+-- Al aprobar deja TAMBIÉN el ingreso en el turno abierto. Sin eso la plata de
+-- las transferencias no entra al arqueo y la caja miente al cerrar.
 create or replace function verificar_transferencia(p_pedido uuid, p_ok boolean, p_motivo text default null)
 returns void
 language plpgsql security definer set search_path = public as $$
@@ -504,19 +767,45 @@ begin
    where id = p_pedido;
 end $$;
 
--- cerrar turno: calcula el efectivo esperado y la diferencia, devuelve el arqueo por medio
+-- Cerrar turno: calcula el efectivo esperado y la diferencia, y devuelve el arqueo
+-- por medio de pago.
+-- NADA puede quedar en el aire: no cierra si quedan pedidos del turno sin resolver
+-- (en cocina, por despachar o por cobrar) ni si hay efectivo de domiciliarios sin
+-- legalizar. Si no, la plata de hoy se cobraría mañana y el arqueo no cuadraría.
 create or replace function cerrar_turno(p_efectivo_contado bigint, p_nota text default null)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   v_turno uuid; v_base bigint; v_efectivo bigint; v_egreso bigint;
   v_esperado bigint; v_dif bigint; v_arqueo jsonb;
+  v_abiertos int; v_por_legalizar int; v_desde timestamptz;
 begin
   if mi_rol() not in ('cajero','admin','dueno') then raise exception 'Solo caja o administración'; end if;
   v_turno := turno_abierto();
   if v_turno is null then raise exception 'No hay turno abierto'; end if;
 
-  select base_inicial into v_base from caja_turnos where id = v_turno;
+  select base_inicial, abierto_en into v_base, v_desde from caja_turnos where id = v_turno;
+
+  -- Nada puede quedar en el aire: pedidos en marcha o por cobrar del turno.
+  select count(*) into v_abiertos
+  from pedidos
+  where restaurante_id = mi_restaurante()
+    and creado_en >= v_desde
+    and estado in ('esperando_pago','pendiente','en_cocina','listo','en_despacho','en_camino');
+
+  if v_abiertos > 0 then
+    raise exception 'Quedan % pedido(s) sin cerrar (en cocina, por despachar o por cobrar). Ciérralos o anúlalos antes de cerrar la caja.', v_abiertos;
+  end if;
+
+  -- Efectivo de domiciliarios que aún no entró a la caja.
+  select count(*) into v_por_legalizar
+  from pedidos
+  where restaurante_id = mi_restaurante()
+    and estado = 'entregado' and medio_pago = 'efectivo';
+
+  if v_por_legalizar > 0 then
+    raise exception 'Hay % entrega(s) en efectivo sin legalizar. Recibe esa plata antes de cerrar la caja.', v_por_legalizar;
+  end if;
 
   select coalesce(sum(monto) filter (where tipo in ('ingreso','legalizacion') and medio = 'efectivo'),0),
          coalesce(sum(monto) filter (where tipo = 'egreso'),0)
@@ -641,7 +930,7 @@ begin
 end $$;
 
 -- =====================================================================
--- REPORTES · métricas del restaurante (solo admin)
+-- REPORTES · métricas del restaurante (admin y dueño)
 -- =====================================================================
 create or replace function reporte_ventas(p_dias int default 30)
 returns jsonb
@@ -684,11 +973,8 @@ begin
   return v_res;
 end $$;
 
-revoke all on function reporte_ventas(int) from public, anon;
-grant execute on function reporte_ventas(int) to authenticated;
-
 -- Reporte por rango [desde, hasta): métricas del mes. El rango y la zona llegan del
--- servidor (configuración por instancia); nada de zonas quemadas. Solo admin y dueño.
+-- servidor (configuración por instancia); nada de zonas quemadas.
 create or replace function reporte_rango(p_desde timestamptz, p_hasta timestamptz, p_zona text default 'America/Bogota')
 returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -737,9 +1023,6 @@ begin
   return v_res;
 end $$;
 
-revoke all on function reporte_rango(timestamptz, timestamptz, text) from public, anon;
-grant execute on function reporte_rango(timestamptz, timestamptz, text) to authenticated;
-
 -- Consulta pública del estado de UN pedido: número + teléfono (los dos los sabe solo el
 -- cliente). Devuelve SOLO el estado; una fila por consulta, por índice.
 create or replace function estado_pedido_publico(p_slug text, p_numero bigint, p_tel text)
@@ -759,15 +1042,13 @@ begin
   return v;
 end $$;
 
-revoke all on function estado_pedido_publico(text, bigint, text) from public;
-grant execute on function estado_pedido_publico(text, bigint, text) to anon, authenticated;
-
-
 -- =====================================================================
 -- EQUIPO · crear y eliminar usuarios sin llave de servicio
 -- =====================================================================
 -- Crear un usuario del equipo: cuenta de acceso + fila en usuarios, en una sola operación.
 -- admin crea roles de operación; SOLO el dueño crea admins (o otro dueño).
+-- OJO: las columnas de token de auth.users van en '' (no NULL) o el login falla.
+-- gen_salt/crypt viven en el esquema `extensions`: hay que calificarlas.
 create or replace function crear_usuario(
   p_nombre text, p_correo text, p_clave text, p_rol rol_usuario, p_estacion uuid default null
 ) returns uuid
@@ -838,21 +1119,9 @@ begin
   delete from auth.users where id = p_id;
 end $$;
 
-revoke all on function crear_usuario(text, text, text, rol_usuario, uuid) from public, anon;
-revoke all on function eliminar_usuario(uuid) from public, anon;
-grant execute on function crear_usuario(text, text, text, rol_usuario, uuid) to authenticated;
-grant execute on function eliminar_usuario(uuid) to authenticated;
-
 -- =====================================================================
 -- DUEÑO · costos por plato y rentabilidad (SOLO el dueño)
--- El costo vive en una tabla aparte para que la RLS lo proteja de verdad:
--- 'productos' es de lectura pública; 'producto_costos' solo la ve el dueño.
 -- =====================================================================
-create table if not exists producto_costos (
-  producto_id uuid primary key references productos(id) on delete cascade,
-  costo bigint not null default 0 check (costo >= 0),
-  actualizado_en timestamptz not null default now()
-);
 
 -- Nadie toca al dueño salvo el propio dueño. Solo aplica a sesiones de la app
 -- (auth.uid() presente): el SQL Editor y el service role pueden administrar en emergencias.
@@ -929,12 +1198,6 @@ begin
   return v_res;
 end $$;
 
-revoke all on function actualizar_costo(uuid, bigint) from public, anon;
-revoke all on function reporte_rentabilidad(int) from public, anon;
-revoke all on function _proteger_dueno() from public, anon, authenticated;
-grant execute on function actualizar_costo(uuid, bigint) to authenticated;
-grant execute on function reporte_rentabilidad(int) to authenticated;
-
 -- =====================================================================
 -- RLS
 -- =====================================================================
@@ -955,33 +1218,32 @@ alter table caja_turnos      enable row level security;
 alter table caja_movimientos enable row level security;
 alter table producto_costos  enable row level security;
 
--- costos: SOLO el dueño, y solo de su restaurante
-create policy costos_dueno on producto_costos for all to authenticated
-  using (
-    mi_rol() = 'dueno'
-    and exists (select 1 from productos p where p.id = producto_id and p.restaurante_id = mi_restaurante())
-  )
-  with check (
-    mi_rol() = 'dueno'
-    and exists (select 1 from productos p where p.id = producto_id and p.restaurante_id = mi_restaurante())
-  );
-
 -- --- lectura pública de la carta (el comensal no tiene cuenta) ---
-create policy pub_rest  on restaurantes    for select using (activo);
-create policy pub_est   on estaciones      for select using (activa);
-create policy pub_cat   on categorias      for select using (activa);
-create policy pub_prod  on productos       for select using (activo);
-create policy pub_zona  on zonas_domicilio for select using (activa);
-create policy pub_promo on promociones     for select using (activa);
+drop policy if exists pub_rest    on restaurantes;
+drop policy if exists pub_est     on estaciones;
+drop policy if exists pub_cat     on categorias;
+drop policy if exists pub_prod    on productos;
+drop policy if exists pub_zona    on zonas_domicilio;
+drop policy if exists pub_promo   on promociones;
+drop policy if exists pub_promoit on promocion_items;
+drop policy if exists pub_mesa    on mesas;
+
+create policy pub_rest    on restaurantes    for select using (activo);
+create policy pub_est     on estaciones      for select using (activa);
+create policy pub_cat     on categorias      for select using (activa);
+create policy pub_prod    on productos       for select using (activo);
+create policy pub_zona    on zonas_domicilio for select using (activa);
+create policy pub_promo   on promociones     for select using (activa);
 create policy pub_promoit on promocion_items for select using (true);
-create policy pub_mesa  on mesas           for select using (activa);
+create policy pub_mesa    on mesas           for select using (activa);
 
 -- --- el comensal ve SOLO su pedido, y solo con el token ---
+-- El token viaja en la cabecera, nunca en la consulta, así que no se puede pescar otro.
+drop policy if exists pub_ped_token on pedidos;
 create policy pub_ped_token on pedidos for select
   using (token::text = current_setting('request.headers', true)::json->>'x-pedido-token');
 
--- ...y los renglones de ese mismo pedido, para que el seguimiento muestre qué pidió.
--- El token viaja en la cabecera, nunca en la consulta, así que no se puede pescar otro.
+drop policy if exists pub_items_token on pedido_items;
 create policy pub_items_token on pedido_items for select
   using (exists (
     select 1 from pedidos p
@@ -994,82 +1256,166 @@ create policy pub_items_token on pedido_items for select
 -- suman con OR y Postgres las evalúa TODAS, así que si una quedara abierta a 'public' un
 -- comensal anónimo leyendo la carta ejecutaría mi_restaurante() —que tiene revocado el
 -- EXECUTE para anon— y la consulta fallaría con "permission denied for function".
+drop policy if exists staff_rest on restaurantes;
 create policy staff_rest on restaurantes for all to authenticated
   using (id = mi_restaurante()) with check (id = mi_restaurante());
 
+drop policy if exists staff_usuarios on usuarios;
 create policy staff_usuarios on usuarios for select to authenticated
   using (restaurante_id = mi_restaurante());
+
+drop policy if exists admin_usuarios on usuarios;
 create policy admin_usuarios on usuarios for all to authenticated
   using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'))
   with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'));
 
+drop policy if exists staff_ped on pedidos;
 create policy staff_ped on pedidos for select to authenticated
   using (restaurante_id = mi_restaurante());
+
+drop policy if exists staff_ped_upd on pedidos;
 create policy staff_ped_upd on pedidos for update to authenticated
   using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cajero','mesero','pase'));
 
+drop policy if exists staff_items on pedido_items;
 create policy staff_items on pedido_items for select to authenticated
   using (exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante()));
 
 -- cocina: pantalla única. Ve y opera comandas de CUALQUIER estación de SU
 -- restaurante (ya disparadas). La estación que ve la elige el filtro de la
 -- interfaz, no el usuario; sigue sin ver precios ni datos del cliente.
+drop policy if exists cocina_comandas on comandas;
 create policy cocina_comandas on comandas for select to authenticated using (
   exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante())
   and (mi_rol() <> 'cocina' or disparo_en <= now())
 );
+
+drop policy if exists cocina_comandas_upd on comandas;
 create policy cocina_comandas_upd on comandas for update to authenticated using (
   exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante())
   and mi_rol() in ('admin','dueno','pase','cocina')
 );
 
 -- domiciliario: SOLO los pedidos que le asignaron
+drop policy if exists domi_ped on pedidos;
 create policy domi_ped on pedidos for select to authenticated
   using (mi_rol() = 'domiciliario' and domiciliario_id = auth.uid());
+
+drop policy if exists domi_ped_upd on pedidos;
 create policy domi_ped_upd on pedidos for update to authenticated
   using (mi_rol() = 'domiciliario' and domiciliario_id = auth.uid());
 
 -- caja
+drop policy if exists caja_pagos on pagos;
 create policy caja_pagos on pagos for all to authenticated
   using (exists (select 1 from pedidos p where p.id = pedido_id and p.restaurante_id = mi_restaurante())
          and mi_rol() in ('admin','dueno','cajero'));
+
+drop policy if exists caja_turnos_p on caja_turnos;
 create policy caja_turnos_p on caja_turnos for all to authenticated
   using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cajero'))
   with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cajero'));
+
+drop policy if exists caja_mov_p on caja_movimientos;
 create policy caja_mov_p on caja_movimientos for all to authenticated
   using (exists (select 1 from caja_turnos t where t.id = turno_id and t.restaurante_id = mi_restaurante()));
 
--- catálogo: escribe el admin; 'disponible' también lo cambia cocina
+-- catálogo: escribe el admin Y EL DUEÑO; 'disponible' también lo cambia cocina.
+-- Si estas políticas nombraran solo a 'admin', el dueño vería los botones pero los
+-- UPDATE afectarían 0 filas: el botón "no hace nada" y no sale ningún error.
+drop policy if exists admin_prod on productos;
 create policy admin_prod on productos for all to authenticated
   using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cocina'))
   with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno','cocina'));
+
+drop policy if exists admin_cat on categorias;
 create policy admin_cat on categorias for all to authenticated
   using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'))
   with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'));
+
+drop policy if exists admin_promo on promociones;
 create policy admin_promo on promociones for all to authenticated
   using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'))
   with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'));
+
+-- armar los combos (qué productos lleva cada promo)
+drop policy if exists admin_promo_items on promocion_items;
+create policy admin_promo_items on promocion_items for all to authenticated
+  using (
+    mi_rol() in ('admin','dueno')
+    and exists (select 1 from promociones pm where pm.id = promocion_id and pm.restaurante_id = mi_restaurante())
+  )
+  with check (
+    mi_rol() in ('admin','dueno')
+    and exists (select 1 from promociones pm where pm.id = promocion_id and pm.restaurante_id = mi_restaurante())
+  );
+
+drop policy if exists admin_zona on zonas_domicilio;
 create policy admin_zona on zonas_domicilio for all to authenticated
   using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'))
   with check (restaurante_id = mi_restaurante() and mi_rol() in ('admin','dueno'));
 
--- permisos de ejecución
-grant execute on function crear_pedido(text, jsonb) to anon, authenticated;
-grant execute on function confirmar_pedido(uuid) to authenticated;
-grant execute on function verificar_transferencia(uuid, boolean, text) to authenticated;
+-- costos: SOLO el dueño, y solo de su restaurante
+drop policy if exists costos_dueno on producto_costos;
+create policy costos_dueno on producto_costos for all to authenticated
+  using (
+    mi_rol() = 'dueno'
+    and exists (select 1 from productos p where p.id = producto_id and p.restaurante_id = mi_restaurante())
+  )
+  with check (
+    mi_rol() = 'dueno'
+    and exists (select 1 from productos p where p.id = producto_id and p.restaurante_id = mi_restaurante())
+  );
 
--- realtime
-alter publication supabase_realtime add table comandas;
-alter publication supabase_realtime add table pedidos;
-alter publication supabase_realtime add table productos;
-alter publication supabase_realtime add table promociones;
+-- =====================================================================
+-- STORAGE · bucket 'productos' (fotos de la carta, logo, portada, promos)
+-- Público para leer; escriben admin y dueño.
+-- =====================================================================
+insert into storage.buckets (id, name, public)
+values ('productos', 'productos', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists productos_lectura_publica on storage.objects;
+create policy productos_lectura_publica on storage.objects for select
+  using (bucket_id = 'productos');
+
+drop policy if exists productos_admin_insert on storage.objects;
+create policy productos_admin_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'productos'
+    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol in ('admin','dueno') and u.activo));
+
+drop policy if exists productos_admin_update on storage.objects;
+create policy productos_admin_update on storage.objects for update to authenticated
+  using (bucket_id = 'productos'
+    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol in ('admin','dueno') and u.activo));
+
+drop policy if exists productos_admin_delete on storage.objects;
+create policy productos_admin_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'productos'
+    and exists (select 1 from public.usuarios u where u.id = auth.uid() and u.rol in ('admin','dueno') and u.activo));
+
+-- =====================================================================
+-- REALTIME
+-- =====================================================================
+do $$
+declare t text;
+begin
+  foreach t in array array['comandas','pedidos','productos','promociones'] loop
+    begin
+      execute format('alter publication supabase_realtime add table %I', t);
+    exception when duplicate_object then null;
+    end;
+  end loop;
+end $$;
 
 -- =====================================================================
 -- ENDURECIMIENTO DE PERMISOS
 -- Postgres da EXECUTE a PUBLIC por defecto. Se quita y se da solo lo justo.
 -- =====================================================================
 revoke all on function _comanda_listo() from public, anon, authenticated;
+revoke all on function _proteger_dueno() from public, anon, authenticated;
 
+-- helpers de sesión: staff autenticado
 revoke all on function mi_restaurante() from public, anon;
 revoke all on function mi_rol() from public, anon;
 revoke all on function mi_estacion() from public, anon;
@@ -1077,15 +1423,24 @@ grant execute on function mi_restaurante() to authenticated;
 grant execute on function mi_rol() to authenticated;
 grant execute on function mi_estacion() to authenticated;
 
+-- pedido: crear y editar SÍ son públicas a propósito (el comensal no tiene cuenta).
+-- Son seguras porque recalculan precios desde 'productos' y nunca aceptan montos del
+-- cliente; editar además exige el token del pedido y que siga sin aprobar.
+revoke all on function crear_pedido(text, jsonb) from public;
+revoke all on function iniciar_edicion_pedido(uuid) from public;
+revoke all on function actualizar_pedido_cliente(uuid, jsonb) from public;
+revoke all on function cancelar_edicion_pedido(uuid) from public;
+revoke all on function estado_pedido_publico(text, bigint, text) from public;
+grant execute on function crear_pedido(text, jsonb) to anon, authenticated;
+grant execute on function iniciar_edicion_pedido(uuid) to anon, authenticated;
+grant execute on function actualizar_pedido_cliente(uuid, jsonb) to anon, authenticated;
+grant execute on function cancelar_edicion_pedido(uuid) to anon, authenticated;
+grant execute on function estado_pedido_publico(text, bigint, text) to anon, authenticated;
+
 revoke all on function confirmar_pedido(uuid) from public, anon;
 revoke all on function verificar_transferencia(uuid, boolean, text) from public, anon;
 grant execute on function confirmar_pedido(uuid) to authenticated;
 grant execute on function verificar_transferencia(uuid, boolean, text) to authenticated;
-
--- crear_pedido SI es pública a propósito: el comensal no tiene cuenta.
--- Es segura porque recalcula precios desde 'productos' y nunca acepta montos del cliente.
-revoke all on function crear_pedido(text, jsonb) from public;
-grant execute on function crear_pedido(text, jsonb) to anon, authenticated;
 
 -- caja: solo staff autenticado; el comensal (anon) no toca caja
 revoke all on function turno_abierto() from public, anon;
@@ -1112,3 +1467,27 @@ grant execute on function recoger_pedido(uuid) to authenticated;
 grant execute on function entregar_pedido(uuid) to authenticated;
 grant execute on function fallo_entrega(uuid, text) to authenticated;
 grant execute on function legalizar_domiciliario(uuid) to authenticated;
+
+-- reportes y equipo
+revoke all on function reporte_ventas(int) from public, anon;
+revoke all on function reporte_rango(timestamptz, timestamptz, text) from public, anon;
+revoke all on function reporte_rentabilidad(int) from public, anon;
+revoke all on function actualizar_costo(uuid, bigint) from public, anon;
+revoke all on function crear_usuario(text, text, text, rol_usuario, uuid) from public, anon;
+revoke all on function eliminar_usuario(uuid) from public, anon;
+grant execute on function reporte_ventas(int) to authenticated;
+grant execute on function reporte_rango(timestamptz, timestamptz, text) to authenticated;
+grant execute on function reporte_rentabilidad(int) to authenticated;
+grant execute on function actualizar_costo(uuid, bigint) to authenticated;
+grant execute on function crear_usuario(text, text, text, rol_usuario, uuid) to authenticated;
+grant execute on function eliminar_usuario(uuid) to authenticated;
+
+-- =====================================================================
+-- LISTO. Lo que sigue:
+--   1. Insertar el restaurante, sus cocinas, categorías, productos, zonas
+--      y mesas (usar `seed-distrito-novo.sql` como molde).
+--   2. Crear la cuenta del dueño y ponerle rol = 'dueno':
+--        update usuarios set rol = 'dueno'
+--        where id = (select id from auth.users where email = 'TU-CORREO');
+--   3. El resto (logo, fotos, frases, promociones) se carga desde el panel.
+-- =====================================================================

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 
+import { MARCA } from '@/config/tema'
+
 /**
  * QR por mesa para imprimir y pegar en el punto físico. El cliente lo escanea, pide desde
  * la mesa y el mesero solo confirma. La URL usa el origen actual del despliegue, así que
@@ -28,7 +30,7 @@ export function MesasQr({
         salida[m.id] = await QRCode.toDataURL(url, {
           width: 480,
           margin: 1,
-          color: { dark: '#0B0B0C', light: '#FFFFFF' },
+          color: { dark: MARCA.fondoApp, light: '#FFFFFF' },
         })
       }
       if (vivo) setQrs(salida)

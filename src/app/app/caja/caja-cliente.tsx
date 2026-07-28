@@ -21,6 +21,7 @@ import { FichaCliente } from '@/components/ui/ficha-cliente'
 import { Pildora, type TonoPildora } from '@/components/ui/pildora'
 import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
 import { Vacio } from '@/components/ui/vacio'
+import { MARCA } from '@/config/tema'
 import type { ArqueoMedio, Cobrado } from '@/lib/datos/caja'
 import { formatearPesos } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
@@ -96,7 +97,7 @@ const MEDIO_INFO: Record<
   efectivo: { Icono: IconoBillete, color: '#1D9E75' },
   transferencia: { Icono: IconoIntercambio, color: '#2E9E8F' },
   datafono: { Icono: IconoTarjeta, color: '#5B6BF0' },
-  pasarela: { Icono: IconoGlobo, color: '#E0872B' },
+  pasarela: { Icono: IconoGlobo, color: MARCA.naranja },
 }
 
 type Props = {
@@ -196,7 +197,7 @@ export function CajaCliente(props: Props) {
                 aria-pressed={activa}
                 className={`min-h-10 rounded-lg border px-3 text-sm font-medium ${
                   activa
-                    ? 'border-transparent bg-[#0B0B0C] text-marca-acento'
+                    ? 'border-transparent bg-panel-lateral text-marca-acento'
                     : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
                 }`}
               >
@@ -347,7 +348,7 @@ function CobradosHoy({
                   aria-pressed={activa}
                   className={`min-h-10 rounded-lg border px-2.5 text-xs font-medium ${
                     activa
-                      ? 'border-transparent bg-[#0B0B0C] text-marca-acento'
+                      ? 'border-transparent bg-panel-lateral text-marca-acento'
                       : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
                   }`}
                 >

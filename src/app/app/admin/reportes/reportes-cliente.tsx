@@ -15,6 +15,7 @@ import { IconoBillete, IconoBolsa, IconoEtiqueta, IconoGrafica, IconoReloj } fro
 import { Segmentado } from '@/components/segmentado'
 import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
 import { Vacio } from '@/components/ui/vacio'
+import { MARCA } from '@/config/tema'
 import { formatearPesos } from '@/lib/formato'
 
 export type ReporteMes = {
@@ -85,7 +86,7 @@ export function ReportesCliente({
           titulo="Ventas del mes"
           valor={actual.total_ventas}
           dinero
-          color="#B8862B"
+          color={MARCA.dorado}
           Icono={IconoBillete}
           variacion={{
             pct: variacionPct(actual.total_ventas, anterior?.total_ventas),

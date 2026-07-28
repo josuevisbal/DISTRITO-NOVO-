@@ -25,7 +25,7 @@ export function PestanasModulo({
             aria-current={esta ? 'page' : undefined}
             className={`flex min-h-11 items-center rounded-lg border px-4 text-sm font-medium transition-colors ${
               esta
-                ? 'border-transparent bg-[#0B0B0C] text-marca-acento'
+                ? 'border-transparent bg-panel-lateral text-marca-acento'
                 : 'border-marca-borde bg-marca-superficie text-marca-texto-suave hover:text-marca-texto'
             }`}
           >

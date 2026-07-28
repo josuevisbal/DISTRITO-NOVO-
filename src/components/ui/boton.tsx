@@ -16,7 +16,7 @@ export type VarianteBoton = 'primario' | 'negro' | 'exito' | 'secundario' | 'pel
 
 const CLASE: Record<VarianteBoton, string> = {
   primario: 'bg-marca-acento font-medium text-marca-acento-texto',
-  negro: 'bg-[#0B0B0C] font-semibold text-marca-acento',
+  negro: 'bg-panel-lateral font-semibold text-marca-acento',
   exito: 'bg-[#1E9E6A] font-semibold text-white',
   secundario: 'border border-marca-borde text-marca-texto-suave',
   peligro: 'bg-[#FBE6DE] font-semibold text-[#9A3320]',

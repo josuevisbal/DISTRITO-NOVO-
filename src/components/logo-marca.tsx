@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-import { LOGO_URL } from '@/config/tema'
+import { DEGRADADO_LOGO, hexARgb, LOGO_URL, MARCA } from '@/config/tema'
 
 /**
  * Logo de la marca. Con LOGO_URL configurado (config/tema.ts) muestra la imagen real
@@ -28,10 +28,7 @@ export function LogoMarca({
     return (
       <span
         className={`relative inline-block shrink-0 rounded-full p-[3px] ${className}`}
-        style={{
-          background:
-            'conic-gradient(from 210deg, #D4A64A, #F0A93C 25%, rgba(212,166,74,0.12) 55%, #B8862B 80%, #D4A64A)',
-        }}
+        style={{ background: DEGRADADO_LOGO }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -44,7 +41,7 @@ export function LogoMarca({
         <span
           aria-hidden
           className="absolute inset-[3px] rounded-full"
-          style={{ boxShadow: 'inset 0 0 26px 12px rgba(11,11,12,0.55)' }}
+          style={{ boxShadow: `inset 0 0 26px 12px rgba(${hexARgb(MARCA.fondoApp)},0.55)` }}
         />
       </span>
     )

@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom'
 
 import { IconoAlerta } from '@/components/iconos'
 import { LogoMarca } from '@/components/logo-marca'
+import { DEGRADADO_DORADO, DEGRADADO_DORADO_TEXTO, hexARgb, MARCA } from '@/config/tema'
 import { iniciarSesion, type ResultadoLogin } from './acciones'
 
 /**
@@ -33,7 +34,7 @@ export function LoginForm({
   return (
     <div
       className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10"
-      style={{ backgroundColor: '#0B0B0C' }}
+      style={{ backgroundColor: MARCA.fondoApp }}
     >
       {/* La foto del plato ocupa toda la pantalla, oscurecida, y el acceso va encima. */}
       {foto ? (
@@ -52,8 +53,7 @@ export function LoginForm({
           <div
             className="absolute inset-0 transition-opacity duration-300 motion-reduce:transition-none"
             style={{
-              background:
-                'radial-gradient(circle at 50% 45%, rgba(11,11,12,0.55) 0%, rgba(11,11,12,0.82) 55%, #0B0B0C 100%)',
+              background: `radial-gradient(circle at 50% 45%, rgba(${hexARgb(MARCA.fondoApp)},0.55) 0%, rgba(${hexARgb(MARCA.fondoApp)},0.82) 55%, ${MARCA.fondoApp} 100%)`,
               opacity: encendida ? 1 : 0.6,
             }}
           />
@@ -77,10 +77,10 @@ export function LoginForm({
             <LogoMarca className="size-[92px]" url={logo} />
           </div>
 
-          <h1 className="text-center font-titulo text-2xl font-bold" style={{ color: '#ECCB79' }}>
+          <h1 className="text-center font-titulo text-2xl font-bold" style={{ color: MARCA.doradoClaro }}>
             {nombre ?? 'Bienvenido'}
           </h1>
-          <p className="mt-1 text-center text-sm" style={{ color: '#A9A294' }}>
+          <p className="mt-1 text-center text-sm" style={{ color: MARCA.textoSuave }}>
             Acceso del equipo
           </p>
 
@@ -105,9 +105,9 @@ export function LoginForm({
             <p
               role="alert"
               className="entra-pastilla mt-4 flex gap-2.5 rounded-lg border border-marca-acento/60 bg-black/30 p-3 text-sm"
-              style={{ color: '#F4EFE4' }}
+              style={{ color: MARCA.texto }}
             >
-              <span className="shrink-0" style={{ color: '#ECCB79' }}>
+              <span className="shrink-0" style={{ color: MARCA.doradoClaro }}>
                 <IconoAlerta className="size-5" />
               </span>
               {estado.error}
@@ -124,7 +124,7 @@ export function LoginForm({
             onClick={() => setEncendida((v) => !v)}
             aria-pressed={encendida}
             className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-medium backdrop-blur-sm"
-            style={{ color: '#C9A24A', backgroundColor: 'rgba(11,11,12,0.45)' }}
+            style={{ color: MARCA.dorado, backgroundColor: `rgba(${hexARgb(MARCA.fondoApp)},0.45)` }}
           >
             {encendida ? 'Apagar luz' : 'Encender luz'}
           </button>
@@ -149,7 +149,7 @@ function CampoOscuro({
 }) {
   return (
     <label className="block">
-      <span className="text-xs" style={{ color: '#A9A294' }}>
+      <span className="text-xs" style={{ color: MARCA.textoSuave }}>
         {etiqueta}
       </span>
       <input
@@ -158,7 +158,8 @@ function CampoOscuro({
         autoComplete={autoComplete}
         placeholder={marcador}
         required
-        className="mt-1.5 min-h-12 w-full rounded-lg border border-white/15 bg-black/25 px-3 text-[#F4EFE4] placeholder:text-white/30 focus:border-marca-acento"
+        className="mt-1.5 min-h-12 w-full rounded-lg border border-white/15 bg-black/25 px-3 placeholder:text-white/30 focus:border-marca-acento"
+        style={{ color: MARCA.texto }}
       />
     </label>
   )
@@ -172,8 +173,8 @@ function Boton() {
       disabled={pending}
       className="mt-6 flex min-h-12 w-full items-center justify-center rounded-lg font-semibold disabled:opacity-60"
       style={{
-        background: 'linear-gradient(100deg, #B8862B, #ECCB79 50%, #B8862B)',
-        color: '#1a1408',
+        background: DEGRADADO_DORADO,
+        color: DEGRADADO_DORADO_TEXTO,
       }}
     >
       {pending ? 'Entrando…' : 'Entrar'}

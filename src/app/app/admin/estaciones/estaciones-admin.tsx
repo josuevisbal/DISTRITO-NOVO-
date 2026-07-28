@@ -6,6 +6,7 @@ import { IconoAlerta, IconoCheck, IconoFuego, IconoMas } from '@/components/icon
 import { useToast } from '@/components/toast'
 import { Boton } from '@/components/ui/boton'
 import { Pildora } from '@/components/ui/pildora'
+import { MARCA } from '@/config/tema'
 import { alternarEstacion, crearEstacion, guardarEstacion } from './acciones'
 
 export type EstacionAdmin = {
@@ -18,7 +19,7 @@ export type EstacionAdmin = {
 }
 
 /** Colores sugeridos, los del sistema. El admin puede escribir otro. */
-const COLORES = ['#E0872B', '#C2452F', '#2E9E8F', '#5B6BF0', '#B8862B', '#7C3AED']
+const COLORES = [MARCA.naranja, '#C2452F', '#2E9E8F', '#5B6BF0', MARCA.dorado, '#7C3AED']
 
 export function EstacionesAdmin({ estaciones }: { estaciones: EstacionAdmin[] }) {
   const [creando, setCreando] = useState(false)

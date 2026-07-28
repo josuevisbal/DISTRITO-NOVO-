@@ -109,7 +109,7 @@ export function PaseCliente({
                 aria-pressed={activa}
                 className={`min-h-10 rounded-lg border px-3 text-sm font-medium ${
                   activa
-                    ? 'border-transparent bg-[#0B0B0C] text-marca-acento'
+                    ? 'border-transparent bg-panel-lateral text-marca-acento'
                     : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
                 }`}
               >

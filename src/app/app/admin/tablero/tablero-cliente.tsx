@@ -15,6 +15,7 @@ import {
 import { Pildora } from '@/components/ui/pildora'
 import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
 import { Vacio } from '@/components/ui/vacio'
+import { MARCA } from '@/config/tema'
 import type { DatosTablero } from '@/lib/datos/tablero'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
@@ -40,7 +41,7 @@ export function TableroCliente({ datos, dia }: { datos: DatosTablero; dia: strin
           titulo="Ventas de hoy"
           valor={datos.ventasHoy}
           dinero
-          color="#B8862B"
+          color={MARCA.dorado}
           Icono={IconoBillete}
           sub={{ texto: `${datos.pedidosHoy} ${datos.pedidosHoy === 1 ? 'pedido' : 'pedidos'}` }}
           indice={0}
@@ -65,7 +66,7 @@ export function TableroCliente({ datos, dia }: { datos: DatosTablero; dia: strin
         <TarjetaKpi
           titulo="En cocina"
           valor={datos.enCocina}
-          color="#E0872B"
+          color={MARCA.naranja}
           Icono={IconoFuego}
           sub={{ texto: 'en preparación' }}
           indice={3}

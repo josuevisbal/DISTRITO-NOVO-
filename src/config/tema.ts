@@ -58,7 +58,7 @@ const TEMA_BASE: Tema = {
  * impresa), no informal. Los módulos internos usan el tema claro corporativo.
  * El dorado va más brillante porque vive sobre negro.
  */
-const TEMA_CARTA: Tema = {
+export const TEMA_CARTA: Tema = {
   fondo: '#0B0B0C',
   superficie: '#16151A',
   superficieTenue: '#201E24',
@@ -75,6 +75,50 @@ const TEMA_CARTA: Tema = {
   panelLateralTextoSuave: '#A39C8D',
   panelLateralBorde: '#26242B',
 }
+
+/**
+ * Colores de marca que viven FUERA de los dos temas: la paleta de la landing
+ * pública (Pantalla 1 "que vende"), los manifiestos de instalación y los acentos
+ * sueltos del panel (KPIs, sugerencias de estación). Antes estaban escritos a
+ * mano por el código; ahora dar de alta otro restaurante es tocar SOLO este archivo.
+ */
+export const MARCA = {
+  /** Dorado de marca fuera de los temas: viewport, manifiesto del equipo, KPIs. */
+  dorado: TEMA_BASE.acento,
+  /** Dorado claro para texto sobre negro (títulos del login, avisos de promo). */
+  doradoClaro: TEMA_CARTA.acentoFuerte,
+  /** Naranja cálido de la landing y de acentos operativos ("en cocina", pasarela). */
+  naranja: '#E0872B',
+  naranjaClara: '#F0A93C',
+  /** Negro cálido de la landing y del manifiesto del menú del cliente. */
+  negro: '#141210',
+  negroSuave: '#1E1915',
+  /** Crema de la franja de beneficios de la landing. */
+  crema: '#F6F1E7',
+  /** Texto claro sobre el negro de la landing (los de la carta). */
+  texto: TEMA_CARTA.texto,
+  textoSuave: TEMA_CARTA.textoSuave,
+  /** Fondo oscuro de la app del equipo (manifiesto). */
+  fondoApp: TEMA_CARTA.fondo,
+}
+
+/** Degradado dorado de los botones destacados (entrar en el login). */
+export const DEGRADADO_DORADO = `linear-gradient(100deg, ${TEMA_BASE.acento}, ${TEMA_CARTA.acentoFuerte} 50%, ${TEMA_BASE.acento})`
+/** Texto sobre ese degradado. */
+export const DEGRADADO_DORADO_TEXTO = '#1A1408'
+
+/** Anillo del marco circular del logo (LogoMarca): dorado que gira hacia el fondo. */
+export const DEGRADADO_LOGO = `conic-gradient(from 210deg, #D4A64A, ${MARCA.naranjaClara} 25%, rgba(212,166,74,0.12) 55%, ${TEMA_BASE.acento} 80%, #D4A64A)`
+
+/** "R, G, B" de un color hex, para usarlo con alfa en CSS: rgba(var(--x-rgb), 0.5). */
+export function hexARgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16)
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
+}
+
+/** El negro de la landing en "R, G, B": el velo del héroe (globals.css) lo necesita
+ *  con distintas transparencias. La landing lo cuelga como variable CSS. */
+export const MARCA_NEGRO_RGB = hexARgb(MARCA.negro)
 
 const TEMAS: Record<string, Tema> = {
   'distrito-novo': TEMA_BASE,

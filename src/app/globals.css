@@ -293,11 +293,14 @@ body {
 .hero-fondo video {
   object-position: 75% 50%;
 }
+/* El negro viene de la marca (config/tema.ts): la landing lo cuelga como
+   --hero-negro / --hero-negro-rgb en su contenedor. Los valores de respaldo
+   son los de Distrito Novo. */
 .hero-velo {
   background:
-    linear-gradient(90deg, #141210 0%, rgba(20, 18, 16, 0.92) 30%, rgba(20, 18, 16, 0.55) 65%, rgba(20, 18, 16, 0.25) 100%),
-    linear-gradient(180deg, #141210 0%, transparent 22%),
-    linear-gradient(0deg, #141210 0%, rgba(20, 18, 16, 0.35) 30%, transparent 55%);
+    linear-gradient(90deg, var(--hero-negro, #141210) 0%, rgba(var(--hero-negro-rgb, 20, 18, 16), 0.92) 30%, rgba(var(--hero-negro-rgb, 20, 18, 16), 0.55) 65%, rgba(var(--hero-negro-rgb, 20, 18, 16), 0.25) 100%),
+    linear-gradient(180deg, var(--hero-negro, #141210) 0%, transparent 22%),
+    linear-gradient(0deg, var(--hero-negro, #141210) 0%, rgba(var(--hero-negro-rgb, 20, 18, 16), 0.35) 30%, transparent 55%);
 }
 /* En pantalla grande la foto respira más: el texto ocupa solo la mitad izquierda. */
 @media (min-width: 768px) {
@@ -307,9 +310,9 @@ body {
   }
   .hero-velo {
     background:
-      linear-gradient(90deg, #141210 18%, rgba(20, 18, 16, 0.75) 42%, transparent 70%),
-      linear-gradient(180deg, #141210 0%, transparent 30%),
-      linear-gradient(0deg, #141210 0%, transparent 38%);
+      linear-gradient(90deg, var(--hero-negro, #141210) 18%, rgba(var(--hero-negro-rgb, 20, 18, 16), 0.75) 42%, transparent 70%),
+      linear-gradient(180deg, var(--hero-negro, #141210) 0%, transparent 30%),
+      linear-gradient(0deg, var(--hero-negro, #141210) 0%, transparent 38%);
   }
 }
 

@@ -16,6 +16,7 @@ import { useToast } from '@/components/toast'
 import { Boton } from '@/components/ui/boton'
 import { Pildora } from '@/components/ui/pildora'
 import { Vacio } from '@/components/ui/vacio'
+import { TEMA_CARTA } from '@/config/tema'
 import { formatearPesos } from '@/lib/formato'
 import {
   alternarPromo,
@@ -448,14 +449,14 @@ function VistaPrevia({
       </p>
       <div
         className="relative overflow-hidden rounded-2xl border p-5"
-        style={{ backgroundColor: '#16151A', borderColor: 'rgba(216,172,78,0.5)' }}
+        style={{ backgroundColor: TEMA_CARTA.superficie, borderColor: `${TEMA_CARTA.acento}80` }}
       >
         <span
           aria-hidden
           className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full opacity-20"
-          style={{ backgroundColor: '#D8AC4E' }}
+          style={{ backgroundColor: TEMA_CARTA.acento }}
         />
-        <p className="flex items-center gap-2" style={{ color: '#ECCB79' }}>
+        <p className="flex items-center gap-2" style={{ color: TEMA_CARTA.acentoFuerte }}>
           {tipo === 'envio' ? (
             <IconoMoto className="size-4 shrink-0" />
           ) : tipo === 'combo' ? (
@@ -470,24 +471,24 @@ function VistaPrevia({
 
         <h4
           className="mt-2 text-xl font-bold"
-          style={{ color: '#F4EFE4', fontFamily: 'var(--fuente-titulo)' }}
+          style={{ color: TEMA_CARTA.texto, fontFamily: 'var(--fuente-titulo)' }}
         >
           {titulo || 'Título de la promoción'}
         </h4>
 
         {descripcion ? (
-          <p className="mt-1.5 text-sm" style={{ color: '#A9A294' }}>
+          <p className="mt-1.5 text-sm" style={{ color: TEMA_CARTA.textoSuave }}>
             {descripcion}
           </p>
         ) : tipo === 'envio' && monto ? (
-          <p className="mt-1.5 text-sm" style={{ color: '#A9A294' }}>
+          <p className="mt-1.5 text-sm" style={{ color: TEMA_CARTA.textoSuave }}>
             En pedidos desde {formatearPesos(monto)}.
           </p>
         ) : null}
 
         {tipo === 'combo' && items.length > 0 ? (
           <>
-            <ul className="mt-3 space-y-0.5 text-sm" style={{ color: '#A9A294' }}>
+            <ul className="mt-3 space-y-0.5 text-sm" style={{ color: TEMA_CARTA.textoSuave }}>
               {items.map((i) => {
                 const p = porId.get(i.producto_id)
                 return p ? (
@@ -498,13 +499,13 @@ function VistaPrevia({
               })}
             </ul>
             {precio < suma ? (
-              <p className="mt-2 text-sm" style={{ color: '#A9A294' }}>
+              <p className="mt-2 text-sm" style={{ color: TEMA_CARTA.textoSuave }}>
                 Por separado: <span className="line-through">{formatearPesos(suma)}</span>
               </p>
             ) : null}
             <span
               className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg font-medium"
-              style={{ backgroundColor: '#D8AC4E', color: '#0B0B0C' }}
+              style={{ backgroundColor: TEMA_CARTA.acento, color: TEMA_CARTA.acentoTexto }}
             >
               <IconoBolsa className="size-4 shrink-0" />
               Agregar combo · {formatearPesos(precio)}

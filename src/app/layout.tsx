@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Cinzel, Cinzel_Decorative, Dancing_Script, Inter } from 'next/font/google'
 
+import { MARCA } from '@/config/tema'
+
 import './globals.css'
 
 const fuenteTitulo = Cinzel({
@@ -36,7 +38,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#B8862B',
+  themeColor: MARCA.dorado,
 }
 
 export default function RootLayout({

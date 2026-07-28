@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { MARCA } from '@/config/tema'
 import { restaurantePorSlug } from '@/lib/datos/restaurante'
 
 export const dynamic = 'force-dynamic'
@@ -41,8 +42,8 @@ export async function GET(
       scope: `/${slug}`,
       display: 'standalone',
       orientation: 'portrait',
-      background_color: '#141210',
-      theme_color: '#E0872B',
+      background_color: MARCA.negro,
+      theme_color: MARCA.naranja,
       icons: iconos,
     },
     { headers: { 'Content-Type': 'application/manifest+json' } },

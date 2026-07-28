@@ -136,7 +136,7 @@ function BotonFiltro({
       aria-pressed={activo}
       className={`flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium ${
         activo
-          ? 'border-transparent bg-[#0B0B0C] text-[#F2DCA0]'
+          ? 'border-transparent bg-panel-lateral text-marca-acento'
           : 'border-marca-borde bg-marca-superficie text-marca-texto-suave hover:text-marca-texto'
       }`}
     >

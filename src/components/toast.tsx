@@ -49,7 +49,7 @@ export function ProveedorToast({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <article
             key={t.id}
-            className={`pointer-events-auto flex items-center gap-2.5 rounded-xl bg-[#0B0B0C] px-4 py-2.5 text-sm font-medium text-white shadow-[0_10px_30px_rgba(0,0,0,0.35)] ${
+            className={`pointer-events-auto flex items-center gap-2.5 rounded-xl bg-panel-lateral px-4 py-2.5 text-sm font-medium text-white shadow-[0_10px_30px_rgba(0,0,0,0.35)] ${
               t.saliendo ? 'toast-sale' : 'toast-entra'
             }`}
           >
