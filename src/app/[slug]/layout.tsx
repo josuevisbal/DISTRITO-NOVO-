@@ -18,6 +18,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: restaurante ? `Menú ${restaurante.nombre}` : 'Menú',
     description: restaurante ? `Pide en ${restaurante.nombre}` : undefined,
+    // Su propio manifiesto: el comensal instala el MENÚ, no la app del equipo.
+    manifest: `/${slug}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'black-translucent',
+      title: restaurante ? `Menú ${restaurante.nombre}` : 'Menú',
+    },
   }
 }
 
