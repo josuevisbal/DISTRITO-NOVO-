@@ -648,6 +648,25 @@ drop trigger if exists tr_comanda_listo on comandas;
 create trigger tr_comanda_listo before update on comandas
 for each row execute function _comanda_listo();
 
+-- Sin turno de caja abierto no entra NINGÚN pedido, venga del canal que venga:
+-- un pedido sin caja no tiene quién lo confirme ni dónde anotar la plata que trae.
+-- Va como trigger sobre pedidos (y no dentro de crear_pedido) para cubrir cualquier
+-- camino de inserción y sobrevivir a futuras versiones de la función.
+create or replace function _pedido_exige_turno() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (
+    select 1 from caja_turnos where restaurante_id = new.restaurante_id and cerrado_en is null
+  ) then
+    raise exception 'Todavía no estamos recibiendo pedidos. ¡Vuelve a intentarlo en unos minutos!';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists tr_pedido_exige_turno on pedidos;
+create trigger tr_pedido_exige_turno before insert on pedidos
+for each row execute function _pedido_exige_turno();
+
 -- Verificar una transferencia: caja la aprueba y el pedido entra a cocina.
 -- Al aprobar deja TAMBIÉN el ingreso en el turno abierto. Sin eso la plata de
 -- las transferencias no entra al arqueo y la caja miente al cerrar.
@@ -662,16 +681,19 @@ begin
   if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
 
   if p_ok then
+    -- Aprobar mueve plata, y cada peso que entra debe quedar atado a un turno: sin
+    -- turno abierto el ingreso no tenía dónde anotarse y quedaba un cobro invisible
+    -- que ningún arqueo mostraría jamás. Rechazar sí se permite sin turno: no mueve plata.
+    v_turno := turno_abierto();
+    if v_turno is null then raise exception 'Abre un turno antes de verificar transferencias'; end if;
+
     update pagos set estado='verificado', verificado_por=auth.uid(), verificado_en=now()
       where pedido_id = p_pedido and medio='transferencia';
     update pedidos set estado='pendiente' where id = p_pedido and estado='esperando_pago';
     perform confirmar_pedido(p_pedido);
 
-    v_turno := turno_abierto();
-    if v_turno is not null then
-      insert into caja_movimientos (turno_id, tipo, medio, monto, pedido_id, usuario_id)
-      values (v_turno, 'ingreso', 'transferencia', coalesce(v_monto,0), p_pedido, auth.uid());
-    end if;
+    insert into caja_movimientos (turno_id, tipo, medio, monto, pedido_id, usuario_id)
+    values (v_turno, 'ingreso', 'transferencia', coalesce(v_monto,0), p_pedido, auth.uid());
   else
     update pagos set estado='rechazado', verificado_por=auth.uid(), verificado_en=now()
       where pedido_id = p_pedido and medio='transferencia';
