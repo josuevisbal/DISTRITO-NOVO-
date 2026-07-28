@@ -16,6 +16,11 @@ export type DatosMensaje = {
   domicilio: number
   total: number
   medioPago?: string | null
+  /**
+   * Para transferencia: el mensaje sale desde la pantalla de la llave, así que además
+   * de avisar el pedido anuncia que el comprobante va enseguida.
+   */
+  avisaComprobante?: boolean
 }
 
 const NOMBRE_MEDIO: Record<string, string> = {
@@ -80,6 +85,10 @@ export function armarMensajePedido(d: DatosMensaje): string {
   }
 
   l.push('')
+  if (d.avisaComprobante) {
+    l.push('📸 *Le envío el comprobante de la transferencia enseguida.*')
+    l.push('')
+  }
   l.push('✅ _Este pedido ya entró al sistema y está en espera de aprobación en caja._')
   l.push('¡Gracias! 🙌')
 

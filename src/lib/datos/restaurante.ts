@@ -5,7 +5,7 @@ export async function restaurantePorSlug(slug: string) {
   const supabase = await crearClienteServidor()
   const { data } = await supabase
     .from('restaurantes')
-    .select('id, nombre, slug, whatsapp, llave_pago, cuenta_pago')
+    .select('id, nombre, slug, whatsapp, whatsapp_pedidos, llave_pago, cuenta_pago')
     .eq('slug', slug)
     .eq('activo', true)
     .maybeSingle()

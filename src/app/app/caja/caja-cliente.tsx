@@ -605,6 +605,8 @@ function FilaVerificar({
         <EstadoSoloLectura texto="Esperando verificación" />
       ) : (
         <div className="flex items-center justify-end gap-2">
+          {/* También aquí: el cliente puede pedir su cuenta antes de que se verifique. */}
+          <BotonCuenta pedidoId={t.pedido_id} />
           <Boton variante="exito" onClick={() => verificar(true)} disabled={ocupado}>
             Verifiqué
           </Boton>

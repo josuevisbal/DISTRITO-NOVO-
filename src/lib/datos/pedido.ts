@@ -13,7 +13,7 @@ export type PedidoSeguimiento = {
   cliente_nombre: string | null
   direccion: string | null
   creado_en: string
-  items: { nombre_snap: string; cantidad: number; notas: string | null }[]
+  items: { nombre_snap: string; cantidad: number; precio_snap: number; notas: string | null }[]
 }
 
 /**
@@ -26,7 +26,7 @@ export async function pedidoPorToken(token: string): Promise<PedidoSeguimiento |
   const { data } = await supabase
     .from('pedidos')
     .select(
-      'numero, estado, canal, medio_pago, subtotal, domicilio, total, codigo_pago, monto_exacto, cliente_nombre, direccion, creado_en, pedido_items(nombre_snap, cantidad, notas)',
+      'numero, estado, canal, medio_pago, subtotal, domicilio, total, codigo_pago, monto_exacto, cliente_nombre, direccion, creado_en, pedido_items(nombre_snap, cantidad, precio_snap, notas)',
     )
     .eq('token', token)
     .maybeSingle()
@@ -47,6 +47,7 @@ export async function pedidoPorToken(token: string): Promise<PedidoSeguimiento |
     direccion: data.direccion,
     creado_en: data.creado_en,
     items: (data.pedido_items ?? []).map((i) => ({
+      precio_snap: i.precio_snap,
       nombre_snap: i.nombre_snap,
       cantidad: i.cantidad,
       notas: i.notas,

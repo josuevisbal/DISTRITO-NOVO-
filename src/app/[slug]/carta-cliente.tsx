@@ -140,7 +140,11 @@ export function CartaCliente({ carta, mesa }: Props) {
     // El pedido YA quedó guardado y esperando aprobación en caja. El WhatsApp es solo el
     // aviso: se arma con los valores que devolvió el servidor, nunca con los del carrito.
     const numeroWa = carta.restaurante.whatsapp_pedidos ?? carta.restaurante.whatsapp
-    if (!mesa && numeroWa) {
+    // En transferencia NO se manda aquí: el cliente pasa primero a ver la llave y el
+    // valor exacto, y desde esa pantalla manda el pedido anunciando el comprobante.
+    // Así el restaurante recibe un solo mensaje, no dos.
+    const esTransferencia = datos?.medio === 'transferencia'
+    if (!mesa && numeroWa && !esTransferencia) {
       const canal = datos?.entrega === 'recoger' ? 'recoger' : 'domicilio'
       const mensaje = armarMensajePedido({
         restaurante: carta.restaurante.nombre,

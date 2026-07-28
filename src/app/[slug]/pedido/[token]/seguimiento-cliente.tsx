@@ -7,12 +7,12 @@ import type { PedidoSeguimiento } from '@/lib/datos/pedido'
 import { pasoDe, pasosVisibles, type EstadoPedido } from '@/lib/estados'
 import { formatearPesos } from '@/lib/formato'
 import { crearClienteConToken } from '@/lib/supabase/token'
-import { enlaceWhatsApp } from '@/lib/telefono'
+import { armarMensajePedido, enlacePedidoWhatsApp } from '@/lib/mensaje-pedido'
 
 type Props = {
   token: string
   inicial: PedidoSeguimiento
-  pago: { llave: string | null; cuenta: string | null; whatsapp: string | null }
+  pago: { llave: string | null; cuenta: string | null; whatsapp: string | null; restaurante: string }
 }
 
 export function SeguimientoCliente({ token, inicial, pago }: Props) {
@@ -78,7 +78,7 @@ function PanelTransferencia({
   pago,
 }: {
   pedido: PedidoSeguimiento
-  pago: { llave: string | null; cuenta: string | null; whatsapp: string | null }
+  pago: { llave: string | null; cuenta: string | null; whatsapp: string | null; restaurante: string }
 }) {
   return (
     <section className="mt-6 rounded-xl border border-marca-acento bg-marca-superficie p-5">
@@ -105,16 +105,34 @@ function PanelTransferencia({
       {pago.llave ? <DatoCopiable etiqueta="Llave / Nequi" valor={pago.llave} /> : null}
       {pago.cuenta ? <DatoCopiable etiqueta="Cuenta" valor={pago.cuenta} /> : null}
 
+      {/* Un solo mensaje: el pedido completo, anunciando que el comprobante va enseguida. */}
       {pago.whatsapp ? (
         <a
-          href={`${enlaceWhatsApp(pago.whatsapp)}?text=${encodeURIComponent(
-            `Hola, pagué el pedido #${pedido.numero} por ${formatearPesos(pedido.total)}. Adjunto el comprobante.`,
-          )}`}
+          href={enlacePedidoWhatsApp(
+            pago.whatsapp,
+            armarMensajePedido({
+              restaurante: pago.restaurante,
+              numero: pedido.numero,
+              canal: pedido.canal,
+              cliente: pedido.cliente_nombre,
+              direccion: pedido.direccion,
+              items: pedido.items.map((i) => ({
+                nombre: i.nombre_snap,
+                cantidad: i.cantidad,
+                total: i.precio_snap * i.cantidad,
+              })),
+              subtotal: pedido.subtotal,
+              domicilio: pedido.domicilio,
+              total: pedido.total,
+              medioPago: pedido.medio_pago,
+              avisaComprobante: true,
+            }),
+          )}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento font-semibold text-marca-acento-texto"
         >
-          Enviar el pantallazo por WhatsApp
+          Enviar mi pedido y el comprobante
         </a>
       ) : null}
     </section>
