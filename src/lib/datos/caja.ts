@@ -88,7 +88,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     // Transferencias por verificar: alerta persistente hasta que caja actúe.
     supabase
       .from('pedidos')
-      .select('id, numero, cliente_nombre, cliente_tel, monto_exacto, total, creado_en, zonas_domicilio(nombre)')
+      .select('id, numero, cliente_nombre, cliente_tel, monto_exacto, total, creado_en, en_edicion, zonas_domicilio(nombre)')
       .eq('restaurante_id', restauranteId)
       .eq('estado', 'esperando_pago')
       .order('creado_en'),
@@ -125,6 +125,10 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     zona: p.zonas_domicilio?.nombre ?? null,
     monto_exacto: p.monto_exacto ?? p.total,
     creado_en: p.creado_en,
+    // 15 min: si dejó la edición a medias, caja no queda bloqueada para siempre.
+    en_edicion:
+      p.en_edicion !== null &&
+      new Date(p.en_edicion).getTime() > Date.now() - 15 * 60 * 1000,
   }))
 
   const contraentregas: Contraentrega[] = (contraRes.data ?? []).map((p) => ({

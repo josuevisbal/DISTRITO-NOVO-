@@ -8,7 +8,7 @@ import { pasoDe, pasosVisibles, type EstadoPedido } from '@/lib/estados'
 import { formatearPesos } from '@/lib/formato'
 import { crearClienteConToken } from '@/lib/supabase/token'
 import { armarMensajePedido, enlacePedidoWhatsApp } from '@/lib/mensaje-pedido'
-import { modificarPedido } from './acciones'
+import { iniciarEdicion } from './acciones'
 
 type Props = {
   token: string
@@ -143,7 +143,7 @@ function PanelTransferencia({
       ) : null}
 
       {/* Todavía no ha pagado y nada entró a cocina: puede rehacerlo sin problema. */}
-      <BotonModificar token={token} slug={slug} />
+      <BotonModificar token={token} slug={slug} numero={pedido.numero} />
     </section>
   )
 }
@@ -152,7 +152,15 @@ function PanelTransferencia({
  * "Modificar mi pedido": anula este (que nadie ha pagado ni preparado) y devuelve al
  * cliente a la carta con sus productos ya en el carrito, para que cambie lo que quiera.
  */
-function BotonModificar({ token, slug }: { token: string; slug: string }) {
+function BotonModificar({
+  token,
+  slug,
+  numero,
+}: {
+  token: string
+  slug: string
+  numero: number
+}) {
   const [confirmando, setConfirmando] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -160,14 +168,18 @@ function BotonModificar({ token, slug }: { token: string; slug: string }) {
   async function modificar() {
     setOcupado(true)
     setError(null)
-    const r = await modificarPedido(token)
+    const r = await iniciarEdicion(token)
     if (!r.ok) {
       setError(r.error)
       setOcupado(false)
       return
     }
-    // La carta lee esto al abrir y rearma el carrito con lo que ya había pedido.
-    sessionStorage.setItem('carrito-recuperado', JSON.stringify(r.items))
+    // La carta lee esto al abrir: rearma el carrito y sabe que edita ESTE pedido,
+    // así al confirmar guarda sobre el mismo número en vez de crear otro.
+    sessionStorage.setItem(
+      'pedido-en-edicion',
+      JSON.stringify({ token, items: r.items }),
+    )
     window.location.href = `/${slug}/menu`
   }
 
@@ -193,8 +205,9 @@ function BotonModificar({ token, slug }: { token: string; slug: string }) {
   return (
     <div className="mt-3 rounded-lg border border-marca-borde p-3">
       <p className="text-sm text-marca-texto">
-        Vuelves a la carta con tu pedido en el carrito para cambiar lo que quieras. Este
-        pedido se anula y al confirmar te damos un número nuevo.
+        Vuelves a la carta con tu pedido en el carrito para cambiar lo que quieras. Sigue
+        siendo el pedido #{numero}: mientras lo editas queda congelado y caja no lo
+        aprueba hasta que guardes.
       </p>
       <div className="mt-3 flex gap-2">
         <button

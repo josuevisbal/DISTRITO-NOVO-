@@ -2,6 +2,7 @@
 
 import type { Database } from '@/lib/database.types'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { crearClienteConToken } from '@/lib/supabase/token'
 
 type Canal = Database['public']['Enums']['canal_pedido']
 type MedioPago = Database['public']['Enums']['medio_pago']
@@ -47,6 +48,54 @@ type RespuestaCrearPedido = {
   total: number
   monto_exacto: number
   estado: string
+}
+
+/**
+ * Guarda los cambios en EL MISMO pedido (mismo número). La base solo lo permite mientras
+ * siga en 'esperando_pago': si caja ya lo aprobó, se rechaza. Como en el alta, aquí solo
+ * viaja qué producto y cuántos — el servidor recalcula todos los precios.
+ */
+export async function actualizarPedido(
+  token: string,
+  datos: { items: ItemPedido[]; combos?: ComboPedido[] },
+): Promise<ResultadoPedido> {
+  if (datos.items.length === 0 && (datos.combos?.length ?? 0) === 0) {
+    return { ok: false, error: 'Tu pedido está vacío.' }
+  }
+
+  const supabase = crearClienteConToken(token)
+
+  const { data, error } = await supabase.rpc('actualizar_pedido_cliente', {
+    p_token: token,
+    p_payload: {
+      items: datos.items.map((i) => ({
+        producto_id: i.producto_id,
+        cantidad: Math.max(1, Math.trunc(i.cantidad)),
+        notas: i.notas?.trim() ?? '',
+      })),
+      combos: (datos.combos ?? []).map((c) => ({
+        promocion_id: c.promocion_id,
+        cantidad: Math.max(1, Math.trunc(c.cantidad)),
+      })),
+    },
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  const p = data as unknown as {
+    numero: number
+    subtotal: number
+    domicilio: number
+    total: number
+  }
+  return {
+    ok: true,
+    token,
+    numero: p.numero,
+    subtotal: p.subtotal,
+    domicilio: p.domicilio,
+    total: p.total,
+  }
 }
 
 export async function crearPedido(

@@ -46,6 +46,8 @@ export type Transferencia = {
   zona: string | null
   monto_exacto: number
   creado_en: string
+  /** El cliente lo está modificando: caja espera a que termine. */
+  en_edicion: boolean
 }
 export type Contraentrega = {
   pedido_id: string
@@ -595,8 +597,8 @@ function FilaVerificar({
     <EnvolturaFila borde={BORDE.verificar} indice={indice}>
       <ColPedido
         titulo={`#${t.numero}`}
-        pastilla="Por verificar"
-        tono="ambar"
+        pastilla={t.en_edicion ? 'Modificando' : 'Por verificar'}
+        tono={t.en_edicion ? 'azul' : 'ambar'}
         sub={`${haceCuanto(new Date(t.creado_en).getTime(), ahora)} · domicilio`}
       />
       <ColCliente nombre={t.cliente} telefono={t.telefono} extra={t.zona} />
@@ -607,7 +609,11 @@ function FilaVerificar({
         <div className="flex items-center justify-end gap-2">
           {/* También aquí: el cliente puede pedir su cuenta antes de que se verifique. */}
           <BotonCuenta pedidoId={t.pedido_id} />
-          <Boton variante="exito" onClick={() => verificar(true)} disabled={ocupado}>
+          <Boton
+            variante="exito"
+            onClick={() => verificar(true)}
+            disabled={ocupado || t.en_edicion}
+          >
             Verifiqué
           </Boton>
           <Boton variante="secundario" onClick={() => verificar(false)} disabled={ocupado}>

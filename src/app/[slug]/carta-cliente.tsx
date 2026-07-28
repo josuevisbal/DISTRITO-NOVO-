@@ -16,7 +16,7 @@ import { LogoMarca } from '@/components/logo-marca'
 import type { Carta, ProductoCarta, PromocionCarta } from '@/lib/datos/carta'
 import { formatearPesos } from '@/lib/formato'
 import { armarMensajePedido, enlacePedidoWhatsApp } from '@/lib/mensaje-pedido'
-import { crearPedido } from './acciones'
+import { actualizarPedido, crearPedido } from './acciones'
 import { BannerPromociones } from './promociones'
 import { Checkout, type DatosCheckout } from './checkout'
 
@@ -36,6 +36,9 @@ export function CartaCliente({ carta, mesa }: Props) {
   const [lineas, setLineas] = useState<Linea[]>([])
   const [combos, setCombos] = useState<LineaCombo[]>([])
   const [vista, setVista] = useState<Vista>('carta')
+  // Cuando se llega desde "Modificar mi pedido": el token del pedido que se está
+  // editando. Con él, confirmar guarda sobre ESE pedido en vez de crear otro.
+  const [editando, setEditando] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,16 +54,16 @@ export function CartaCliente({ carta, mesa }: Props) {
   // Vuelve de "Modificar mi pedido": se rearma el carrito con lo que ya había pedido,
   // resolviendo cada producto contra la carta de ahora (precios y disponibilidad al día).
   useEffect(() => {
-    const guardado = sessionStorage.getItem('carrito-recuperado')
+    const guardado = sessionStorage.getItem('pedido-en-edicion')
     if (!guardado) return
-    sessionStorage.removeItem('carrito-recuperado')
+    sessionStorage.removeItem('pedido-en-edicion')
 
     try {
-      const items = JSON.parse(guardado) as {
-        producto_id: string
-        cantidad: number
-        notas: string
-      }[]
+      const { token, items } = JSON.parse(guardado) as {
+        token: string
+        items: { producto_id: string; cantidad: number; notas: string }[]
+      }
+      setEditando(token)
       const porId = new Map(carta.productos.map((p) => [p.id, p]))
       const recuperadas = items
         .map((i) => {
@@ -141,6 +144,28 @@ export function CartaCliente({ carta, mesa }: Props) {
   async function enviar(datos?: DatosCheckout) {
     setEnviando(true)
     setError(null)
+
+    // Editando: se guarda sobre el MISMO pedido, con su número. No se crea otro ni se
+    // manda WhatsApp de nuevo: el restaurante ya recibió el aviso de este pedido.
+    if (editando) {
+      const r = await actualizarPedido(editando, {
+        items: lineas.map((l) => ({
+          producto_id: l.producto.id,
+          cantidad: l.cantidad,
+          notas: l.notas,
+        })),
+        combos: combos.map((c) => ({ promocion_id: c.promo.id, cantidad: c.cantidad })),
+      })
+
+      if (!r.ok) {
+        setError(r.error)
+        setEnviando(false)
+        return
+      }
+
+      router.push(`/${carta.restaurante.slug}/pedido/${editando}`)
+      return
+    }
 
     const resultado = await crearPedido(carta.restaurante.slug, {
       canal: mesa ? 'mesa' : datos?.entrega === 'recoger' ? 'recoger' : 'domicilio',
@@ -262,7 +287,11 @@ export function CartaCliente({ carta, mesa }: Props) {
           onCambiarCantidad={cambiarCantidad}
           onCambiarCantidadCombo={cambiarCantidadCombo}
           onCambiarNotas={cambiarNotas}
-          onContinuar={() => (mesa ? void enviar() : setVista('checkout'))}
+          // Editando ya tenemos sus datos y su forma de pago: se guarda directo.
+          editando={editando !== null}
+          onContinuar={() =>
+            mesa || editando ? void enviar() : setVista('checkout')
+          }
         />
       ) : null}
     </>
@@ -571,6 +600,7 @@ function HojaCarrito({
   combos,
   subtotal,
   mesa,
+  editando,
   enviando,
   error,
   onCerrar,
@@ -583,6 +613,8 @@ function HojaCarrito({
   combos: LineaCombo[]
   subtotal: number
   mesa?: { numero: number }
+  /** Se está editando un pedido ya hecho: el botón guarda en vez de continuar. */
+  editando?: boolean
   enviando: boolean
   error: string | null
   onCerrar: () => void
@@ -726,7 +758,12 @@ function HojaCarrito({
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento text-lg font-medium text-marca-acento-texto disabled:opacity-60"
           >
             {enviando ? (
-              'Enviando…'
+              'Guardando…'
+            ) : editando ? (
+              <>
+                <IconoCheck className="size-5 shrink-0" />
+                Guardar cambios
+              </>
             ) : mesa ? (
               <>
                 <IconoCheck className="size-5 shrink-0" />

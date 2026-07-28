@@ -412,6 +412,7 @@ export type Database = {
           direccion: string | null
           domiciliario_id: string | null
           domicilio: number
+          en_edicion: string | null
           entregado_en: string | null
           estado: Database["public"]["Enums"]["estado_pedido"]
           id: string
@@ -441,6 +442,7 @@ export type Database = {
           direccion?: string | null
           domiciliario_id?: string | null
           domicilio?: number
+          en_edicion?: string | null
           entregado_en?: string | null
           estado?: Database["public"]["Enums"]["estado_pedido"]
           id?: string
@@ -470,6 +472,7 @@ export type Database = {
           direccion?: string | null
           domiciliario_id?: string | null
           domicilio?: number
+          en_edicion?: string | null
           entregado_en?: string | null
           estado?: Database["public"]["Enums"]["estado_pedido"]
           id?: string
@@ -909,7 +912,9 @@ export type Database = {
         Returns: undefined
       }
       legalizar_domiciliario: { Args: { p_domi: string }; Returns: number }
-      modificar_pedido_cliente: { Args: { p_token: string }; Returns: Json }
+      actualizar_pedido_cliente: { Args: { p_payload: Json; p_token: string }; Returns: Json }
+      cancelar_edicion_pedido: { Args: { p_token: string }; Returns: undefined }
+      iniciar_edicion_pedido: { Args: { p_token: string }; Returns: Json }
       mi_estacion: { Args: never; Returns: string }
       mi_restaurante: { Args: never; Returns: string }
       mi_rol: {
