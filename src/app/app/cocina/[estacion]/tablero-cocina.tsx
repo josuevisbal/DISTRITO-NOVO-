@@ -29,6 +29,8 @@ export type Ticket = {
   mesa: number | null
   canal: string
   estado: 'pendiente' | 'preparando' | 'listo' | 'cancelada'
+  /** 1 = el pedido original; 2, 3… lo que la mesa pidió después sin cerrar la cuenta. */
+  ronda: number
   disparo_en: string
   objetivo_en: string
   minutos: number
@@ -304,6 +306,17 @@ function TicketKds({
         <span className="rounded-full bg-marca-superficie-tenue px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-marca-texto-suave">
           {ticket.mesa ? `Mesa ${ticket.mesa}` : (NOMBRE_CANAL[ticket.canal] ?? ticket.canal)}
         </span>
+
+        {/* Ronda 2 en adelante: la mesa pidió más sin cerrar la cuenta. Es comanda
+            aparte, así que en la tarjeta solo va lo NUEVO. */}
+        {ticket.ronda > 1 ? (
+          <span
+            className="rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide"
+            style={{ backgroundColor: colorEstacion, color: '#fff' }}
+          >
+            Ronda {ticket.ronda}
+          </span>
+        ) : null}
 
         {/* Chip del tiempo: color + punto + cuenta. Nunca solo color. */}
         <span

@@ -5,7 +5,7 @@ import { TableroCliente } from './tablero-cliente'
 
 export const dynamic = 'force-dynamic'
 
-/** Resumen del día. Es lo primero que ve el dueño (y el admin) al entrar al panel. */
+/** Resumen del día. Es lo primero que se ve al entrar al panel de administración. */
 export default async function PaginaTablero() {
   const staff = await exigirRol('admin')
   const datos = await cargarTablero(staff.restaurante_id)

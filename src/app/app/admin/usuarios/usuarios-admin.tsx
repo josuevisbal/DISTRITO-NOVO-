@@ -20,34 +20,31 @@ export type UsuarioAdmin = {
   activo: boolean
 }
 
-const ROLES_OPERACION: Rol[] = ['cajero', 'mesero', 'cocina', 'pase', 'domiciliario']
+/** Los cinco roles del sistema, en el orden en que se reparte el trabajo. */
+const ROLES: Rol[] = ['admin', 'cajero', 'mesero', 'cocina', 'domicilio']
 
 const NOMBRE_ROL: Record<Rol, string> = {
-  dueno: 'dueño',
   admin: 'admin',
   cajero: 'cajero',
   mesero: 'mesero',
   cocina: 'cocina',
-  pase: 'pase',
-  domiciliario: 'domiciliario',
+  domicilio: 'domicilio',
 }
 
 export function UsuariosAdmin({
   usuarios,
   yoId,
-  miRol,
 }: {
   usuarios: UsuarioAdmin[]
   yoId: string
-  miRol: Rol
 }) {
   const [creando, setCreando] = useState(false)
   const [origen, setOrigen] = useState<{ x: number; y: number } | null>(null)
 
-  // Un solo rol de mando: dueño. "admin" queda en la base por compatibilidad, pero ya
-  // no se ofrece al crear ni al cambiar de rol; quien manda es el dueño.
-  const rolesDisponibles: Rol[] =
-    miRol === 'dueno' ? ['dueno', ...ROLES_OPERACION] : ROLES_OPERACION
+  // Quien entra aquí es admin: puede nombrar cualquiera de los cinco roles, incluido otro
+  // admin. El único freno vive en la base: no se puede borrar al último administrador.
+  const rolesDisponibles: Rol[] = ROLES
+  const admins = usuarios.filter((u) => u.rol === 'admin' && u.activo).length
 
   return (
     <div className="space-y-4">
@@ -86,8 +83,8 @@ export function UsuariosAdmin({
             key={u.id}
             usuario={u}
             esYo={u.id === yoId}
-            miRol={miRol}
             rolesDisponibles={rolesDisponibles}
+            ultimoAdmin={u.rol === 'admin' && admins <= 1}
             indice={i}
           />
         ))}
@@ -180,14 +177,15 @@ function FormularioCrear({ roles, onListo }: { roles: Rol[]; onListo: () => void
 function FilaUsuario({
   usuario,
   esYo,
-  miRol,
   rolesDisponibles,
+  ultimoAdmin,
   indice,
 }: {
   usuario: UsuarioAdmin
   esYo: boolean
-  miRol: Rol
   rolesDisponibles: Rol[]
+  /** Es el único administrador activo: no se le puede quitar el rol ni el acceso. */
+  ultimoAdmin: boolean
   indice: number
 }) {
   const [rol, setRol] = useState<Rol>(usuario.rol)
@@ -222,11 +220,9 @@ function FilaUsuario({
 
   if (eliminado) return null
 
-  // El admin no toca dueños ni a otros admins (la base también lo impone).
-  const bloqueada =
-    miRol !== 'dueno' && (usuario.rol === 'dueno' || (usuario.rol === 'admin' && !esYo))
-  // Ni el dueño se elimina a sí mismo, ni nadie elimina al dueño.
-  const puedeEliminar = !esYo && usuario.rol !== 'dueno' && !bloqueada
+  // El restaurante no puede quedarse sin administrador: la base lo impone también.
+  const bloqueada = ultimoAdmin
+  const puedeEliminar = !esYo && !bloqueada
 
   return (
     <li
@@ -239,7 +235,9 @@ function FilaUsuario({
           {esYo ? <span className="ml-1 text-xs text-marca-texto-suave">(tú)</span> : null}
         </p>
         {bloqueada ? (
-          <p className="text-xs text-marca-texto-suave">Solo el dueño modifica esta cuenta.</p>
+          <p className="text-xs text-marca-texto-suave">
+            Único administrador: nombra otro antes de cambiarlo.
+          </p>
         ) : null}
       </div>
 

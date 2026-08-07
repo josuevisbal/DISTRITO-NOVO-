@@ -201,7 +201,7 @@ export async function eliminarPromo(id: string): Promise<Resultado> {
   return { ok: true }
 }
 
-/** Reemplaza los productos que componen un combo (la RLS exige admin/dueño). */
+/** Reemplaza los productos que componen un combo (la RLS exige administración). */
 export async function guardarItemsCombo(
   promoId: string,
   items: { producto_id: string; cantidad: number }[],

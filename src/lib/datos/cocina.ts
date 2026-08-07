@@ -27,7 +27,7 @@ export async function cargarTicketsEstacion(
 
   const { data: comandas } = await supabase
     .from('comandas')
-    .select('id, pedido_id, estado, disparo_en, minutos, pedidos!inner(numero, canal, mesas(numero))')
+    .select('id, pedido_id, estado, disparo_en, minutos, ronda, pedidos!inner(numero, canal, mesas(numero))')
     .eq('estacion_id', estacionId)
     .in('estado', ['pendiente', 'preparando'])
     .lte('disparo_en', ahora.toISOString())
@@ -38,21 +38,25 @@ export async function cargarTicketsEstacion(
   const { data: items } = pedidoIds.length
     ? await supabase
         .from('pedido_items')
-        .select('pedido_id, producto_id, nombre_snap, cantidad, notas')
+        .select('pedido_id, producto_id, nombre_snap, cantidad, notas, ronda')
         .in('pedido_id', pedidoIds)
         .eq('estacion_id', estacionId)
     : { data: [] }
 
-  const itemsPorPedido = new Map<string, Ticket['items']>()
+  // Cada comanda lleva SOLO los renglones de su ronda. Si el mesero le sumó otra ronda a
+  // una cuenta abierta, la cocina recibe una comanda nueva y no vuelve a ver lo que ya
+  // despachó en la primera.
+  const itemsPorRonda = new Map<string, Ticket['items']>()
   for (const it of items ?? []) {
-    const lista = itemsPorPedido.get(it.pedido_id) ?? []
+    const llave = `${it.pedido_id}·${it.ronda}`
+    const lista = itemsPorRonda.get(llave) ?? []
     lista.push({
       producto_id: it.producto_id,
       nombre: it.nombre_snap,
       cantidad: it.cantidad,
       notas: it.notas,
     })
-    itemsPorPedido.set(it.pedido_id, lista)
+    itemsPorRonda.set(llave, lista)
   }
 
   return (comandas ?? []).map((c) => ({
@@ -61,9 +65,10 @@ export async function cargarTicketsEstacion(
     mesa: c.pedidos.mesas?.numero ?? null,
     canal: c.pedidos.canal,
     estado: c.estado,
+    ronda: c.ronda,
     disparo_en: c.disparo_en,
     objetivo_en: new Date(new Date(c.disparo_en).getTime() + c.minutos * 60000).toISOString(),
     minutos: c.minutos,
-    items: itemsPorPedido.get(c.pedido_id) ?? [],
+    items: itemsPorRonda.get(`${c.pedido_id}·${c.ronda}`) ?? [],
   }))
 }

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
  * al usuario; el selector recuerda la última elegida en esta tablet y salta a ella.
  */
 export default async function PaginaCocina() {
-  const staff = await exigirRol('cocina', 'admin', 'pase')
+  const staff = await exigirRol('cocina', 'admin')
   const supabase = await crearClienteServidor()
 
   const { data: estaciones } = await supabase

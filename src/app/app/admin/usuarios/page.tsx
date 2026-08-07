@@ -19,11 +19,7 @@ export default async function PaginaAdminUsuarios() {
       <p className="text-sm text-marca-texto-suave">
         Crea cuentas, cambia roles y retira accesos del equipo.
       </p>
-      <UsuariosAdmin
-        usuarios={(usuarios ?? []) as UsuarioAdmin[]}
-        yoId={staff.id}
-        miRol={staff.rol}
-      />
+      <UsuariosAdmin usuarios={(usuarios ?? []) as UsuarioAdmin[]} yoId={staff.id} />
     </>
   )
 }

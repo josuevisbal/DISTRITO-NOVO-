@@ -37,13 +37,47 @@ export async function verificarTransferencia(
   return { ok: true }
 }
 
-export async function registrarCobro(pedidoId: string, medio: MedioReal): Promise<Resultado> {
+/**
+ * Cobra un pedido. La PROPINA va aparte del total: el cliente decide cuánto deja, caja lo
+ * digita y entra a la caja sumado al cobro, pero marcado para que el arqueo lo separe de
+ * la venta. Sin propina, va en cero: nadie la calcula sola.
+ */
+export async function registrarCobro(
+  pedidoId: string,
+  medio: MedioReal,
+  propina = 0,
+): Promise<Resultado> {
   await exigirRol('cajero', 'admin')
   const supabase = await crearClienteServidor()
-  const { error } = await supabase.rpc('registrar_cobro', { p_pedido: pedidoId, p_medio: medio })
+  const { error } = await supabase.rpc('registrar_cobro', {
+    p_pedido: pedidoId,
+    p_medio: medio,
+    p_propina: Math.max(0, Math.trunc(propina)),
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
   revalidatePath('/app/admin/caja')
+  return { ok: true }
+}
+
+/**
+ * Caja le entrega el domicilio a un repartidor. Sin pase de por medio: en cuanto cocina
+ * deja el pedido listo, caja escoge a quién se lo lleva y el pedido pasa a despacho.
+ */
+export async function asignarDomiciliario(
+  pedidoId: string,
+  domiciliarioId: string,
+): Promise<Resultado> {
+  await exigirRol('cajero', 'admin')
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('asignar_domiciliario', {
+    p_pedido: pedidoId,
+    p_domi: domiciliarioId,
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
+  revalidatePath('/app/domicilios')
   return { ok: true }
 }
 
@@ -84,6 +118,8 @@ export type ArqueoCierre = {
   efectivo_contado: number
   diferencia: number
   por_medio: Record<string, number>
+  /** Cuánto del turno fue propina. Entró a la caja, pero no es venta del restaurante. */
+  propinas: number
 }
 
 export async function cerrarTurno(

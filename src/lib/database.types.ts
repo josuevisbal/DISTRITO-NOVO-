@@ -23,6 +23,7 @@ export type Database = {
           tipo: string
           turno_id: string
           usuario_id: string | null
+          propina: number
         }
         Insert: {
           creado_en?: string
@@ -34,6 +35,7 @@ export type Database = {
           tipo: string
           turno_id: string
           usuario_id?: string | null
+          propina?: number
         }
         Update: {
           creado_en?: string
@@ -45,6 +47,7 @@ export type Database = {
           tipo?: string
           turno_id?: string
           usuario_id?: string | null
+          propina?: number
         }
         Relationships: [
           {
@@ -176,6 +179,7 @@ export type Database = {
           listo_en: string | null
           minutos: number
           pedido_id: string
+          ronda: number
         }
         Insert: {
           disparo_en: string
@@ -186,6 +190,7 @@ export type Database = {
           listo_en?: string | null
           minutos: number
           pedido_id: string
+          ronda?: number
         }
         Update: {
           disparo_en?: string
@@ -196,6 +201,7 @@ export type Database = {
           listo_en?: string | null
           minutos?: number
           pedido_id?: string
+          ronda?: number
         }
         Relationships: [
           {
@@ -350,6 +356,7 @@ export type Database = {
           precio_snap: number
           producto_id: string
           promocion_id: string | null
+          ronda: number
         }
         Insert: {
           cantidad: number
@@ -362,6 +369,7 @@ export type Database = {
           precio_snap: number
           producto_id: string
           promocion_id?: string | null
+          ronda?: number
         }
         Update: {
           cantidad?: number
@@ -374,6 +382,7 @@ export type Database = {
           precio_snap?: number
           producto_id?: string
           promocion_id?: string | null
+          ronda?: number
         }
         Relationships: [
           {
@@ -429,6 +438,8 @@ export type Database = {
           token: string
           total: number
           zona_id: string | null
+          propina: number
+          servido_en: string | null
         }
         Insert: {
           anulado_por?: string | null
@@ -459,6 +470,8 @@ export type Database = {
           token?: string
           total?: number
           zona_id?: string | null
+          propina?: number
+          servido_en?: string | null
         }
         Update: {
           anulado_por?: string | null
@@ -489,6 +502,8 @@ export type Database = {
           token?: string
           total?: number
           zona_id?: string | null
+          propina?: number
+          servido_en?: string | null
         }
         Relationships: [
           {
@@ -933,9 +948,19 @@ export type Database = {
           p_medio: Database["public"]["Enums"]["medio_pago"]
           p_monto?: number
           p_pedido: string
+          p_propina?: number
         }
         Returns: undefined
       }
+      crear_pedido_interno: {
+        Args: { p_confirmar?: boolean; p_payload: Json }
+        Returns: Json
+      }
+      agregar_items_pedido: {
+        Args: { p_items: Json; p_pedido: string }
+        Returns: Json
+      }
+      marcar_servido: { Args: { p_pedido: string }; Returns: undefined }
       turno_abierto: { Args: never; Returns: string }
       verificar_transferencia: {
         Args: { p_motivo?: string; p_ok: boolean; p_pedido: string }
@@ -962,14 +987,7 @@ export type Database = {
         | "datafono"
         | "pasarela"
         | "mesa"
-      rol_usuario:
-        | "dueno"
-        | "admin"
-        | "cajero"
-        | "mesero"
-        | "cocina"
-        | "pase"
-        | "domiciliario"
+      rol_usuario: "admin" | "cajero" | "mesero" | "cocina" | "domicilio"
       tipo_promo: "envio" | "combo" | "aviso" | "descuento"
     }
     CompositeTypes: {
@@ -1096,15 +1114,7 @@ export const Constants = {
         "anulado",
       ],
       medio_pago: ["efectivo", "transferencia", "datafono", "pasarela", "mesa"],
-      rol_usuario: [
-        "dueno",
-        "admin",
-        "cajero",
-        "mesero",
-        "cocina",
-        "pase",
-        "domiciliario",
-      ],
+      rol_usuario: ["admin", "cajero", "mesero", "cocina", "domicilio"],
       tipo_promo: ["envio", "combo", "aviso", "descuento"],
     },
   },
