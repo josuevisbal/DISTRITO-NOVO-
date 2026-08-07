@@ -135,7 +135,7 @@ export async function cargarTablero(restauranteId: string): Promise<DatosTablero
         nDevueltos === 1
           ? '1 domicilio volvió sin entregarse'
           : `${nDevueltos} domicilios volvieron sin entregarse`,
-      href: '/app/pase',
+      href: '/app/caja',
     })
   }
   if (!turnoAbierto) {

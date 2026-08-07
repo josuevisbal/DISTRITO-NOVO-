@@ -25,7 +25,7 @@ export type DatosRentabilidad = {
 }
 
 /**
- * Rentabilidad y costos. SOLO la ve el dueño: la página no la monta para otros roles y la
+ * Rentabilidad y costos. SOLO los ve administración: la página no la monta para otros roles y la
  * base rechaza a cualquier otro rol en `reporte_rentabilidad` y `actualizar_costo`.
  */
 export function Rentabilidad({ datos }: { datos: DatosRentabilidad }) {

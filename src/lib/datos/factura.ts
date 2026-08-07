@@ -18,6 +18,8 @@ export type Factura = {
   medio_pago: string | null
   subtotal: number
   domicilio: number
+  /** Lo que el cliente dejó de propina al pagar. Cero mientras la cuenta no se cobre. */
+  propina: number
   total: number
   items: { nombre: string; cantidad: number; precio: number }[]
   restaurante: {
@@ -41,7 +43,7 @@ export async function cargarFactura(
   const { data } = await supabase
     .from('pedidos')
     .select(
-      'numero, creado_en, canal, estado, cliente_nombre, cliente_tel, direccion, medio_pago, subtotal, domicilio, total, mesas(numero), zonas_domicilio(nombre), pagos(estado), pedido_items(nombre_snap, cantidad, precio_snap)',
+      'numero, creado_en, canal, estado, cliente_nombre, cliente_tel, direccion, medio_pago, subtotal, domicilio, propina, total, mesas(numero), zonas_domicilio(nombre), pagos(estado), pedido_items(nombre_snap, cantidad, precio_snap)',
     )
     .eq('id', pedidoId)
     .eq('restaurante_id', restauranteId)
@@ -71,6 +73,7 @@ export async function cargarFactura(
     medio_pago: data.medio_pago,
     subtotal: data.subtotal,
     domicilio: data.domicilio,
+    propina: data.propina,
     total: data.total,
     items: (data.pedido_items ?? []).map((i) => ({
       nombre: i.nombre_snap,

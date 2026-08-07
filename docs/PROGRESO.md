@@ -744,3 +744,89 @@ pedido pasando a `listo` por el disparador. De ~1 s (o recarga manual) a instant
 - **`supabase/actualizar-equipo.sql`**: script consolidado para producción con la columna
   `correo`, `crear_usuario`/`eliminar_usuario` y `reporte_rango` (correr una vez, después
   de `roles-dueno.sql`).
+
+---
+
+# Reestructuración de roles y flujos
+
+## Fase F1 — Cinco roles y dos flujos completos
+
+**Objetivo:** dejar el sistema con los cinco roles que de verdad existen en el local, y que
+los dos flujos —salón y domicilio— se cierren de punta a punta sin un puesto intermedio.
+
+### Roles: de siete a cinco
+
+`admin · cajero · mesero · cocina · domicilio`. El enum `rol_usuario` se reconstruye en
+`schema.sql` (Postgres no borra valores de un enum) y las cuentas viejas se reasignan solas:
+
+| Antes | Ahora | Por qué |
+|---|---|---|
+| `dueno` | `admin` | Un solo rol de mando. Ve todo, incluidos costos y rentabilidad. |
+| `pase` | `mesero` | El pase desaparece: la mesa la lleva el mesero, el domicilio lo lleva caja. |
+| `domiciliario` | `domicilio` | El nombre del rol, como se dice en el negocio. |
+
+La migración va arriba del archivo y solo corre si el enum trae los valores viejos. Tumba
+`mi_rol()` con `cascade` (de ahí cuelgan casi todas las políticas) y las tres políticas de
+Storage que comparan contra el enum; todo eso se recrea más abajo en el mismo archivo.
+También se va `tr_proteger_dueno`. En su lugar, la base impide borrar o degradar **al
+último administrador activo**: sin él nadie podría crear cuentas ni entrar al panel.
+
+### Salón: el mesero cierra el círculo
+
+- `/app/mesero` pasa de una lista a un puesto con cuatro pestañas: **Por confirmar**,
+  **En cocina**, **Por llevar** y **Cuentas abiertas**, con las estaciones de cada pedido
+  en chips de color para saber qué falta sin ir a preguntar.
+- **Aviso sonoro** (`src/lib/aviso.ts`): dos tonos sintetizados con Web Audio —sin archivo
+  que descargar— más vibración. Suena cuando entra un pedido por QR y cuando cocina deja
+  uno listo. Como los navegadores no dejan sonar nada sin un toque previo, la pantalla
+  muestra un botón para activarlo la primera vez.
+- **Tomar pedido a mano**: hay clientes sin datos. `crear_pedido_interno()` (security
+  definer) resuelve el slug desde `mi_restaurante()` y llama a `crear_pedido()`, así que los
+  precios los sigue poniendo la base. Si la mesa ya tiene cuenta, lo nuevo entra a esa.
+- **Sumar a una cuenta abierta**: `agregar_items_pedido()` mete los renglones al MISMO
+  pedido con una **ronda** más alta y crea comandas nuevas con su propio disparo escalonado.
+  `pedido_items.ronda` y `comandas.ronda` son columnas nuevas; el índice único de comandas
+  pasa a `(pedido_id, estacion_id, ronda)`. Cocina ve una tarjeta por ronda, marcada
+  "Ronda 2", y nunca vuelve a ver lo que ya despachó.
+- **`marcar_servido()`**: el mesero avisa que lo llevó a la mesa. La cuenta sigue abierta
+  para caja; esto solo lo saca de "por llevar".
+
+### Domicilio: caja de punta a punta
+
+- `asignar_domiciliario()` pasa de `pase` a `cajero`, acepta el pedido en `listo` y lo
+  manda a `en_despacho` en el mismo acto: se acabó el paso de "liberar" del pase.
+- Caja gana la pestaña **Domicilios** con la dirección, si es contraentrega, el botón de
+  imprimir la cuenta y el selector de domiciliario.
+- **Caja toma pedidos**: quien llama o llega al mostrador. Mismo `crear_pedido_interno()`,
+  con canal mostrador / para recoger / domicilio, barrio con su tarifa y medio de pago.
+- El domiciliario no cambia: recoge, entrega y caja legaliza el efectivo.
+
+### Propinas y punto físico
+
+- `pedidos.propina` y `caja_movimientos.propina`. `registrar_cobro()` recibe `p_propina`:
+  el cobro entra a la caja por el total + la propina, pero la propina queda marcada aparte.
+- En la fila de cobro hay un campo de propina y un atajo del **10 %** (lo acostumbrado en
+  Colombia). Va vacío por defecto: nunca se cobra sola.
+- El cierre de turno devuelve `propinas` y el resumen lo muestra: entró a la caja, pero no
+  es venta del restaurante.
+- La factura imprime la propina en su propio renglón, debajo del consumo.
+
+### Verificación
+
+Todo el esquema se corrió en un Postgres 16 limpio con un andamiaje mínimo de Supabase
+(`auth.users`, `auth.uid()`, `storage`, roles `anon`/`authenticated`):
+
+1. **Instalación limpia** y **segunda corrida** sobre la misma base: sin errores (es
+   idempotente).
+2. **Migración desde el esquema anterior** con cuatro cuentas cargadas: `dueno → admin`,
+   `pase → mesero`, `domiciliario → domicilio`, `cajero` intacto, enum con cinco valores y
+   las 33 políticas recreadas.
+3. **Flujo de salón completo**: pedido por QR → confirmar (asados dispara ya, bebidas
+   21 min después: el escalonado sigue vivo) → sumar una ronda (comanda nueva solo en
+   rápida, ronda 2) → cocina termina todo → `listo` → servido → cobro con propina de
+   $7.800 → `caja_movimientos` con `monto 85.800 / propina 7.800`.
+4. **Flujo de domicilio completo**: caja toma el pedido ($48.000 + $6.000 de zona) → cocina
+   → asignar domiciliario (pasa a `en_despacho`) → recoger → entregar → legalizar $54.000.
+5. **Cierre de turno**: `{"propinas": 7800, "por_medio": {"efectivo": 139800}, …}`.
+
+`npm run build`, `tsc --noEmit` y ESLint, en verde.

@@ -25,7 +25,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   return {
     name: `App ${nombre}`,
     short_name: 'App',
-    description: 'Área del equipo: cocina, caja, pase y domicilios',
+    description: 'Área del equipo: meseros, cocina, caja y domicilios',
     id: '/app',
     start_url: '/app',
     scope: '/app',

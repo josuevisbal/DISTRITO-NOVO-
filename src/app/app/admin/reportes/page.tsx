@@ -27,7 +27,7 @@ export default async function PaginaReportes({
 }: {
   searchParams: Promise<{ mes?: string }>
 }) {
-  const staff = await exigirRol('admin')
+  await exigirRol('admin')
   const supabase = await crearClienteServidor()
 
   const hoy = mesActual()
@@ -66,13 +66,9 @@ export default async function PaginaReportes({
     )
   }
 
-  // Rentabilidad: SOLO el dueño. Para cualquier otro rol ni se consulta;
-  // y aunque llamaran la función a mano, la base los rechaza.
-  let rentabilidad: DatosRentabilidad | null = null
-  if (staff.rol === 'dueno') {
-    const { data: rent } = await supabase.rpc('reporte_rentabilidad', { p_dias: 30 })
-    rentabilidad = (rent as unknown as DatosRentabilidad) ?? null
-  }
+  // Rentabilidad y costos: SOLO administración. La base lo vuelve a comprobar.
+  const { data: rent } = await supabase.rpc('reporte_rentabilidad', { p_dias: 30 })
+  const rentabilidad = (rent as unknown as DatosRentabilidad) ?? null
 
   return (
     <ReportesCliente

@@ -49,19 +49,17 @@ const SUBRUTAS_MENU = ['/app/admin/inicio', '/app/admin/estaciones']
 /** Espejo en vivo de cada puesto, en modo solo lectura. Ver, no operar. */
 const MONITOREO: Modulo[] = [
   { href: '/app/admin/monitoreo/cocina', titulo: 'Pantallas de cocina', Icono: IconoFuego },
-  { href: '/app/admin/monitoreo/pase', titulo: 'Pase', Icono: IconoBolsa },
+  { href: '/app/admin/monitoreo/salon', titulo: 'Salón · meseros', Icono: IconoBolsa },
   { href: '/app/admin/monitoreo/caja', titulo: 'Caja en vivo', Icono: IconoCaja },
   { href: '/app/admin/monitoreo/domicilios', titulo: 'Domicilios', Icono: IconoMoto },
 ]
 
 const NOMBRE_ROL: Record<Staff['rol'], string> = {
-  dueno: 'Dueño',
   admin: 'Administrador',
   cajero: 'Caja',
   mesero: 'Mesero',
   cocina: 'Cocina',
-  pase: 'Pase',
-  domiciliario: 'Domiciliario',
+  domicilio: 'Domicilio',
 }
 
 type Props = {
@@ -212,7 +210,7 @@ function ContenidoLateral({
           <p className="truncate font-titulo text-sm font-bold text-panel-lateral-texto">
             {nombre}
           </p>
-          <p className="text-xs text-panel-lateral-texto-suave">Panel del dueño</p>
+          <p className="text-xs text-panel-lateral-texto-suave">Panel de administración</p>
         </div>
       </div>
 

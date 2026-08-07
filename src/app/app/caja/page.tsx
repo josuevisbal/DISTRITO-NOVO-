@@ -10,7 +10,7 @@ export default async function PaginaCaja() {
   const staff = await exigirRol('cajero', 'admin')
   const datos = await cargarCaja(staff.restaurante_id)
 
-  // El contenido respira como el panel del dueño: ancho máximo centrado y aire lateral,
+  // El contenido respira como el panel de administración: ancho máximo centrado y aire lateral,
   // en vez de pegarse a los bordes de la pantalla.
   return (
     <>

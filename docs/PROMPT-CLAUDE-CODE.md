@@ -3,6 +3,10 @@
 > Pegar este documento completo en la **primera sesión** de Claude Code, dentro de una
 > carpeta vacía. Los archivos `schema.sql` y `seed-distrito-novo.sql` deben estar en
 > `supabase/` antes de empezar.
+>
+> **Este es el encargo original, tal como se escribió.** El sistema siguió creciendo: los
+> roles quedaron en cinco (sin `pase`), la mesa la cierra el mesero y el domicilio lo
+> cierra caja. Lo que rige hoy está en `CLAUDE.md`; la historia, en `docs/PROGRESO.md`.
 
 ---
 

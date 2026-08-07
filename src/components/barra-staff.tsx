@@ -2,13 +2,11 @@ import { cerrarSesion } from '@/app/app/login/acciones'
 import type { Staff } from '@/lib/sesion'
 
 const NOMBRE_ROL: Record<Staff['rol'], string> = {
-  dueno: 'Dueño',
   admin: 'Administración',
   cajero: 'Caja',
   mesero: 'Mesero',
   cocina: 'Cocina',
-  pase: 'Pase',
-  domiciliario: 'Domiciliario',
+  domicilio: 'Domicilio',
 }
 
 /** Barra superior del área interna: quién eres y el botón de salir. */

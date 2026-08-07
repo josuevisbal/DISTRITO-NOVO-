@@ -145,9 +145,14 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
           ) : factura.canal === 'domicilio' ? (
             <Renglon termino="Domicilio" valor="Gratis" />
           ) : null}
+          {/* La propina es voluntaria y va SIEMPRE aparte del total del consumo, para
+              que el cliente vea qué pagó por la comida y qué dejó por el servicio. */}
+          {factura.propina > 0 ? (
+            <Renglon termino="Propina" valor={formatearPesos(factura.propina)} />
+          ) : null}
           <div className="flex justify-between border-t border-[#ddd] pt-1.5 text-base font-bold">
             <dt>TOTAL</dt>
-            <dd className="tabular-nums">{formatearPesos(factura.total)}</dd>
+            <dd className="tabular-nums">{formatearPesos(factura.total + factura.propina)}</dd>
           </div>
           {factura.medio_pago ? (
             <Renglon

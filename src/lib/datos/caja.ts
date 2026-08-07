@@ -1,11 +1,17 @@
 import type {
   Contraentrega,
+  Despacho,
+  Domiciliario,
   PorCobrar,
   PorLegalizar,
   Transferencia,
   Turno,
 } from '@/app/app/caja/caja-cliente'
+import type { CategoriaElegible, ProductoElegible } from '@/components/pedido/selector-productos'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+
+/** Barrio y su tarifa fija: el domicilio se cobra por zona, no por distancia. */
+export type ZonaCaja = { id: string; nombre: string; valor: number }
 
 /** Lo cobrado por un medio en el turno: monto y cuántos pedidos entraron por ahí. */
 export type ArqueoMedio = { monto: number; pedidos: number }
@@ -31,6 +37,13 @@ export type DatosCaja = {
   contraentregas: Contraentrega[]
   porCobrar: PorCobrar[]
   porLegalizar: PorLegalizar[]
+  /** Domicilios que cocina ya terminó: caja escoge quién los lleva. */
+  despachos: Despacho[]
+  domiciliarios: Domiciliario[]
+  /** La carta, para que caja tome pedidos de quien llama o llega al mostrador. */
+  categorias: CategoriaElegible[]
+  productos: ProductoElegible[]
+  zonas: ZonaCaja[]
 }
 
 /**
@@ -41,7 +54,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   const supabase = await crearClienteServidor()
 
   // El turno abierto es del RESTAURANTE, no de un usuario: lo mismo ve el cajero que lo
-  // abrió, el dueño en su Tablero y el monitoreo. Se toma el más reciente con `limit(1)`
+  // abrió, administración en su Tablero y el monitoreo. Se toma el más reciente con `limit(1)`
   // y no `maybeSingle()`: si por lo que sea quedaran dos turnos abiertos, maybeSingle
   // devuelve error y la pantalla diría "no hay turno" mientras otra dice que sí.
   const { data: turnoRows } = await supabase
@@ -84,7 +97,17 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     }
   }
 
-  const [transfRes, contraRes, cobrarRes, entregadosRes] = await Promise.all([
+  const [
+    transfRes,
+    contraRes,
+    cobrarRes,
+    entregadosRes,
+    despachoRes,
+    domiRes,
+    categoriaRes,
+    productoRes,
+    zonaRes,
+  ] = await Promise.all([
     // Transferencias por verificar: alerta persistente hasta que caja actúe.
     supabase
       .from('pedidos')
@@ -115,6 +138,42 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       .eq('restaurante_id', restauranteId)
       .eq('estado', 'entregado')
       .eq('medio_pago', 'efectivo'),
+    // Domicilios que cocina terminó ('listo') y los que ya salieron a la calle
+    // ('en_despacho'), para asignar o reasignar quién los lleva.
+    supabase
+      .from('pedidos')
+      .select(
+        'id, numero, estado, direccion, nota_entrega, domiciliario_id, total, medio_pago, usuarios!pedidos_domiciliario_id_fkey(nombre), zonas_domicilio(nombre)',
+      )
+      .eq('restaurante_id', restauranteId)
+      .eq('canal', 'domicilio')
+      .in('estado', ['listo', 'en_despacho'])
+      .order('creado_en'),
+    supabase
+      .from('usuarios')
+      .select('id, nombre')
+      .eq('restaurante_id', restauranteId)
+      .eq('rol', 'domicilio')
+      .eq('activo', true)
+      .order('nombre'),
+    supabase
+      .from('categorias')
+      .select('id, nombre')
+      .eq('restaurante_id', restauranteId)
+      .eq('activa', true)
+      .order('orden'),
+    supabase
+      .from('productos')
+      .select('id, nombre, precio, categoria_id, disponible')
+      .eq('restaurante_id', restauranteId)
+      .eq('activo', true)
+      .order('orden'),
+    supabase
+      .from('zonas_domicilio')
+      .select('id, nombre, valor')
+      .eq('restaurante_id', restauranteId)
+      .eq('activa', true)
+      .order('valor'),
   ])
 
   const transferencias: Transferencia[] = (transfRes.data ?? []).map((p) => ({
@@ -172,6 +231,19 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     }
   }
 
+  const despachos: Despacho[] = (despachoRes.data ?? []).map((p) => ({
+    pedido_id: p.id,
+    numero: p.numero,
+    estado: p.estado as 'listo' | 'en_despacho',
+    direccion: p.direccion,
+    zona: p.zonas_domicilio?.nombre ?? null,
+    nota_entrega: p.nota_entrega,
+    total: p.total,
+    contraentrega: p.medio_pago === 'efectivo',
+    domiciliario_id: p.domiciliario_id,
+    domiciliario_nombre: p.usuarios?.nombre ?? null,
+  }))
+
   return {
     turno,
     arqueo,
@@ -180,5 +252,10 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     contraentregas,
     porCobrar,
     porLegalizar: [...porLegalizarMapa.values()],
+    despachos,
+    domiciliarios: domiRes.data ?? [],
+    categorias: categoriaRes.data ?? [],
+    productos: productoRes.data ?? [],
+    zonas: zonaRes.data ?? [],
   }
 }

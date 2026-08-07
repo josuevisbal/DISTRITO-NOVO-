@@ -9,14 +9,6 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 type Rol = Database['public']['Enums']['rol_usuario']
 type Resultado = { ok: true } | { ok: false; error: string }
 
-/** ¿El actor puede tocar a este usuario? El admin no toca dueños ni a otros admins. */
-function puedeTocar(miRol: Rol, rolObjetivo: Rol, esYo: boolean): boolean {
-  if (miRol === 'dueno') return true
-  if (rolObjetivo === 'dueno') return false
-  if (rolObjetivo === 'admin' && !esYo) return false
-  return true
-}
-
 export async function actualizarUsuario(
   id: string,
   cambios: { rol?: Rol; activo?: boolean },
@@ -28,11 +20,6 @@ export async function actualizarUsuario(
     return { ok: false, error: 'No puedes quitarte a ti mismo el acceso.' }
   }
 
-  // Solo el dueño nombra dueños o admins. (La base lo impone también con un disparador.)
-  if ((cambios.rol === 'dueno' || cambios.rol === 'admin') && staff.rol !== 'dueno') {
-    return { ok: false, error: 'Solo el dueño puede nombrar a otro dueño.' }
-  }
-
   const supabase = await crearClienteServidor()
 
   const { data: objetivo } = await supabase
@@ -42,8 +29,19 @@ export async function actualizarUsuario(
     .eq('restaurante_id', staff.restaurante_id)
     .maybeSingle()
   if (!objetivo) return { ok: false, error: 'Usuario no encontrado.' }
-  if (!puedeTocar(staff.rol, objetivo.rol, id === staff.id)) {
-    return { ok: false, error: 'Solo el dueño puede modificar esa cuenta.' }
+
+  // El restaurante nunca se queda sin quien administre: si este es el último admin
+  // activo, no se le puede cambiar el rol ni quitarle el acceso.
+  if (objetivo.rol === 'admin' && (cambios.activo === false || (cambios.rol && cambios.rol !== 'admin'))) {
+    const { count } = await supabase
+      .from('usuarios')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurante_id', staff.restaurante_id)
+      .eq('rol', 'admin')
+      .eq('activo', true)
+    if ((count ?? 0) <= 1) {
+      return { ok: false, error: 'Es el único administrador: nombra otro antes de cambiarlo.' }
+    }
   }
 
   const parche: Database['public']['Tables']['usuarios']['Update'] = {}

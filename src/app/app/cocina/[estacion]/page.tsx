@@ -14,7 +14,7 @@ export default async function PaginaEstacion({
   params: Promise<{ estacion: string }>
 }) {
   const { estacion } = await params
-  const staff = await exigirRol('cocina', 'admin', 'pase')
+  const staff = await exigirRol('cocina', 'admin')
 
   // Todas las estaciones activas para las pestañas; la actual se resuelve del listado.
   const estaciones = await cargarEstaciones(staff.restaurante_id)
