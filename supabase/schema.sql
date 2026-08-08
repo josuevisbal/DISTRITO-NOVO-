@@ -354,7 +354,7 @@ $$;
 --
 -- Los combos entran con su precio especial: se valida la promo (activa,
 -- vigente, del restaurante, con precio_combo y sin productos agotados), sus
--- productos van a las estaciones normales —el disparo escalonado no se toca—
+-- productos van a las estaciones normales —el reparto por cocina no se toca—
 -- y el precio_combo se prorratea entre los renglones. El renglón más caro
 -- absorbe el redondeo para que la suma dé exacta.
 -- =====================================================================
@@ -652,8 +652,16 @@ begin
 end $$;
 
 -- =====================================================================
--- CONFIRMAR PEDIDO  ->  aquí vive el DISPARO ESCALONADO
--- Cada estación entra en el minuto justo para que todo salga junto.
+-- CONFIRMAR PEDIDO
+-- Todas las estaciones reciben su comanda AL MISMO TIEMPO, apenas se confirma.
+-- Nadie espera turno: la barra sirve la bebida mientras el asador va con la carne.
+--
+-- `disparo_en` se queda en la tabla y vale la hora de confirmación. Es la hora en
+-- que empieza a correr el cronómetro de cada estación, y deja la puerta abierta a
+-- volver a escalonar sin tocar consultas ni políticas.
+--
+-- `objetivo_en` del pedido sigue siendo la hora comprometida de salida: la del
+-- plato más lento, porque es cuando la mesa tiene todo servido.
 -- =====================================================================
 create or replace function confirmar_pedido(p_pedido uuid)
 returns void
@@ -672,9 +680,7 @@ begin
   if v_max is null then raise exception 'Pedido sin items'; end if;
 
   insert into comandas (pedido_id, estacion_id, minutos, disparo_en, estado, ronda)
-  select p_pedido, pi.estacion_id, max(pi.minutos_snap),
-         v_conf + make_interval(mins => v_max - max(pi.minutos_snap)),
-         'pendiente', 1
+  select p_pedido, pi.estacion_id, max(pi.minutos_snap), v_conf, 'pendiente', 1
   from pedido_items pi
   where pi.pedido_id = p_pedido and pi.ronda = 1
   group by pi.estacion_id
@@ -686,6 +692,12 @@ begin
          confirmado_por = auth.uid()
    where id = p_pedido;
 end $$;
+
+-- Comandas que quedaron con hora futura cuando el disparo era escalonado: se traen
+-- a ahora para que aparezcan de una en su pantalla. Es idempotente y se agota solo
+-- (ya no se crea ninguna con hora futura), así que correr el archivo otra vez no hace nada.
+update comandas set disparo_en = now()
+ where estado = 'pendiente' and disparo_en > now();
 
 -- cuando la última comanda queda lista, el pedido pasa a 'listo' para el pase
 create or replace function _comanda_listo() returns trigger
@@ -765,9 +777,9 @@ end $$;
 -- =====================================================================
 -- SUMAR A UNA CUENTA ABIERTA
 -- La mesa pide otra ronda sin cerrar la cuenta. Lo nuevo entra al MISMO pedido
--- (mismo número, misma cuenta) pero como una ronda aparte: cocina recibe comanda
--- nueva con el disparo escalonado de esa ronda y nunca vuelve a ver lo que ya
--- despachó. El total del pedido se recalcula desde los renglones.
+-- (mismo número, misma cuenta) pero como una ronda aparte: cocina recibe una
+-- comanda nueva y nunca vuelve a ver lo que ya despachó. El total del pedido se
+-- recalcula desde los renglones.
 -- =====================================================================
 create or replace function agregar_items_pedido(p_pedido uuid, p_items jsonb)
 returns jsonb
@@ -800,15 +812,14 @@ begin
 
   if not found then raise exception 'Ninguno de esos productos está disponible'; end if;
 
-  -- Mismo disparo escalonado del pedido original, pero solo para esta ronda.
+  -- La ronda nueva entra completa y de una, igual que el pedido original.
   select max(m) into v_max from (
     select max(minutos_snap) m from pedido_items
     where pedido_id = p_pedido and ronda = v_ronda group by estacion_id
   ) s;
 
   insert into comandas (pedido_id, estacion_id, minutos, disparo_en, estado, ronda)
-  select p_pedido, pi.estacion_id, max(pi.minutos_snap),
-         v_conf + make_interval(mins => v_max - max(pi.minutos_snap)), 'pendiente', v_ronda
+  select p_pedido, pi.estacion_id, max(pi.minutos_snap), v_conf, 'pendiente', v_ronda
   from pedido_items pi
   where pi.pedido_id = p_pedido and pi.ronda = v_ronda
   group by pi.estacion_id;

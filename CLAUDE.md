@@ -18,8 +18,8 @@ pantallas vivas. Sin librerías de estado global.
 
 1. Nada entra a cocina sin confirmación: mesero (mesa), webhook (pasarela), o caja
    (transferencia, contraentrega y lo que ella misma toma).
-2. El disparo escalonado vive en `confirmar_pedido()`. Una comanda no se ve hasta que
-   `disparo_en <= now()`. Sin cron ni workers.
+2. Al confirmar, las tres estaciones reciben su comanda **al mismo tiempo**. Nadie
+   espera turno. `confirmar_pedido()` las crea con `disparo_en = now()`.
 3. El cliente nunca envía precios. Todo pedido se crea con `crear_pedido(slug, payload)`,
    que recalcula desde `productos`. Lo que toma el equipo pasa por `crear_pedido_interno()`,
    que llama a la misma función; lo que se suma a una cuenta abierta, por
@@ -40,7 +40,8 @@ El comensal no tiene cuenta: entra por `slug`, pide, y sigue su pedido con un `t
 ## Los dos flujos
 
 **Salón.** El comensal pide por el QR de su mesa → le suena al mesero, que confirma y eso
-dispara cocina → cuando salen todas las estaciones, le suena otra vez y va por el pedido.
+manda las comandas a las tres cocinas de una → cuando salen todas, le suena otra vez y va
+por el pedido.
 El mesero también toma pedidos a mano (hay clientes sin datos) y le suma rondas a una
 cuenta abierta sin cerrarla: lo nuevo entra al mismo pedido y cocina recibe comanda aparte.
 

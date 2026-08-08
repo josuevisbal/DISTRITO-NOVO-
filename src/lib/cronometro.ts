@@ -10,7 +10,8 @@ export type EstadoCronometro = {
 /**
  * Calcula el semáforo de un ticket desde tiempos del **servidor**.
  *
- * `disparoEn` y `objetivoEn` vienen de la base (disparo_en y disparo_en + minutos). `ahora`
+ * `disparoEn` es la hora en que la comanda entró a cocina y `objetivoEn` cuándo debería
+ * estar lista (disparo_en + minutos). `ahora`
  * es la hora del navegador **ya corregida** con el desfase contra el servidor: nunca se mide
  * el tiempo con el reloj del navegador a secas, porque cada tablet tiene su propia hora.
  *

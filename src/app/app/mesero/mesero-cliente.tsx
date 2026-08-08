@@ -61,8 +61,8 @@ export function MeseroCliente({
     return () => clearInterval(id)
   }, [servidorAhoraISO])
 
-  // Pedidos nuevos y cambios de cocina llegan en vivo. El intervalo cubre las comandas
-  // con disparo futuro, que se hacen visibles solas cuando llega su hora.
+  // Pedidos nuevos y cambios de cocina llegan en vivo; el intervalo es la red de
+  // seguridad por si Realtime se cae en una tablet con mala señal.
   useRefrescarEnCambios(['pedidos', 'comandas'], { intervaloMs: 15000 })
 
   // Dos avisos distintos, porque son dos trabajos distintos: uno cuando la mesa pide y

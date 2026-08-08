@@ -830,3 +830,31 @@ Todo el esquema se corrió en un Postgres 16 limpio con un andamiaje mínimo de 
 5. **Cierre de turno**: `{"propinas": 7800, "por_medio": {"efectivo": 139800}, …}`.
 
 `npm run build`, `tsc --noEmit` y ESLint, en verde.
+
+## Fase F2 — Fuera el disparo escalonado: todo entra de una
+
+**Lo que pasaba:** en el pedido #1045 (chorizo + agua + jugo de fresa) el chorizo apareció
+en Asados pero las bebidas no. No era un fallo: el escalonado calculaba que un agua toma
+2 minutos y el chorizo 25, así que la comanda de Bebidas se programaba para 23 minutos
+después, y hasta esa hora era invisible —la RLS y la consulta de cocina la escondían.
+
+**La decisión del cliente:** todas las estaciones reciben su comanda **al confirmar**, sin
+esperar turno. La barra sirve la bebida apenas entra el pedido mientras el asador va con la
+carne.
+
+- `confirmar_pedido()` y `agregar_items_pedido()` crean las comandas con
+  `disparo_en = now()` para todas las estaciones.
+- `disparo_en` **se queda** en la tabla: ahora vale la hora de confirmación, que es cuando
+  arranca el cronómetro de cada estación. Nada de consultas, índices ni políticas cambió, y
+  volver a escalonar sería tocar solo esas dos funciones.
+- `objetivo_en` del pedido sigue siendo la hora del plato más lento: es cuando la mesa tiene
+  todo servido.
+- El archivo trae un rescate para las comandas que quedaron con hora futura de antes:
+  `update comandas set disparo_en = now() where estado='pendiente' and disparo_en > now()`.
+  Es idempotente y se agota solo, porque ya no se crea ninguna con hora futura.
+
+**Verificado** en un Postgres 16 limpio, reproduciendo el #1045 exacto: chorizo (25 min),
+agua (2 min) y jugo de fresa (4 min). Las dos comandas salen con 0 segundos de espera y la
+pantalla de Bebidas muestra `1 x Agua, 1 x Jugo de fresa` de inmediato. Se simuló además una
+comanda atascada a 21 minutos y, al volver a correr el archivo, quedó visible. Las rondas
+que suma el mesero entran igual, sin espera.
