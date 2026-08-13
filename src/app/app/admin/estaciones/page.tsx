@@ -39,7 +39,7 @@ export default async function PaginaAdminEstaciones() {
       <PestanasModulo opciones={PESTANAS_MENU} activa="/app/admin/estaciones" />
       <p className="text-sm text-marca-texto-suave">
         Las cocinas que preparan los platos. Cada una tiene su pantalla y su color; el
-        disparo escalonado usa estas cocinas para que todo salga junto.
+        cada pedido se parte por estas cocinas y todas reciben su comanda a la vez.
       </p>
       <EstacionesAdmin estaciones={lista} />
     </div>

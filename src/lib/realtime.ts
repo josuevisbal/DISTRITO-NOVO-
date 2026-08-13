@@ -12,8 +12,8 @@ import { crearClienteNavegador } from '@/lib/supabase/navegador'
  * sigue viniendo de la consulta con RLS y no de un estado del navegador que se puede
  * desincronizar. Sirve para mesero y pase, donde no hace falta un cronómetro.
  *
- * `intervaloMs` fuerza un refresco periódico además de los eventos: es como una comanda con
- * `disparo_en` futuro se hace visible sola, sin cron, cuando esa hora pasa.
+ * `intervaloMs` fuerza un refresco periódico además de los eventos: red de seguridad por si
+ * Realtime se cae en una tablet con mala señal.
  */
 export function useRefrescarEnCambios(
   tablas: string[],

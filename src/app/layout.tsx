@@ -33,7 +33,7 @@ const fuenteTexto = Inter({
 // El nombre del restaurante nunca va aquí: cada ruta /[slug] genera su propio título.
 export const metadata: Metadata = {
   title: 'Sistema de pedidos',
-  description: 'Pedidos multicocina con disparo escalonado por estación',
+  description: 'Pedidos multicocina: cada estación recibe su comanda al instante',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Pedidos' },
 }
 

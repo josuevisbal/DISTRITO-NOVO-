@@ -15,7 +15,7 @@ export async function cargarEntregas(
   let consulta = supabase
     .from('pedidos')
     .select(
-      'id, numero, estado, cliente_nombre, cliente_tel, direccion, indicaciones, total, medio_pago, nota_entrega, zonas_domicilio(nombre), usuarios!pedidos_domiciliario_id_fkey(nombre), pedido_items(nombre_snap, cantidad), pagos(estado)',
+      'id, numero, estado, cliente_nombre, cliente_tel, direccion, indicaciones, total, medio_pago, nota_entrega, pago_cambiado_en, zonas_domicilio(nombre), usuarios!pedidos_domiciliario_id_fkey(nombre), pedido_items(nombre_snap, cantidad), pagos(estado)',
     )
     .eq('restaurante_id', restauranteId)
     .in('estado', ['en_despacho', 'en_camino'])
@@ -37,6 +37,8 @@ export async function cargarEntregas(
     total: p.total,
     // "Pago" = no es efectivo, o ya hay un pago verificado (transferencia aprobada).
     pagado: p.medio_pago !== 'efectivo' || (p.pagos ?? []).some((x) => x.estado === 'verificado'),
+    // Ya se avisó que el cliente prefirió transferir: no hay nada que cobrar en la calle.
+    vaTransferir: p.pago_cambiado_en !== null,
     nota_entrega: p.nota_entrega,
     items: (p.pedido_items ?? []).map((i) => ({ nombre: i.nombre_snap, cantidad: i.cantidad })),
     domiciliario: p.usuarios?.nombre ?? null,

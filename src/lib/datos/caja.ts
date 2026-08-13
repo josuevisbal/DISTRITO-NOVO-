@@ -2,6 +2,7 @@ import type {
   Contraentrega,
   Despacho,
   Domiciliario,
+  Entregado,
   PorCobrar,
   PorLegalizar,
   Transferencia,
@@ -37,6 +38,11 @@ export type DatosCaja = {
   contraentregas: Contraentrega[]
   porCobrar: PorCobrar[]
   porLegalizar: PorLegalizar[]
+  /**
+   * Entregas hechas que todavía no tienen la plata en caja: el efectivo que trae el
+   * domiciliario y las transferencias que reportó en la puerta. Una fila por pedido.
+   */
+  entregados: Entregado[]
   /** Domicilios que cocina ya terminó: caja escoge quién los lleva. */
   despachos: Despacho[]
   domiciliarios: Domiciliario[]
@@ -131,13 +137,16 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       .in('canal', ['mesa', 'recoger', 'mostrador'])
       .in('estado', ['en_cocina', 'listo', 'en_despacho'])
       .order('creado_en'),
-    // Efectivo entregado por domiciliarios que aún no ha entrado a caja.
+    // Todo lo entregado que aún no tiene la plata en caja, pedido por pedido: el
+    // efectivo que trae el domiciliario y las transferencias que reportó en la puerta.
     supabase
       .from('pedidos')
-      .select('total, domiciliario_id, usuarios!pedidos_domiciliario_id_fkey(nombre)')
+      .select(
+        'id, numero, total, medio_pago, entregado_en, pago_cambiado_en, cliente_nombre, direccion, domiciliario_id, usuarios!pedidos_domiciliario_id_fkey(nombre), zonas_domicilio(nombre), pagos(estado)',
+      )
       .eq('restaurante_id', restauranteId)
       .eq('estado', 'entregado')
-      .eq('medio_pago', 'efectivo'),
+      .order('entregado_en'),
     // Domicilios que cocina terminó ('listo') y los que ya salieron a la calle
     // ('en_despacho'), para asignar o reasignar quién los lleva.
     supabase
@@ -214,19 +223,42 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       total: p.total,
     }))
 
+  // Nada de esto está cobrado todavía: si ya tuviera un pago verificado, el pedido
+  // estaría cerrado y no aparecería aquí.
+  const entregados: Entregado[] = (entregadosRes.data ?? [])
+    .filter((p) => !(p.pagos ?? []).some((g) => g.estado === 'verificado'))
+    .map((p) => ({
+      pedido_id: p.id,
+      numero: p.numero,
+      total: p.total,
+      cliente: p.cliente_nombre,
+      direccion: p.direccion,
+      zona: p.zonas_domicilio?.nombre ?? null,
+      entregado_en: p.entregado_en,
+      domiciliario_id: p.domiciliario_id,
+      domiciliario_nombre: p.usuarios?.nombre ?? null,
+      // El domiciliario avisó que el cliente prefirió transferir: la plata no viene
+      // con él, la tiene que verificar caja.
+      transferencia: p.medio_pago === 'transferencia',
+      cambio_reportado: p.pago_cambiado_en !== null,
+    }))
+
+  // El efectivo que cada domiciliario debe entregar, con el detalle de qué pedidos.
   const porLegalizarMapa = new Map<string, PorLegalizar>()
-  for (const p of entregadosRes.data ?? []) {
-    if (!p.domiciliario_id) continue
+  for (const p of entregados) {
+    if (!p.domiciliario_id || p.transferencia) continue
     const previo = porLegalizarMapa.get(p.domiciliario_id)
     if (previo) {
       previo.total += p.total
       previo.pedidos += 1
+      previo.detalle.push({ numero: p.numero, total: p.total, cliente: p.cliente })
     } else {
       porLegalizarMapa.set(p.domiciliario_id, {
         domiciliario_id: p.domiciliario_id,
-        nombre: p.usuarios?.nombre ?? 'Domiciliario',
+        nombre: p.domiciliario_nombre ?? 'Domiciliario',
         total: p.total,
         pedidos: 1,
+        detalle: [{ numero: p.numero, total: p.total, cliente: p.cliente }],
       })
     }
   }
@@ -252,6 +284,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     contraentregas,
     porCobrar,
     porLegalizar: [...porLegalizarMapa.values()],
+    entregados,
     despachos,
     domiciliarios: domiRes.data ?? [],
     categorias: categoriaRes.data ?? [],

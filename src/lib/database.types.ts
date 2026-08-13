@@ -440,6 +440,8 @@ export type Database = {
           zona_id: string | null
           propina: number
           servido_en: string | null
+          ronda_pendiente_en: string | null
+          pago_cambiado_en: string | null
         }
         Insert: {
           anulado_por?: string | null
@@ -472,6 +474,8 @@ export type Database = {
           zona_id?: string | null
           propina?: number
           servido_en?: string | null
+          ronda_pendiente_en?: string | null
+          pago_cambiado_en?: string | null
         }
         Update: {
           anulado_por?: string | null
@@ -504,6 +508,8 @@ export type Database = {
           zona_id?: string | null
           propina?: number
           servido_en?: string | null
+          ronda_pendiente_en?: string | null
+          pago_cambiado_en?: string | null
         }
         Relationships: [
           {
@@ -961,6 +967,11 @@ export type Database = {
         Returns: Json
       }
       marcar_servido: { Args: { p_pedido: string }; Returns: undefined }
+      registrar_cobro_mixto: {
+        Args: { p_pagos: Json; p_pedido: string; p_propina?: number }
+        Returns: undefined
+      }
+      cambiar_a_transferencia: { Args: { p_pedido: string }; Returns: undefined }
       turno_abierto: { Args: never; Returns: string }
       verificar_transferencia: {
         Args: { p_motivo?: string; p_ok: boolean; p_pedido: string }
@@ -987,6 +998,7 @@ export type Database = {
         | "datafono"
         | "pasarela"
         | "mesa"
+        | "mixto"
       rol_usuario: "admin" | "cajero" | "mesero" | "cocina" | "domicilio"
       tipo_promo: "envio" | "combo" | "aviso" | "descuento"
     }
@@ -1113,7 +1125,14 @@ export const Constants = {
         "cerrado",
         "anulado",
       ],
-      medio_pago: ["efectivo", "transferencia", "datafono", "pasarela", "mesa"],
+      medio_pago: [
+        "efectivo",
+        "transferencia",
+        "datafono",
+        "pasarela",
+        "mesa",
+        "mixto",
+      ],
       rol_usuario: ["admin", "cajero", "mesero", "cocina", "domicilio"],
       tipo_promo: ["envio", "combo", "aviso", "descuento"],
     },

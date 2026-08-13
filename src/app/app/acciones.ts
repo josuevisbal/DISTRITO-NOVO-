@@ -92,7 +92,7 @@ export async function crearPedidoInterno(
 
 /**
  * La mesa pide otra ronda sin cerrar la cuenta: lo nuevo entra al MISMO pedido y cocina
- * recibe una comanda aparte, con su propio disparo escalonado.
+ * recibe una comanda aparte.
  */
 export async function agregarACuenta(
   pedidoId: string,
@@ -116,8 +116,8 @@ export async function agregarACuenta(
 }
 
 /**
- * Confirma un pedido de mesa: aquí se dispara el escalonado. La RLS y `confirmar_pedido()`
- * validan que el pedido sea del mismo restaurante.
+ * Confirma un pedido de mesa: manda las comandas a todas las estaciones de una. La RLS y
+ * `confirmar_pedido()` validan que el pedido sea del mismo restaurante.
  */
 export async function confirmarPedido(pedidoId: string): Promise<Resultado> {
   await exigirRol('mesero', 'admin')

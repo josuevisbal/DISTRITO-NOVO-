@@ -61,6 +61,35 @@ export async function registrarCobro(
 }
 
 /**
+ * Cobra una cuenta repartida entre varios medios: parte en efectivo, parte con datáfono,
+ * parte transferida. La base exige que la suma dé exacto lo que vale la cuenta más la
+ * propina, y deja un movimiento por medio para que el arqueo cuadre solo.
+ */
+export async function registrarCobroMixto(
+  pedidoId: string,
+  pagos: { medio: MedioReal; monto: number }[],
+  propina = 0,
+): Promise<Resultado> {
+  await exigirRol('cajero', 'admin')
+  const supabase = await crearClienteServidor()
+
+  const limpios = pagos
+    .map((p) => ({ medio: p.medio, monto: Math.max(0, Math.trunc(p.monto)) }))
+    .filter((p) => p.monto > 0)
+  if (limpios.length === 0) return { ok: false, error: 'Escoge al menos un medio de pago.' }
+
+  const { error } = await supabase.rpc('registrar_cobro_mixto', {
+    p_pedido: pedidoId,
+    p_pagos: limpios,
+    p_propina: Math.max(0, Math.trunc(propina)),
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
+  return { ok: true }
+}
+
+/**
  * Caja le entrega el domicilio a un repartidor. Sin pase de por medio: en cuanto cocina
  * deja el pedido listo, caja escoge a quién se lo lleva y el pedido pasa a despacho.
  */

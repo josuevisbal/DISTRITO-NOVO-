@@ -120,8 +120,8 @@ export function TableroCocina({
 
   const [enLinea, setEnLinea] = useState(true)
 
-  // Realtime + reintento periódico: una comanda con disparo futuro aparece sola cuando su
-  // hora pasa, sin cron. Si la conexión se cae, se avisa y se sigue reintentando.
+  // Realtime + reintento periódico: una comanda nueva aparece sola, sin recargar.
+  // Si la conexión se cae, se avisa y se sigue reintentando.
   useEffect(() => {
     const supabase = crearClienteNavegador()
     const canal = supabase

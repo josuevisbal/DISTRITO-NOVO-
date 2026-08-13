@@ -830,3 +830,100 @@ Todo el esquema se corrió en un Postgres 16 limpio con un andamiaje mínimo de 
 5. **Cierre de turno**: `{"propinas": 7800, "por_medio": {"efectivo": 139800}, …}`.
 
 `npm run build`, `tsc --noEmit` y ESLint, en verde.
+
+## Fase F2 — Fuera el disparo escalonado: todo entra de una
+
+**Lo que pasaba:** en el pedido #1045 (chorizo + agua + jugo de fresa) el chorizo apareció
+en Asados pero las bebidas no. No era un fallo: el escalonado calculaba que un agua toma
+2 minutos y el chorizo 25, así que la comanda de Bebidas se programaba para 23 minutos
+después, y hasta esa hora era invisible —la RLS y la consulta de cocina la escondían.
+
+**La decisión del cliente:** todas las estaciones reciben su comanda **al confirmar**, sin
+esperar turno. La barra sirve la bebida apenas entra el pedido mientras el asador va con la
+carne.
+
+- `confirmar_pedido()` y `agregar_items_pedido()` crean las comandas con
+  `disparo_en = now()` para todas las estaciones.
+- `disparo_en` **se queda** en la tabla: ahora vale la hora de confirmación, que es cuando
+  arranca el cronómetro de cada estación. Nada de consultas, índices ni políticas cambió, y
+  volver a escalonar sería tocar solo esas dos funciones.
+- `objetivo_en` del pedido sigue siendo la hora del plato más lento: es cuando la mesa tiene
+  todo servido.
+- El archivo trae un rescate para las comandas que quedaron con hora futura de antes:
+  `update comandas set disparo_en = now() where estado='pendiente' and disparo_en > now()`.
+  Es idempotente y se agota solo, porque ya no se crea ninguna con hora futura.
+
+**Verificado** en un Postgres 16 limpio, reproduciendo el #1045 exacto: chorizo (25 min),
+agua (2 min) y jugo de fresa (4 min). Las dos comandas salen con 0 segundos de espera y la
+pantalla de Bebidas muestra `1 x Agua, 1 x Jugo de fresa` de inmediato. Se simuló además una
+comanda atascada a 21 minutos y, al volver a correr el archivo, quedó visible. Las rondas
+que suma el mesero entran igual, sin espera.
+
+## Fase F3 — Una mesa una cuenta, y la plata que llega después
+
+Cinco cambios pedidos por el cliente, todos alrededor de una idea: la cuenta se cierra
+cuando la plata entra, no cuando la comida sale.
+
+### Una mesa, una cuenta
+
+Antes, cada escaneo del QR abría un pedido nuevo: una mesa de cuatro terminaba con cuatro
+cuentas. Ahora `crear_pedido()` mira si esa mesa ya tiene cuenta abierta
+(`pendiente`/`en_cocina`/`listo`) y, si la tiene, mete lo pedido como una **ronda más** del
+mismo pedido: mismo número, mismo total, un solo cobro al final.
+
+Esa ronda entra **sin comanda**: aparece en la pantalla del mesero como "Pidieron más" y no
+llega a cocina hasta que él la aprueba. Es la regla de siempre —nada entra a cocina sin
+visto bueno— y de paso evita que un niño jugando con el QR llene la parrilla.
+`confirmar_pedido()` ahora confirma **todas las rondas sin comanda**, así que el mesero
+puede tocar confirmar cuantas veces haga falta sin repetir lo ya despachado.
+
+De paso se factorizó lo que estaba duplicado: `_insertar_items_pedido()` (productos y
+combos, con su prorrateo) y `_recalcular_totales()` (subtotal, domicilio por zona, promo de
+envío) son ahora un solo sitio, usado por las tres puertas de entrada.
+
+### El domiciliario no vuelve por cada entrega
+
+Sale con varios domicilios, cobra en la calle y entrega todo junto al final del turno.
+`entregar_pedido()` ya no cierra el pedido por no ser efectivo: **solo cierra lo que ya
+tiene un pago verificado**. Todo lo demás queda `entregado`, que ahora significa
+"la comida llegó, la plata no".
+
+Caja gana la pestaña **Entregados sin cobrar**, con una fila por pedido, y la tarjeta de
+cada domiciliario muestra el **detalle pedido por pedido** del efectivo que trae — para que
+los dos cuenten sobre la misma lista. `cerrar_turno()` bloquea el cierre mientras quede
+cualquier entrega sin pago verificado (antes solo miraba el efectivo).
+
+### El cliente cambia de opinión en la puerta
+
+`cambiar_a_transferencia()`: el domiciliario lo marca desde su celular, deja de traer esa
+plata y su tarjeta pasa de "cobrar en efectivo" (amarillo) a "no recibas efectivo" (azul).
+Caja lo ve como alerta y `verificar_transferencia()` —que antes solo servía para el pago
+previo a cocinar— ahora distingue los dos casos: si el pedido esperaba pago, aprobarlo lo
+manda a cocina; si ya está entregado, aprobarlo cierra la cuenta.
+
+### Aviso de entregas para caja y administración
+
+El aviso sonoro de caja suma las entregas a lo que ya vigilaba, y el Tablero gana la alerta
+"N domicilios entregados sin cobrar" que lleva al monitoreo de caja.
+
+### Pago repartido entre varios medios
+
+`registrar_cobro_mixto(pedido, [{medio, monto}…], propina)`: una fila en `pagos` y un
+movimiento de caja **por cada medio**, así el arqueo cuadra por medio sin repartir nada a
+mano. La suma tiene que dar exacto la cuenta más la propina; si no cuadra, el error dice
+los dos números para corregir antes de cobrar y no descubrirlo al cerrar el turno.
+
+En la interfaz el caso común no se estorba: sigue siendo escoger medio y cobrar. Un botón
+**Dividir el pago** abre un renglón por medio, cada uno con un atajo **El resto** que le
+mete lo que falte —nada de restas de cabeza frente al cliente— y un contador en vivo que
+dice "Faltan $X" o "Cuadra". El enum `medio_pago` gana `mixto` como etiqueta del pedido;
+el desglose real vive en `pagos`.
+
+### Verificado
+
+Postgres 16 limpio, todo en una sola transacción (como el SQL Editor): instalación,
+segunda corrida idempotente, y el recorrido completo —tres personas pidiendo por el QR de
+la misma mesa (una cuenta, $45.000, tres comandas), cobro repartido 20/20/10 con $5.000 de
+propina, la mesa volviendo a abrir cuenta después de cobrada, dos domicilios en efectivo
+con uno cambiado a transferencia en la puerta, y el turno negándose a cerrar mientras
+faltara plata. `tsc`, ESLint y `npm run build`, en verde.
