@@ -27,9 +27,18 @@ pantallas vivas. Sin librerías de estado global.
 4. La verificación de transferencias es humana y su alerta no se cierra sola.
 5. Cada rol ve solo lo suyo, y se aplica en **RLS**, no solo en la interfaz.
 6. El domicilio se cobra por zona fija de barrio. El mapa solo sirve para llegar.
-7. La propina va aparte del total y no se calcula sola: la digita caja al cobrar y queda
-   marcada en `caja_movimientos` para que el arqueo la separe de la venta.
-8. `SUPABASE_SERVICE_ROLE_KEY` jamás llega al navegador.
+7. **Una mesa, una cuenta.** Mientras la mesa tenga cuenta abierta, todo lo que pidan
+   —por el QR o por el mesero— entra a ESA cuenta como una ronda más. Solo se cierra
+   cuando caja cobra. Lo que llega por el QR espera el visto bueno del mesero; lo que
+   escribe el equipo entra derecho.
+8. La propina va aparte del total y no se calcula sola: la digita caja al cobrar y queda
+   marcada en `caja_movimientos` para que el arqueo la separe de la venta. Una cuenta se
+   puede repartir entre varios medios con `registrar_cobro_mixto()`, y la suma tiene que
+   dar exacta.
+9. El domiciliario no vuelve a caja después de cada entrega: cobra en la calle y entrega
+   todo junto. Nada queda cerrado hasta que esa plata entre, y el turno no cierra con
+   entregas sin cobrar.
+10. `SUPABASE_SERVICE_ROLE_KEY` jamás llega al navegador.
 
 ## Roles
 
@@ -47,6 +56,9 @@ cuenta abierta sin cerrarla: lo nuevo entra al mismo pedido y cocina recibe coma
 
 **Domicilio.** Caja confirma el pedido, o lo toma ella misma cuando el cliente llama o
 llega al mostrador → cocina → caja le asigna el domiciliario y el pedido sale a la calle.
+Al entregar, la cuenta queda *entregada sin cobrar* hasta que la plata llegue: el efectivo
+se recibe al cierre y la transferencia la verifica caja. Si el cliente cambia de opinión en
+la puerta, el domiciliario lo marca y caja recibe la alerta.
 Caja además imprime cuentas y facturas, cobra en el punto físico y registra la propina.
 
 ## Convenciones

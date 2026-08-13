@@ -9,7 +9,7 @@ export type VentaEstacion = {
 }
 
 export type AlertaTablero = {
-  tipo: 'transferencias' | 'agotados' | 'devueltos' | 'turno'
+  tipo: 'transferencias' | 'agotados' | 'devueltos' | 'entregados' | 'turno'
   cantidad: number
   texto: string
   href: string
@@ -30,8 +30,17 @@ export async function cargarTablero(restauranteId: string): Promise<DatosTablero
   const supabase = await crearClienteServidor()
   const desde = inicioDeHoyISO()
 
-  const [pedidosRes, cocinaRes, itemsRes, estacionesRes, turnoRes, transfRes, agotadosRes, devueltosRes] =
-    await Promise.all([
+  const [
+    pedidosRes,
+    cocinaRes,
+    itemsRes,
+    estacionesRes,
+    turnoRes,
+    transfRes,
+    agotadosRes,
+    devueltosRes,
+    entregadosRes,
+  ] = await Promise.all([
       // Ventas del día: todo pedido no anulado creado hoy.
       supabase
         .from('pedidos')
@@ -80,6 +89,12 @@ export async function cargarTablero(restauranteId: string): Promise<DatosTablero
         .eq('restaurante_id', restauranteId)
         .eq('estado', 'en_despacho')
         .not('nota_entrega', 'is', null),
+      // Domicilios ya entregados cuya plata todavía no entró a la caja.
+      supabase
+        .from('pedidos')
+        .select('id', { count: 'exact', head: true })
+        .eq('restaurante_id', restauranteId)
+        .eq('estado', 'entregado'),
     ])
 
   const totales = (pedidosRes.data ?? []).map((p) => p.total)
@@ -136,6 +151,20 @@ export async function cargarTablero(restauranteId: string): Promise<DatosTablero
           ? '1 domicilio volvió sin entregarse'
           : `${nDevueltos} domicilios volvieron sin entregarse`,
       href: '/app/caja',
+    })
+  }
+  // Lo que el domiciliario ya entregó y todavía nadie ha cobrado. El turno no cierra
+  // con nada de esto pendiente, así que verlo temprano evita la carrera del cierre.
+  const nEntregados = entregadosRes.count ?? 0
+  if (nEntregados > 0) {
+    alertas.push({
+      tipo: 'entregados',
+      cantidad: nEntregados,
+      texto:
+        nEntregados === 1
+          ? '1 domicilio entregado sin cobrar'
+          : `${nEntregados} domicilios entregados sin cobrar`,
+      href: '/app/admin/monitoreo/caja',
     })
   }
   if (!turnoAbierto) {

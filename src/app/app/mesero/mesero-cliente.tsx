@@ -204,7 +204,8 @@ export function MeseroCliente({
 }
 
 const VACIO: Record<Pestana, string> = {
-  confirmar: 'Nada por confirmar. Cuando alguien pida desde el QR de una mesa, aparece aquí.',
+  confirmar:
+    'Nada por confirmar. Cuando una mesa pida desde el QR —abra cuenta o le sume otra ronda— aparece aquí.',
   cocina: 'No hay pedidos del salón en cocina.',
   listos: 'Nada por llevar: todo lo que salió ya está en su mesa.',
   cuentas: 'No hay cuentas abiertas en el salón.',
@@ -235,7 +236,7 @@ function Tarjeta({
   const { mostrar } = useToast()
 
   const borde =
-    pedido.estado === 'pendiente'
+    pedido.estado === 'pendiente' || pedido.rondaPendiente
       ? BORDE.confirmar
       : pedido.estado === 'listo'
         ? BORDE.listo
@@ -244,9 +245,16 @@ function Tarjeta({
   const pastilla: { texto: string; tono: TonoPildora } =
     pedido.estado === 'pendiente'
       ? { texto: 'Sin confirmar', tono: 'ambar' }
-      : pedido.estado === 'listo'
-        ? { texto: pedido.servido ? 'En la mesa' : 'Listo', tono: 'verde' }
-        : { texto: 'En cocina', tono: 'azul' }
+      : pedido.rondaPendiente
+        ? { texto: 'Pidieron más', tono: 'ambar' }
+        : pedido.estado === 'listo'
+          ? { texto: pedido.servido ? 'En la mesa' : 'Listo', tono: 'verde' }
+          : { texto: 'En cocina', tono: 'azul' }
+
+  // En "por confirmar" solo importa lo que falta por mandar: si la mesa lleva tres
+  // rondas comidas y pidió una cuarta, el mesero no necesita releer todo el historial.
+  const porMandar = pedido.itemsPendientes
+  const enConfirmar = vista === 'confirmar'
 
   async function ejecutar(accion: () => Promise<{ ok: boolean; error?: string }>, exito: string) {
     alAvisar?.()
@@ -284,6 +292,12 @@ function Tarjeta({
         </p>
       </div>
 
+      {pedido.rondaPendiente && enConfirmar ? (
+        <p className="mt-2 rounded-lg bg-[#FAEEDA] px-3 py-2 text-sm font-medium text-[#854F0B]">
+          Esta cuenta ya estaba abierta y pidieron más desde el QR. Abajo va solo lo nuevo.
+        </p>
+      ) : null}
+
       {/* Cómo va cada cocina: lo que el mesero necesita para responderle a la mesa. */}
       {pedido.estado !== 'pendiente' ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -293,9 +307,9 @@ function Tarjeta({
         </div>
       ) : null}
 
-      {vista === 'confirmar' || vista === 'listos' ? (
+      {enConfirmar || vista === 'listos' ? (
         <ul className="mt-3 space-y-1.5 border-t border-marca-borde pt-3">
-          {pedido.items.map((item, i) => (
+          {(enConfirmar ? porMandar : pedido.items).map((item, i) => (
             <li key={i} className="text-sm text-marca-texto">
               <span className="font-medium">
                 {item.cantidad} × {item.nombre}
@@ -327,7 +341,7 @@ function Tarjeta({
             </Boton>
           ) : null}
 
-          {pedido.estado === 'pendiente' ? (
+          {pedido.estado === 'pendiente' || pedido.rondaPendiente ? (
             <Boton
               variante="exito"
               className="flex min-w-48 items-center justify-center gap-2 px-4"
@@ -340,7 +354,11 @@ function Tarjeta({
               }
             >
               <IconoCheck className="size-5 shrink-0" />
-              {ocupado ? 'Confirmando…' : 'Confirmar y mandar a cocina'}
+              {ocupado
+                ? 'Confirmando…'
+                : pedido.rondaPendiente
+                  ? 'Mandar lo nuevo a cocina'
+                  : 'Confirmar y mandar a cocina'}
             </Boton>
           ) : null}
 
@@ -472,7 +490,8 @@ function FormularioTomar({
         {abierta ? (
           <p className="mt-2 text-xs text-marca-texto-suave">
             La mesa {abierta.mesa} ya tiene la cuenta #{abierta.numero} abierta por{' '}
-            {formatearPesos(abierta.total)}: lo que agregues entra a esa misma cuenta.
+            {formatearPesos(abierta.total)}. Una mesa, una cuenta: lo que agregues entra a
+            esa misma y se cobra todo junto al final.
           </p>
         ) : null}
       </fieldset>

@@ -27,15 +27,22 @@ export type PedidoMesa = {
   creado_en: string
   /** Ya lo recogió y lo puso en la mesa. La cuenta sigue abierta para caja. */
   servido: boolean
+  /** La mesa pidió otra ronda por el QR y todavía no la han mandado a cocina. */
+  rondaPendiente: boolean
   total: number
   items: ItemPedidoMesa[]
+  /** Solo lo que está por confirmar: la ronda que llegó y aún no va a cocina. */
+  itemsPendientes: ItemPedidoMesa[]
   barras: BarraEstacion[]
 }
 
 export type MesaSalon = { id: string; numero: number }
 
 export type DatosMesero = {
-  /** Pidieron desde el QR y esperan que el mesero los mande a cocina. */
+  /**
+   * Esperan que el mesero los mande a cocina: la cuenta nueva de una mesa, y también
+   * la cuenta ya abierta a la que le llegó otra ronda por el QR.
+   */
   porConfirmar: PedidoMesa[]
   /** Ya están en cocina: el mesero ve qué estación va y cuál falta. */
   enCocina: PedidoMesa[]
@@ -90,7 +97,7 @@ export async function cargarMesero(restauranteId: string): Promise<DatosMesero> 
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero, estado, creado_en, servido_en, total, mesa_id, mesas(numero), comandas(estacion_id, estado), pedido_items(nombre_snap, cantidad, notas, estaciones(nombre))',
+      'id, numero, estado, creado_en, servido_en, ronda_pendiente_en, total, mesa_id, mesas(numero), comandas(estacion_id, estado, ronda), pedido_items(nombre_snap, cantidad, notas, ronda, estaciones(nombre))',
     )
     .eq('restaurante_id', restauranteId)
     .eq('canal', 'mesa')
@@ -108,6 +115,16 @@ export async function cargarMesero(restauranteId: string): Promise<DatosMesero> 
       }
     }
 
+    // Una ronda ya fue a cocina cuando tiene comanda. Lo que no la tiene es
+    // justo lo que el mesero debe revisar y confirmar.
+    const rondasEnCocina = new Set((p.comandas ?? []).map((c) => c.ronda))
+    const aItem = (i: (typeof p.pedido_items)[number]): ItemPedidoMesa => ({
+      nombre: i.nombre_snap,
+      cantidad: i.cantidad,
+      estacion: i.estaciones?.nombre ?? '',
+      notas: i.notas,
+    })
+
     return {
       id: p.id,
       numero: p.numero,
@@ -116,13 +133,12 @@ export async function cargarMesero(restauranteId: string): Promise<DatosMesero> 
       estado: p.estado,
       creado_en: p.creado_en,
       servido: p.servido_en !== null,
+      rondaPendiente: p.ronda_pendiente_en !== null,
       total: p.total,
-      items: (p.pedido_items ?? []).map((i) => ({
-        nombre: i.nombre_snap,
-        cantidad: i.cantidad,
-        estacion: i.estaciones?.nombre ?? '',
-        notas: i.notas,
-      })),
+      items: (p.pedido_items ?? []).map(aItem),
+      itemsPendientes: (p.pedido_items ?? [])
+        .filter((i) => !rondasEnCocina.has(i.ronda))
+        .map(aItem),
       barras: (estaciones ?? []).map((e) => ({
         estacion_id: e.id,
         nombre: e.nombre,
@@ -133,7 +149,9 @@ export async function cargarMesero(restauranteId: string): Promise<DatosMesero> 
   })
 
   return {
-    porConfirmar: lista.filter((p) => p.estado === 'pendiente'),
+    // Una cuenta abierta con ronda nueva vuelve a "por confirmar" sin dejar de estar
+    // donde está: el mesero tiene que ir a mandarla a cocina.
+    porConfirmar: lista.filter((p) => p.estado === 'pendiente' || p.rondaPendiente),
     enCocina: lista.filter((p) => p.estado === 'en_cocina'),
     listos: lista.filter((p) => p.estado === 'listo' && !p.servido),
     cuentas: lista.filter((p) => p.estado !== 'pendiente'),

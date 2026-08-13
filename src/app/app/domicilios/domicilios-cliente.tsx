@@ -6,7 +6,7 @@ import { IconoAlerta, IconoCheck, IconoMoto } from '@/components/iconos'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
 import { enlaceLlamar, enlaceWhatsApp } from '@/lib/telefono'
-import { entregarPedido, falloEntrega, recogerPedido } from './acciones'
+import { entregarPedido, falloEntrega, pagaPorTransferencia, recogerPedido } from './acciones'
 
 export type Entrega = {
   pedido_id: string
@@ -19,6 +19,8 @@ export type Entrega = {
   zona: string | null
   total: number
   pagado: boolean
+  /** El cliente cambió de opinión: paga por transferencia y la cobra caja. */
+  vaTransferir: boolean
   nota_entrega: string | null
   items: { nombre: string; cantidad: number }[]
   /** Quién la lleva. Solo se usa en el monitoreo del admin; el domiciliario es él mismo. */
@@ -125,7 +127,11 @@ function TarjetaEntrega({
       ) : null}
 
       {/* Recuadro de cobro: amarillo con el monto si es efectivo, verde si ya está pago. */}
-      <CobroCaja pagado={entrega.pagado} total={entrega.total} />
+      <CobroCaja
+        pagado={entrega.pagado}
+        vaTransferir={entrega.vaTransferir}
+        total={entrega.total}
+      />
 
       <details className="mt-3">
         <summary className="cursor-pointer text-sm text-marca-texto-suave">
@@ -194,6 +200,18 @@ function TarjetaEntrega({
               <IconoCheck className="size-6" />
               Entregué
             </button>
+            {/* En la puerta el cliente dice que mejor transfiere. Un toque y caja
+                queda avisada: el domiciliario no carga con esa plata. */}
+            {!entrega.pagado && !entrega.vaTransferir ? (
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => correr(() => pagaPorTransferencia(entrega.pedido_id))}
+                className="flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 border-marca-borde text-base font-semibold text-marca-texto disabled:opacity-50"
+              >
+                El cliente va a pagar por transferencia
+              </button>
+            ) : null}
             <FalloEntrega
               disabled={ocupado}
               onConfirmar={(motivo) => correr(() => falloEntrega(entrega.pedido_id, motivo))}
@@ -206,7 +224,27 @@ function TarjetaEntrega({
   )
 }
 
-function CobroCaja({ pagado, total }: { pagado: boolean; total: number }) {
+function CobroCaja({
+  pagado,
+  vaTransferir,
+  total,
+}: {
+  pagado: boolean
+  vaTransferir: boolean
+  total: number
+}) {
+  if (vaTransferir) {
+    // Azul: el cliente transfiere y caja lo verifica. El domiciliario no recibe nada.
+    return (
+      <p
+        className="mt-4 flex items-center justify-center gap-2 rounded-xl border-2 p-4 text-center text-lg font-bold"
+        style={{ backgroundColor: '#101b33', borderColor: '#5B6BF0', color: '#aeb8ff' }}
+      >
+        <IconoCheck className="size-6 shrink-0" />
+        Paga por transferencia · No recibas efectivo
+      </p>
+    )
+  }
   if (pagado) {
     // Verde: ya está pago, no cobrar. (Paleta oscura: se lee de lejos, en la calle.)
     return (

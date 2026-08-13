@@ -25,6 +25,21 @@ export async function entregarPedido(pedidoId: string): Promise<Resultado> {
   return { ok: true }
 }
 
+/**
+ * En la puerta el cliente dice que ya no paga en efectivo sino por transferencia. El
+ * domiciliario lo marca y deja de traer esa plata: caja recibe la alerta y es quien
+ * verifica la transferencia. El pedido NO se cierra aquí.
+ */
+export async function pagaPorTransferencia(pedidoId: string): Promise<Resultado> {
+  await exigirRol('domicilio')
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('cambiar_a_transferencia', { p_pedido: pedidoId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/domicilios')
+  revalidatePath('/app/caja')
+  return { ok: true }
+}
+
 export async function falloEntrega(pedidoId: string, motivo: string): Promise<Resultado> {
   await exigirRol('domicilio')
   const supabase = await crearClienteServidor()

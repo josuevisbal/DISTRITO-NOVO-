@@ -32,6 +32,13 @@ do $$ begin
   create type estado_pago   as enum ('pendiente','verificado','rechazado');
 exception when duplicate_object then null; end $$;
 
+-- Una cuenta se puede pagar entre varios medios: parte en efectivo, parte con
+-- datáfono, parte transferida. El desglose real vive en `pagos` (una fila por medio);
+-- 'mixto' es solo la etiqueta del pedido para que la factura lo diga.
+-- Se puede agregar dentro de una transacción, pero no usarse hasta que confirme:
+-- por eso solo aparece dentro de cuerpos plpgsql, que se resuelven al ejecutarse.
+alter type medio_pago add value if not exists 'mixto';
+
 -- ---------------------------------------------------------------------
 -- Bases viejas: se consolidan los siete roles de antes en los cinco de hoy.
 --   dueno        -> admin        (un solo rol de mando)
@@ -237,6 +244,12 @@ alter table pedidos add column if not exists propina bigint not null default 0;
 -- Cuando el mesero recoge lo listo y lo pone en la mesa. La cuenta sigue abierta
 -- hasta que caja cobre; esto solo saca el pedido de "por recoger".
 alter table pedidos add column if not exists servido_en timestamptz;
+-- La mesa pidió otra ronda por el QR sobre una cuenta ya abierta y el mesero
+-- todavía no la manda a cocina. Es lo que hace que la cuenta le vuelva a sonar.
+alter table pedidos add column if not exists ronda_pendiente_en timestamptz;
+-- El domiciliario avisó que el cliente ya no paga en efectivo sino por transferencia.
+-- Caja lo ve como alerta y es quien cobra.
+alter table pedidos add column if not exists pago_cambiado_en timestamptz;
 
 create table if not exists pedido_items (
   id uuid primary key default gen_random_uuid(),
@@ -345,64 +358,33 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- =====================================================================
--- CREAR PEDIDO
--- El cliente NUNCA envía precios. El servidor los recalcula desde productos.
--- payload: { canal, mesa_id, cliente_nombre, cliente_tel, direccion,
---            zona_id, indicaciones, medio_pago,
---            items:  [{producto_id, cantidad, notas}],
---            combos: [{promocion_id, cantidad}] }
+-- RENGLONES DE UN PEDIDO  (ayudante interno)
+-- Mete los productos y los combos de un payload en un pedido, con la ronda
+-- que se le diga. Lo usan las tres puertas de entrada —el comensal por el QR,
+-- el equipo desde su pantalla, y la edición del propio cliente— para que el
+-- precio se calcule SIEMPRE igual y en un solo sitio.
 --
 -- Los combos entran con su precio especial: se valida la promo (activa,
 -- vigente, del restaurante, con precio_combo y sin productos agotados), sus
--- productos van a las estaciones normales —el reparto por cocina no se toca—
--- y el precio_combo se prorratea entre los renglones. El renglón más caro
--- absorbe el redondeo para que la suma dé exacta.
+-- productos van a las estaciones normales y el precio_combo se prorratea entre
+-- los renglones. El renglón más caro absorbe el redondeo para que la suma dé exacta.
 -- =====================================================================
-create or replace function crear_pedido(p_slug text, p_payload jsonb)
-returns jsonb
+create or replace function _insertar_items_pedido(
+  p_pedido uuid, p_rest uuid, p_payload jsonb, p_ronda int default 1
+) returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  v_rest uuid; v_pedido uuid; v_sub bigint := 0; v_dom bigint := 0;
-  v_umbral bigint; v_zona_valor bigint := 0; v_canal canal_pedido;
-  v_medio medio_pago; v_total bigint;
-  v_estado estado_pedido; v_num bigint; v_token uuid;
   r_combo jsonb; v_promo record; v_cant_combo int; v_normal bigint;
-  v_repartido bigint; v_unit bigint; v_resto bigint; v_primera boolean;
-  r_item record; v_n int;
+  v_unit bigint; v_resto bigint; v_primera boolean; r_item record; v_n int;
 begin
-  select id into v_rest from restaurantes where slug = p_slug and activo;
-  if v_rest is null then raise exception 'Restaurante no encontrado'; end if;
-
-  v_canal := (p_payload->>'canal')::canal_pedido;
-  v_medio := nullif(p_payload->>'medio_pago','')::medio_pago;
-
-  -- estado inicial segun como paga
-  v_estado := case
-    when v_canal = 'mesa' then 'pendiente'::estado_pedido            -- espera al mesero
-    when v_medio = 'pasarela' then 'pendiente'::estado_pedido        -- lo confirma el webhook
-    when v_medio = 'transferencia' then 'esperando_pago'::estado_pedido
-    else 'pendiente'::estado_pedido                                  -- contraentrega: lo confirma caja
-  end;
-
-  insert into pedidos (restaurante_id, canal, mesa_id, cliente_nombre, cliente_tel,
-                       direccion, zona_id, indicaciones, medio_pago, estado)
-  values (v_rest, v_canal,
-          nullif(p_payload->>'mesa_id','')::uuid,
-          nullif(p_payload->>'cliente_nombre',''),
-          nullif(p_payload->>'cliente_tel',''),
-          nullif(p_payload->>'direccion',''),
-          nullif(p_payload->>'zona_id','')::uuid,
-          nullif(p_payload->>'indicaciones',''),
-          v_medio, v_estado)
-  returning id, numero, token into v_pedido, v_num, v_token;
-
   -- items sueltos con precio del servidor
-  insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas)
-  select v_pedido, pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep,
-         greatest((it->>'cantidad')::int, 1), nullif(it->>'notas','')
+  insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap,
+                            minutos_snap, cantidad, notas, ronda)
+  select p_pedido, pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep,
+         greatest((it->>'cantidad')::int, 1), nullif(it->>'notas',''), p_ronda
   from jsonb_array_elements(coalesce(p_payload->'items','[]'::jsonb)) it
   join productos pr on pr.id = (it->>'producto_id')::uuid
-  where pr.restaurante_id = v_rest and pr.activo and pr.disponible;
+  where pr.restaurante_id = p_rest and pr.activo and pr.disponible;
 
   -- combos: precio especial del servidor, productos a sus estaciones normales
   for r_combo in select * from jsonb_array_elements(coalesce(p_payload->'combos','[]'::jsonb))
@@ -410,7 +392,7 @@ begin
     select pm.id, pm.titulo, pm.precio_combo into v_promo
     from promociones pm
     where pm.id = (r_combo->>'promocion_id')::uuid
-      and pm.restaurante_id = v_rest and pm.tipo = 'combo' and pm.activa
+      and pm.restaurante_id = p_rest and pm.tipo = 'combo' and pm.activa
       and (pm.desde is null or pm.desde <= now())
       and (pm.hasta is null or pm.hasta >= now())
       and coalesce(pm.precio_combo, 0) > 0;
@@ -421,7 +403,7 @@ begin
     from promocion_items pi
     join productos pr on pr.id = pi.producto_id
     where pi.promocion_id = v_promo.id
-      and pr.restaurante_id = v_rest and pr.activo and pr.disponible;
+      and pr.restaurante_id = p_rest and pr.activo and pr.disponible;
     if v_n = 0 or v_normal <= 0
        or v_n <> (select count(*) from promocion_items where promocion_id = v_promo.id) then
       raise exception 'El combo "%" tiene productos agotados', v_promo.titulo;
@@ -431,7 +413,6 @@ begin
 
     -- una pasada por cada combo pedido: el redondeo cuadra exacto por combo
     for v_n in 1..v_cant_combo loop
-      v_repartido := 0;
       v_primera := true;
       for r_item in
         select pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep, pi.cantidad
@@ -440,11 +421,9 @@ begin
         where pi.promocion_id = v_promo.id
         order by (pr.precio * pi.cantidad) desc, pr.id
       loop
-        -- parte del precio del combo que le toca a cada unidad de este producto
         v_unit := (v_promo.precio_combo * r_item.precio) / v_normal;
         v_resto := 0;
         if v_primera then
-          -- el renglón más caro absorbe el redondeo para que la suma dé exacta
           v_resto := v_promo.precio_combo
                      - (v_unit * r_item.cantidad)
                      - (select coalesce(sum(((v_promo.precio_combo * pr2.precio) / v_normal) * pi2.cantidad), 0)
@@ -455,34 +434,43 @@ begin
 
         if v_resto <> 0 and r_item.cantidad > 1 then
           -- una unidad carga el ajuste, el resto va parejo
-          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id)
-          values (v_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, 1, v_promo.titulo, v_promo.id),
-                 (v_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit, r_item.minutos_prep, r_item.cantidad - 1, v_promo.titulo, v_promo.id);
+          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id, ronda)
+          values (p_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, 1, v_promo.titulo, v_promo.id, p_ronda),
+                 (p_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit, r_item.minutos_prep, r_item.cantidad - 1, v_promo.titulo, v_promo.id, p_ronda);
         else
-          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id)
-          values (v_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, r_item.cantidad, v_promo.titulo, v_promo.id);
+          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id, ronda)
+          values (p_pedido, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, r_item.cantidad, v_promo.titulo, v_promo.id, p_ronda);
         end if;
         v_primera := false;
       end loop;
     end loop;
   end loop;
+end $$;
 
-  if not exists (select 1 from pedido_items where pedido_id = v_pedido) then
-    raise exception 'El pedido no tiene productos disponibles';
-  end if;
+-- Totales del pedido, siempre desde los renglones que tiene guardados. El domicilio
+-- se cobra por zona fija de barrio, gratis si hay promoción de envío vigente.
+-- Devuelve el total, y deja al día el cobro pendiente si lo hay.
+create or replace function _recalcular_totales(p_pedido uuid) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare
+  v_rest uuid; v_canal canal_pedido; v_zona uuid;
+  v_sub bigint; v_dom bigint := 0; v_umbral bigint; v_zona_valor bigint := 0; v_total bigint;
+begin
+  select restaurante_id, canal, zona_id into v_rest, v_canal, v_zona
+    from pedidos where id = p_pedido;
 
-  select coalesce(sum(precio_snap * cantidad),0) into v_sub from pedido_items where pedido_id = v_pedido;
+  select coalesce(sum(precio_snap * cantidad), 0) into v_sub
+    from pedido_items where pedido_id = p_pedido;
 
-  -- domicilio por zona, gratis si hay promocion de envio vigente
   if v_canal in ('domicilio','whatsapp') then
     select valor into v_zona_valor from zonas_domicilio
-      where id = nullif(p_payload->>'zona_id','')::uuid and restaurante_id = v_rest and activa;
+     where id = v_zona and restaurante_id = v_rest and activa;
     v_zona_valor := coalesce(v_zona_valor, 0);
 
     select monto_minimo into v_umbral from promociones
-      where restaurante_id = v_rest and tipo = 'envio' and activa
-        and (desde is null or desde <= now()) and (hasta is null or hasta >= now())
-      order by orden limit 1;
+     where restaurante_id = v_rest and tipo = 'envio' and activa
+       and (desde is null or desde <= now()) and (hasta is null or hasta >= now())
+     order by orden limit 1;
 
     v_dom := case when v_umbral is not null and v_sub >= v_umbral then 0 else v_zona_valor end;
   end if;
@@ -492,7 +480,107 @@ begin
   -- Sin código sumado: se transfiere exactamente el total (platos + domicilio).
   update pedidos set subtotal = v_sub, domicilio = v_dom, total = v_total,
          codigo_pago = null, monto_exacto = v_total
-  where id = v_pedido;
+   where id = p_pedido;
+
+  update pagos set monto = v_total where pedido_id = p_pedido and estado = 'pendiente';
+
+  return v_total;
+end $$;
+
+-- =====================================================================
+-- CREAR PEDIDO
+-- El cliente NUNCA envía precios. El servidor los recalcula desde productos.
+-- payload: { canal, mesa_id, cliente_nombre, cliente_tel, direccion,
+--            zona_id, indicaciones, medio_pago,
+--            items:  [{producto_id, cantidad, notas}],
+--            combos: [{promocion_id, cantidad}] }
+--
+-- UNA MESA, UNA CUENTA. Si la mesa ya tiene cuenta abierta, lo que pidan por el QR
+-- NO abre un pedido nuevo: entra a esa misma cuenta como una ronda más, con el mismo
+-- número y el mismo total. La cuenta solo se cierra cuando caja cobra.
+--
+-- Esa ronda entra SIN comanda: aparece en la pantalla del mesero como algo por
+-- confirmar y no llega a cocina hasta que él la aprueba. Es la regla de siempre —
+-- nada entra a cocina sin que alguien del equipo dé el visto bueno—, y además evita
+-- que un niño jugando con el QR llene la parrilla de pedidos.
+-- =====================================================================
+create or replace function crear_pedido(p_slug text, p_payload jsonb)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_rest uuid; v_pedido uuid; v_canal canal_pedido; v_medio medio_pago;
+  v_estado estado_pedido; v_num bigint; v_token uuid; v_mesa uuid; v_abierta uuid;
+  v_ronda int; v_sub bigint; v_dom bigint; v_total bigint;
+begin
+  select id into v_rest from restaurantes where slug = p_slug and activo;
+  if v_rest is null then raise exception 'Restaurante no encontrado'; end if;
+
+  v_canal := (p_payload->>'canal')::canal_pedido;
+  v_medio := nullif(p_payload->>'medio_pago','')::medio_pago;
+  v_mesa  := nullif(p_payload->>'mesa_id','')::uuid;
+
+  -- ¿La mesa ya tiene cuenta abierta?
+  if v_canal = 'mesa' and v_mesa is not null then
+    select id into v_abierta from pedidos
+     where restaurante_id = v_rest and mesa_id = v_mesa
+       and estado in ('pendiente','en_cocina','listo')
+     order by creado_en limit 1;
+  end if;
+
+  -- ---- Sí: la ronda entra a la cuenta que ya está abierta ----
+  if v_abierta is not null then
+    select coalesce(max(ronda), 0) + 1 into v_ronda
+      from pedido_items where pedido_id = v_abierta;
+
+    perform _insertar_items_pedido(v_abierta, v_rest, p_payload, v_ronda);
+
+    if not exists (select 1 from pedido_items where pedido_id = v_abierta and ronda = v_ronda) then
+      raise exception 'El pedido no tiene productos disponibles';
+    end if;
+
+    v_total := _recalcular_totales(v_abierta);
+
+    update pedidos set ronda_pendiente_en = now() where id = v_abierta;
+
+    select numero, token, subtotal, domicilio into v_num, v_token, v_sub, v_dom
+      from pedidos where id = v_abierta;
+
+    return jsonb_build_object(
+      'id', v_abierta, 'numero', v_num, 'token', v_token,
+      'subtotal', v_sub, 'domicilio', v_dom, 'total', v_total,
+      'codigo_pago', null, 'monto_exacto', v_total, 'estado', 'pendiente',
+      'ronda', v_ronda, 'cuenta_abierta', true
+    );
+  end if;
+
+  -- ---- No: pedido nuevo ----
+  -- estado inicial segun como paga
+  v_estado := case
+    when v_canal = 'mesa' then 'pendiente'::estado_pedido            -- espera al mesero
+    when v_medio = 'pasarela' then 'pendiente'::estado_pedido        -- lo confirma el webhook
+    when v_medio = 'transferencia' then 'esperando_pago'::estado_pedido
+    else 'pendiente'::estado_pedido                                  -- contraentrega: lo confirma caja
+  end;
+
+  insert into pedidos (restaurante_id, canal, mesa_id, cliente_nombre, cliente_tel,
+                       direccion, zona_id, indicaciones, medio_pago, estado)
+  values (v_rest, v_canal, v_mesa,
+          nullif(p_payload->>'cliente_nombre',''),
+          nullif(p_payload->>'cliente_tel',''),
+          nullif(p_payload->>'direccion',''),
+          nullif(p_payload->>'zona_id','')::uuid,
+          nullif(p_payload->>'indicaciones',''),
+          v_medio, v_estado)
+  returning id, numero, token into v_pedido, v_num, v_token;
+
+  perform _insertar_items_pedido(v_pedido, v_rest, p_payload, 1);
+
+  if not exists (select 1 from pedido_items where pedido_id = v_pedido) then
+    raise exception 'El pedido no tiene productos disponibles';
+  end if;
+
+  v_total := _recalcular_totales(v_pedido);
+  select subtotal, domicilio into v_sub, v_dom from pedidos where id = v_pedido;
 
   if v_medio is not null and v_medio <> 'mesa' then
     insert into pagos (pedido_id, medio, monto, estado)
@@ -502,7 +590,8 @@ begin
   return jsonb_build_object(
     'id', v_pedido, 'numero', v_num, 'token', v_token,
     'subtotal', v_sub, 'domicilio', v_dom, 'total', v_total,
-    'codigo_pago', null, 'monto_exacto', v_total, 'estado', v_estado
+    'codigo_pago', null, 'monto_exacto', v_total, 'estado', v_estado,
+    'ronda', 1, 'cuenta_abierta', false
   );
 end $$;
 
@@ -537,15 +626,10 @@ end $$;
 create or replace function actualizar_pedido_cliente(p_token uuid, p_payload jsonb)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare
-  v_id uuid; v_rest uuid; v_estado estado_pedido; v_canal canal_pedido;
-  v_sub bigint := 0; v_dom bigint := 0; v_umbral bigint; v_zona_valor bigint := 0;
-  v_total bigint; v_num bigint;
-  r_combo jsonb; v_promo record; v_cant int; v_normal bigint;
-  v_unit bigint; v_resto bigint; v_primera boolean; r_item record; v_n int;
+declare v_id uuid; v_rest uuid; v_estado estado_pedido; v_num bigint;
+        v_sub bigint; v_dom bigint; v_total bigint;
 begin
-  select id, restaurante_id, estado, canal, numero
-    into v_id, v_rest, v_estado, v_canal, v_num
+  select id, restaurante_id, estado, numero into v_id, v_rest, v_estado, v_num
   from pedidos where token = p_token;
   if v_id is null then raise exception 'Pedido no encontrado'; end if;
   if v_estado <> 'esperando_pago' then
@@ -554,92 +638,16 @@ begin
 
   -- Fuera lo viejo: se rearma completo con lo que el cliente dejó en el carrito.
   delete from pedido_items where pedido_id = v_id;
-
-  insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas)
-  select v_id, pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep,
-         greatest((it->>'cantidad')::int, 1), nullif(it->>'notas','')
-  from jsonb_array_elements(coalesce(p_payload->'items','[]'::jsonb)) it
-  join productos pr on pr.id = (it->>'producto_id')::uuid
-  where pr.restaurante_id = v_rest and pr.activo and pr.disponible;
-
-  for r_combo in select * from jsonb_array_elements(coalesce(p_payload->'combos','[]'::jsonb))
-  loop
-    select pm.id, pm.titulo, pm.precio_combo into v_promo
-    from promociones pm
-    where pm.id = (r_combo->>'promocion_id')::uuid
-      and pm.restaurante_id = v_rest and pm.tipo = 'combo' and pm.activa
-      and (pm.desde is null or pm.desde <= now()) and (pm.hasta is null or pm.hasta >= now())
-      and coalesce(pm.precio_combo, 0) > 0;
-    if v_promo.id is null then raise exception 'El combo ya no está disponible'; end if;
-
-    select coalesce(sum(pr.precio * pi.cantidad),0), count(*) into v_normal, v_n
-    from promocion_items pi join productos pr on pr.id = pi.producto_id
-    where pi.promocion_id = v_promo.id and pr.restaurante_id = v_rest and pr.activo and pr.disponible;
-    if v_n = 0 or v_normal <= 0
-       or v_n <> (select count(*) from promocion_items where promocion_id = v_promo.id) then
-      raise exception 'El combo "%" tiene productos agotados', v_promo.titulo;
-    end if;
-
-    v_cant := greatest(coalesce((r_combo->>'cantidad')::int, 1), 1);
-    for v_n in 1..v_cant loop
-      v_primera := true;
-      for r_item in
-        select pr.id, pr.estacion_id, pr.nombre, pr.precio, pr.minutos_prep, pi.cantidad
-        from promocion_items pi join productos pr on pr.id = pi.producto_id
-        where pi.promocion_id = v_promo.id
-        order by (pr.precio * pi.cantidad) desc, pr.id
-      loop
-        v_unit := (v_promo.precio_combo * r_item.precio) / v_normal;
-        v_resto := 0;
-        if v_primera then
-          v_resto := v_promo.precio_combo - (v_unit * r_item.cantidad)
-                     - (select coalesce(sum(((v_promo.precio_combo * pr2.precio) / v_normal) * pi2.cantidad),0)
-                        from promocion_items pi2 join productos pr2 on pr2.id = pi2.producto_id
-                        where pi2.promocion_id = v_promo.id and pi2.producto_id <> r_item.id);
-        end if;
-
-        if v_resto <> 0 and r_item.cantidad > 1 then
-          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id)
-          values (v_id, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, 1, v_promo.titulo, v_promo.id),
-                 (v_id, r_item.id, r_item.estacion_id, r_item.nombre, v_unit, r_item.minutos_prep, r_item.cantidad - 1, v_promo.titulo, v_promo.id);
-        else
-          insert into pedido_items (pedido_id, producto_id, estacion_id, nombre_snap, precio_snap, minutos_snap, cantidad, notas, promocion_id)
-          values (v_id, r_item.id, r_item.estacion_id, r_item.nombre, v_unit + v_resto, r_item.minutos_prep, r_item.cantidad, v_promo.titulo, v_promo.id);
-        end if;
-        v_primera := false;
-      end loop;
-    end loop;
-  end loop;
+  perform _insertar_items_pedido(v_id, v_rest, p_payload, 1);
 
   if not exists (select 1 from pedido_items where pedido_id = v_id) then
     raise exception 'El pedido no tiene productos disponibles';
   end if;
 
-  select coalesce(sum(precio_snap * cantidad),0) into v_sub from pedido_items where pedido_id = v_id;
+  v_total := _recalcular_totales(v_id);
+  select subtotal, domicilio into v_sub, v_dom from pedidos where id = v_id;
 
-  if v_canal in ('domicilio','whatsapp') then
-    select z.valor into v_zona_valor from zonas_domicilio z
-      join pedidos p on p.zona_id = z.id
-     where p.id = v_id and z.activa;
-    v_zona_valor := coalesce(v_zona_valor, 0);
-
-    select monto_minimo into v_umbral from promociones
-     where restaurante_id = v_rest and tipo = 'envio' and activa
-       and (desde is null or desde <= now()) and (hasta is null or hasta >= now())
-     order by orden limit 1;
-
-    v_dom := case when v_umbral is not null and v_sub >= v_umbral then 0 else v_zona_valor end;
-  end if;
-
-  v_total := v_sub + v_dom;
-
-  update pedidos
-     set subtotal = v_sub, domicilio = v_dom, total = v_total,
-         monto_exacto = v_total, en_edicion = null
-   where id = v_id;
-
-  -- El cobro pendiente sigue el nuevo valor.
-  update pagos set monto = v_total where pedido_id = v_id and estado = 'pendiente';
+  update pedidos set en_edicion = null where id = v_id;
 
   return jsonb_build_object('numero', v_num, 'subtotal', v_sub, 'domicilio', v_dom, 'total', v_total);
 end $$;
@@ -656,40 +664,45 @@ end $$;
 -- Todas las estaciones reciben su comanda AL MISMO TIEMPO, apenas se confirma.
 -- Nadie espera turno: la barra sirve la bebida mientras el asador va con la carne.
 --
--- `disparo_en` se queda en la tabla y vale la hora de confirmación. Es la hora en
--- que empieza a correr el cronómetro de cada estación, y deja la puerta abierta a
--- volver a escalonar sin tocar consultas ni políticas.
+-- Confirma TODAS las rondas que todavía no tienen comanda: la primera, y las que la
+-- mesa fue pidiendo por el QR sin cerrar la cuenta. Por eso el mesero puede tocar
+-- "confirmar" varias veces sobre la misma cuenta sin repetir nada de lo ya despachado.
 --
--- `objetivo_en` del pedido sigue siendo la hora comprometida de salida: la del
--- plato más lento, porque es cuando la mesa tiene todo servido.
+-- `disparo_en` se queda en la tabla y vale la hora de confirmación: es cuando empieza
+-- a correr el cronómetro de cada estación.
 -- =====================================================================
 create or replace function confirmar_pedido(p_pedido uuid)
 returns void
 language plpgsql security definer set search_path = public as $$
-declare v_max int; v_conf timestamptz := now(); v_rest uuid;
+declare v_max int; v_conf timestamptz := now(); v_rest uuid; v_nuevas int;
 begin
   select restaurante_id into v_rest from pedidos where id = p_pedido;
   if v_rest is null or v_rest <> mi_restaurante() then
     raise exception 'No autorizado';
   end if;
 
-  select max(m) into v_max from (
-    select max(minutos_snap) m from pedido_items
-    where pedido_id = p_pedido and ronda = 1 group by estacion_id
-  ) s;
-  if v_max is null then raise exception 'Pedido sin items'; end if;
-
   insert into comandas (pedido_id, estacion_id, minutos, disparo_en, estado, ronda)
-  select p_pedido, pi.estacion_id, max(pi.minutos_snap), v_conf, 'pendiente', 1
+  select p_pedido, pi.estacion_id, max(pi.minutos_snap), v_conf, 'pendiente', pi.ronda
   from pedido_items pi
-  where pi.pedido_id = p_pedido and pi.ronda = 1
-  group by pi.estacion_id
+  where pi.pedido_id = p_pedido
+    and not exists (
+      select 1 from comandas c where c.pedido_id = p_pedido and c.ronda = pi.ronda
+    )
+  group by pi.ronda, pi.estacion_id
   on conflict (pedido_id, estacion_id, ronda) do nothing;
 
+  get diagnostics v_nuevas = row_count;
+  if v_nuevas = 0 then raise exception 'No hay nada nuevo por confirmar en esta cuenta'; end if;
+
+  select max(minutos_snap) into v_max from pedido_items where pedido_id = p_pedido;
+
   update pedidos
-     set estado = 'en_cocina', confirmado_en = v_conf,
-         objetivo_en = v_conf + make_interval(mins => v_max),
-         confirmado_por = auth.uid()
+     set estado = 'en_cocina',
+         confirmado_en = coalesce(confirmado_en, v_conf),
+         objetivo_en = v_conf + make_interval(mins => coalesce(v_max, 0)),
+         confirmado_por = auth.uid(),
+         ronda_pendiente_en = null,
+         servido_en = null
    where id = p_pedido;
 end $$;
 
@@ -830,9 +843,10 @@ begin
 
   -- La cuenta vuelve a cocina: lo que ya se sirvió queda servido, pero el pedido
   -- no está listo hasta que salga también la ronda nueva.
+  -- Lo que suma el equipo entra ya aprobado: nadie lo tiene que volver a confirmar.
   update pedidos
      set subtotal = v_sub, total = v_total, monto_exacto = v_total,
-         estado = 'en_cocina', servido_en = null,
+         estado = 'en_cocina', servido_en = null, ronda_pendiente_en = null,
          objetivo_en = greatest(coalesce(objetivo_en, v_conf),
                                 v_conf + make_interval(mins => v_max))
    where id = p_pedido;
@@ -860,17 +874,21 @@ begin
   update pedidos set servido_en = now() where id = p_pedido;
 end $$;
 
--- Verificar una transferencia: caja la aprueba y el pedido entra a cocina.
--- Al aprobar deja TAMBIÉN el ingreso en el turno abierto. Sin eso la plata de
--- las transferencias no entra al arqueo y la caja miente al cerrar.
+-- Verificar una transferencia. Cubre los dos casos: la que el cliente mandó antes de
+-- que se cocinara (aprobarla manda el pedido a cocina) y la que el domiciliario reportó
+-- en la puerta cuando el cliente cambió de opinión (la comida ya se entregó, así que
+-- aprobarla cierra la cuenta).
+-- En ambos deja el ingreso en el turno abierto. Sin eso la plata de las transferencias
+-- no entra al arqueo y la caja miente al cerrar.
 create or replace function verificar_transferencia(p_pedido uuid, p_ok boolean, p_motivo text default null)
 returns void
 language plpgsql security definer set search_path = public as $$
-declare v_turno uuid; v_monto bigint; v_rest uuid;
+declare v_turno uuid; v_monto bigint; v_rest uuid; v_estado estado_pedido;
 begin
   if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
 
-  select restaurante_id, monto_exacto into v_rest, v_monto from pedidos where id = p_pedido;
+  select restaurante_id, coalesce(monto_exacto, total), estado
+    into v_rest, v_monto, v_estado from pedidos where id = p_pedido;
   if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
 
   if p_ok then
@@ -882,11 +900,20 @@ begin
 
     update pagos set estado='verificado', verificado_por=auth.uid(), verificado_en=now()
       where pedido_id = p_pedido and medio='transferencia';
-    update pedidos set estado='pendiente' where id = p_pedido and estado='esperando_pago';
-    perform confirmar_pedido(p_pedido);
 
     insert into caja_movimientos (turno_id, tipo, medio, monto, pedido_id, usuario_id)
     values (v_turno, 'ingreso', 'transferencia', coalesce(v_monto,0), p_pedido, auth.uid());
+
+    if v_estado = 'esperando_pago' then
+      -- La transferencia que el cliente mandó ANTES de cocinar: aprobarla es darle
+      -- salida al pedido.
+      update pedidos set estado = 'pendiente' where id = p_pedido;
+      perform confirmar_pedido(p_pedido);
+    else
+      -- La que el domiciliario reportó en la puerta: la comida ya se entregó, así que
+      -- verificarla es lo último que le faltaba a esa cuenta.
+      update pedidos set estado = 'cerrado' where id = p_pedido and estado <> 'anulado';
+    end if;
   else
     update pagos set estado='rechazado', verificado_por=auth.uid(), verificado_en=now()
       where pedido_id = p_pedido and medio='transferencia';
@@ -961,6 +988,84 @@ begin
    where id = p_pedido and estado <> 'anulado';
 end $$;
 
+-- =====================================================================
+-- COBRO REPARTIDO ENTRE VARIOS MEDIOS
+-- "Le pago $50.000 en efectivo y el resto con la tarjeta". Una cuenta, varios
+-- medios: se manda una lista [{medio, monto}, …] y la base deja UNA fila en `pagos`
+-- y UN movimiento de caja por cada medio, así el arqueo cuadra por medio sin que
+-- nadie tenga que repartir nada a mano.
+--
+-- La suma tiene que dar EXACTO lo que vale la cuenta más la propina. Si no cuadra
+-- la función lo dice con los dos números, para que caja corrija antes de cobrar y
+-- no quede una diferencia que aparezca recién al cerrar el turno.
+--
+-- La propina se anota entera sobre el medio de mayor monto: el total de propinas
+-- del turno queda exacto, que es lo que el arqueo necesita para separarla de la venta.
+-- =====================================================================
+create or replace function registrar_cobro_mixto(
+  p_pedido uuid, p_pagos jsonb, p_propina bigint default 0
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_turno uuid; v_rest uuid; v_total bigint; v_propina bigint;
+  v_suma bigint; v_n int; v_medio_unico medio_pago; r record;
+begin
+  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  v_turno := turno_abierto();
+  if v_turno is null then raise exception 'Abre un turno antes de cobrar'; end if;
+
+  select restaurante_id, total into v_rest, v_total from pedidos where id = p_pedido;
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+
+  v_propina := greatest(coalesce(p_propina, 0), 0);
+
+  select coalesce(sum(monto), 0), count(*), min(medio) filter (where true)
+    into v_suma, v_n, v_medio_unico
+  from (
+    select (x->>'medio')::medio_pago as medio, (x->>'monto')::bigint as monto
+    from jsonb_array_elements(coalesce(p_pagos, '[]'::jsonb)) x
+    where nullif(x->>'medio','') is not null
+      and coalesce((x->>'monto')::bigint, 0) > 0
+  ) t;
+
+  if v_n = 0 then raise exception 'Escoge al menos un medio de pago'; end if;
+  if exists (
+    select 1 from jsonb_array_elements(p_pagos) x where (x->>'medio')::medio_pago = 'mesa'
+  ) then raise exception 'Escoge medios de pago reales'; end if;
+
+  if v_suma <> v_total + v_propina then
+    raise exception 'Los pagos suman % y la cuenta con propina es %. Ajusta los montos.',
+      v_suma, v_total + v_propina;
+  end if;
+
+  for r in
+    select (x->>'medio')::medio_pago as medio, (x->>'monto')::bigint as monto
+    from jsonb_array_elements(p_pagos) x
+    where nullif(x->>'medio','') is not null
+      and coalesce((x->>'monto')::bigint, 0) > 0
+  loop
+    insert into pagos (pedido_id, medio, monto, estado, verificado_por, verificado_en)
+    values (p_pedido, r.medio, r.monto, 'verificado', auth.uid(), now());
+
+    insert into caja_movimientos (turno_id, tipo, medio, monto, pedido_id, usuario_id)
+    values (v_turno, 'ingreso', r.medio, r.monto, p_pedido, auth.uid());
+  end loop;
+
+  if v_propina > 0 then
+    update caja_movimientos set propina = v_propina
+     where id = (
+       select id from caja_movimientos
+        where turno_id = v_turno and pedido_id = p_pedido and tipo = 'ingreso'
+        order by monto desc, id limit 1
+     );
+  end if;
+
+  update pedidos
+     set estado = 'cerrado', propina = v_propina,
+         medio_pago = case when v_n = 1 then v_medio_unico else 'mixto'::medio_pago end
+   where id = p_pedido and estado <> 'anulado';
+end $$;
+
 -- contraentrega: caja confirma un pedido en efectivo y entra a cocina.
 -- El efectivo se cobra al entregar (se legaliza en la fase del domiciliario).
 create or replace function confirmar_contraentrega(p_pedido uuid) returns void
@@ -1021,14 +1126,17 @@ begin
     raise exception 'Quedan % pedido(s) sin cerrar (en cocina, por despachar o por cobrar). Ciérralos o anúlalos antes de cerrar la caja.', v_abiertos;
   end if;
 
-  -- Efectivo de domiciliarios que aún no entró a la caja.
+  -- Entregas ya hechas que todavía no tienen la plata en caja: el efectivo que trae
+  -- el domiciliario y las transferencias que reportó en la puerta. Cerrar el turno con
+  -- alguna de estas pendiente sería dar el día por cuadrado debiendo plata.
   select count(*) into v_por_legalizar
-  from pedidos
-  where restaurante_id = mi_restaurante()
-    and estado = 'entregado' and medio_pago = 'efectivo';
+  from pedidos p
+  where p.restaurante_id = mi_restaurante()
+    and p.estado = 'entregado'
+    and not exists (select 1 from pagos g where g.pedido_id = p.id and g.estado = 'verificado');
 
   if v_por_legalizar > 0 then
-    raise exception 'Hay % entrega(s) en efectivo sin legalizar. Recibe esa plata antes de cerrar la caja.', v_por_legalizar;
+    raise exception 'Hay % entrega(s) sin cobrar. Recibe el efectivo y verifica las transferencias antes de cerrar la caja.', v_por_legalizar;
   end if;
 
   select coalesce(sum(monto) filter (where tipo in ('ingreso','legalizacion') and medio = 'efectivo'),0),
@@ -1098,8 +1206,8 @@ begin
   update pedidos set estado = 'en_camino' where id = p_pedido;
 end $$;
 
--- el domiciliario entrega. Si es efectivo, queda 'entregado' con el efectivo por legalizar
--- en caja; si ya venía pago, se cierra directo.
+-- El domiciliario entrega. Si ya venía pago, se cierra; si no, queda 'entregado' y es
+-- caja quien recibe la plata: el efectivo al legalizar, la transferencia al verificarla.
 create or replace function entregar_pedido(p_pedido uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare v_domi uuid; v_estado estado_pedido; v_medio medio_pago;
@@ -1110,11 +1218,52 @@ begin
   if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
   if v_estado <> 'en_camino' then raise exception 'El pedido no está en camino'; end if;
 
+  -- Solo se cierra lo que YA está pago (transferencia aprobada antes de salir, o
+  -- pasarela). Todo lo demás queda 'entregado': el efectivo que trae el domiciliario
+  -- y las transferencias que el cliente prometió pagar. Cerrarlo aquí sería dar por
+  -- cobrada una plata que nadie ha recibido.
   update pedidos
-     set estado = case when v_medio = 'efectivo' then 'entregado'::estado_pedido
-                       else 'cerrado'::estado_pedido end,
+     set estado = case
+           when exists (select 1 from pagos where pedido_id = p_pedido and estado = 'verificado')
+             then 'cerrado'::estado_pedido
+           else 'entregado'::estado_pedido
+         end,
          entregado_en = now()
    where id = p_pedido;
+end $$;
+
+-- El cliente dijo en la puerta que ya no paga en efectivo sino por transferencia.
+-- El domiciliario lo marca desde su celular y deja de traer esa plata; caja recibe la
+-- alerta y es quien verifica la transferencia y la mete al turno. Nunca cierra el
+-- pedido: cerrarlo aquí sería dar por cobrado algo que todavía nadie recibió.
+create or replace function cambiar_a_transferencia(p_pedido uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_domi uuid; v_estado estado_pedido; v_total bigint;
+begin
+  if mi_rol() <> 'domicilio' then raise exception 'Solo el domiciliario'; end if;
+
+  select domiciliario_id, estado, total into v_domi, v_estado, v_total
+    from pedidos where id = p_pedido;
+  if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
+  if v_estado not in ('en_despacho','en_camino','entregado') then
+    raise exception 'Ese pedido no está en reparto';
+  end if;
+  if exists (select 1 from pagos where pedido_id = p_pedido and estado = 'verificado') then
+    raise exception 'Ese pedido ya está pago';
+  end if;
+
+  update pedidos set medio_pago = 'transferencia', pago_cambiado_en = now()
+   where id = p_pedido;
+
+  -- Deja el cobro pendiente para que caja lo verifique, sin duplicarlo.
+  update pagos set medio = 'transferencia'
+   where pedido_id = p_pedido and estado = 'pendiente';
+
+  insert into pagos (pedido_id, medio, monto, estado)
+  select p_pedido, 'transferencia', v_total, 'pendiente'
+  where not exists (
+    select 1 from pagos where pedido_id = p_pedido and estado = 'pendiente'
+  );
 end $$;
 
 -- no se pudo entregar: vuelve a despacho con el motivo, para que pase o caja decidan
@@ -1625,6 +1774,8 @@ end $$;
 -- Postgres da EXECUTE a PUBLIC por defecto. Se quita y se da solo lo justo.
 -- =====================================================================
 revoke all on function _comanda_listo() from public, anon, authenticated;
+revoke all on function _insertar_items_pedido(uuid, uuid, jsonb, int) from public, anon, authenticated;
+revoke all on function _recalcular_totales(uuid) from public, anon, authenticated;
 
 -- helpers de sesión: staff autenticado
 revoke all on function mi_restaurante() from public, anon;
@@ -1665,12 +1816,14 @@ grant execute on function marcar_servido(uuid) to authenticated;
 revoke all on function turno_abierto() from public, anon;
 revoke all on function abrir_turno(bigint) from public, anon;
 revoke all on function registrar_cobro(uuid, medio_pago, bigint, bigint) from public, anon;
+revoke all on function registrar_cobro_mixto(uuid, jsonb, bigint) from public, anon;
 revoke all on function confirmar_contraentrega(uuid) from public, anon;
 revoke all on function anular_pedido(uuid, text) from public, anon;
 revoke all on function cerrar_turno(bigint, text) from public, anon;
 grant execute on function turno_abierto() to authenticated;
 grant execute on function abrir_turno(bigint) to authenticated;
 grant execute on function registrar_cobro(uuid, medio_pago, bigint, bigint) to authenticated;
+grant execute on function registrar_cobro_mixto(uuid, jsonb, bigint) to authenticated;
 grant execute on function confirmar_contraentrega(uuid) to authenticated;
 grant execute on function anular_pedido(uuid, text) to authenticated;
 grant execute on function cerrar_turno(bigint, text) to authenticated;
@@ -1680,11 +1833,13 @@ revoke all on function asignar_domiciliario(uuid, uuid) from public, anon;
 revoke all on function recoger_pedido(uuid) from public, anon;
 revoke all on function entregar_pedido(uuid) from public, anon;
 revoke all on function fallo_entrega(uuid, text) from public, anon;
+revoke all on function cambiar_a_transferencia(uuid) from public, anon;
 revoke all on function legalizar_domiciliario(uuid) from public, anon;
 grant execute on function asignar_domiciliario(uuid, uuid) to authenticated;
 grant execute on function recoger_pedido(uuid) to authenticated;
 grant execute on function entregar_pedido(uuid) to authenticated;
 grant execute on function fallo_entrega(uuid, text) to authenticated;
+grant execute on function cambiar_a_transferencia(uuid) to authenticated;
 grant execute on function legalizar_domiciliario(uuid) to authenticated;
 
 -- reportes y equipo

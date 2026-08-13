@@ -46,6 +46,7 @@ import {
   confirmarContraentrega,
   legalizarDomiciliario,
   registrarCobro,
+  registrarCobroMixto,
   verificarTransferencia,
   type ArqueoCierre,
 } from './acciones'
@@ -86,6 +87,24 @@ export type PorLegalizar = {
   nombre: string
   total: number
   pedidos: number
+  /** Qué pedidos componen esa plata: el domiciliario y caja cuentan sobre lo mismo. */
+  detalle: { numero: number; total: number; cliente: string | null }[]
+}
+/** Una entrega ya hecha cuya plata todavía no está en caja. */
+export type Entregado = {
+  pedido_id: string
+  numero: number
+  total: number
+  cliente: string | null
+  direccion: string | null
+  zona: string | null
+  entregado_en: string | null
+  domiciliario_id: string | null
+  domiciliario_nombre: string | null
+  /** El cliente pagó (o va a pagar) por transferencia: la cobra caja, no el domiciliario. */
+  transferencia: boolean
+  /** El domiciliario avisó del cambio desde la puerta. */
+  cambio_reportado: boolean
 }
 export type Despacho = {
   pedido_id: string
@@ -103,7 +122,9 @@ export type Despacho = {
 }
 export type Domiciliario = { id: string; nombre: string }
 
-const MEDIOS: { valor: 'efectivo' | 'transferencia' | 'datafono'; nombre: string }[] = [
+type MedioReal = 'efectivo' | 'transferencia' | 'datafono'
+
+const MEDIOS: { valor: MedioReal; nombre: string }[] = [
   { valor: 'efectivo', nombre: 'Efectivo' },
   { valor: 'transferencia', nombre: 'Transferencia' },
   { valor: 'datafono', nombre: 'Datáfono' },
@@ -114,6 +135,7 @@ const NOMBRE_MEDIO: Record<string, string> = {
   transferencia: 'Transferencia',
   datafono: 'Datáfono',
   pasarela: 'Pasarela',
+  mixto: 'Pago repartido',
 }
 
 /** Identidad visual de cada medio de pago: ícono + color fijo del sistema. */
@@ -125,6 +147,7 @@ const MEDIO_INFO: Record<
   transferencia: { Icono: IconoIntercambio, color: '#2E9E8F' },
   datafono: { Icono: IconoTarjeta, color: '#5B6BF0' },
   pasarela: { Icono: IconoGlobo, color: MARCA.naranja },
+  mixto: { Icono: IconoIntercambio, color: '#7C3AED' },
 }
 
 type Props = {
@@ -135,6 +158,7 @@ type Props = {
   contraentregas: Contraentrega[]
   porCobrar: PorCobrar[]
   porLegalizar: PorLegalizar[]
+  entregados: Entregado[]
   despachos: Despacho[]
   domiciliarios: Domiciliario[]
   categorias: CategoriaElegible[]
@@ -154,6 +178,7 @@ export function CajaCliente(props: Props) {
     contraentregas,
     porCobrar,
     porLegalizar,
+    entregados,
     despachos,
     domiciliarios,
     categorias,
@@ -185,6 +210,7 @@ export function CajaCliente(props: Props) {
     ...contraentregas.map((c) => ({ tipo: 'confirmar' as const, key: c.pedido_id, contraentrega: c })),
     ...porCobrar.map((p) => ({ tipo: 'cobrar' as const, key: p.pedido_id, cobro: p })),
     ...despachos.map((d) => ({ tipo: 'despachar' as const, key: d.pedido_id, despacho: d })),
+    ...entregados.map((e) => ({ tipo: 'entregado' as const, key: e.pedido_id, entregado: e })),
   ]
 
   const conteos = {
@@ -193,14 +219,20 @@ export function CajaCliente(props: Props) {
     confirmar: contraentregas.length,
     cobrar: porCobrar.length,
     despachar: despachos.length,
+    entregado: entregados.length,
   }
   const [filtro, setFiltro] =
-    useState<'todos' | 'verificar' | 'confirmar' | 'cobrar' | 'despachar'>('todos')
+    useState<'todos' | 'verificar' | 'confirmar' | 'cobrar' | 'despachar' | 'entregado'>('todos')
   const visibles = filtro === 'todos' ? filas : filas.filter((f) => f.tipo === filtro)
 
   // Suena cuando entra un domicilio por confirmar o cuando cocina deja uno por despachar:
   // las dos cosas que caja tiene que atender sin que nadie le avise de viva voz.
-  const aviso = useAviso(soloLectura ? 0 : contraentregas.length + despachos.length)
+  // Suena cuando entra un domicilio por confirmar, cuando cocina deja uno por despachar
+  // y cuando el domiciliario entrega: las tres cosas que caja tiene que atender sin que
+  // nadie le avise de viva voz.
+  const aviso = useAviso(
+    soloLectura ? 0 : contraentregas.length + despachos.length + entregados.length,
+  )
 
   // La trazabilidad del turno se puede plegar, pero por defecto acompaña a la caja.
   const [verCobrados, setVerCobrados] = useState(true)
@@ -212,6 +244,7 @@ export function CajaCliente(props: Props) {
     { valor: 'confirmar', etiqueta: `Por confirmar · ${conteos.confirmar}` },
     { valor: 'cobrar', etiqueta: `Por cobrar · ${conteos.cobrar}` },
     { valor: 'despachar', etiqueta: `Domicilios · ${conteos.despachar}` },
+    { valor: 'entregado', etiqueta: `Entregados sin cobrar · ${conteos.entregado}` },
   ] as const
 
   return (
@@ -341,9 +374,13 @@ export function CajaCliente(props: Props) {
 
       {porLegalizar.length > 0 ? (
         <section className="pt-2">
-          <h2 className="mb-2 text-sm font-semibold text-marca-texto">
-            Efectivo de domiciliarios por legalizar
+          <h2 className="mb-1 text-sm font-semibold text-marca-texto">
+            Efectivo que traen los domiciliarios
           </h2>
+          <p className="mb-2 text-xs text-marca-texto-suave">
+            No vuelven a caja después de cada entrega: cobran en la calle y entregan todo
+            junto. El turno no cierra mientras quede algo aquí.
+          </p>
           <div className="space-y-2.5">
             {porLegalizar.map((l) => (
               <TarjetaLegalizar
@@ -529,6 +566,7 @@ type FilaCaja =
   | { tipo: 'confirmar'; key: string; contraentrega: Contraentrega }
   | { tipo: 'cobrar'; key: string; cobro: PorCobrar }
   | { tipo: 'despachar'; key: string; despacho: Despacho }
+  | { tipo: 'entregado'; key: string; entregado: Entregado }
 
 /** Colores del borde izquierdo por estado (código de un vistazo). */
 const BORDE = {
@@ -536,6 +574,7 @@ const BORDE = {
   confirmar: '#D99A06', // ámbar
   cobrar: '#1E9E6A', // verde
   despachar: '#2563EB', // azul: empacado, esperando quién lo lleve
+  entregado: '#7C3AED', // morado: en manos del cliente, la plata todavía no
 }
 
 function EnvolturaFila({
@@ -613,6 +652,9 @@ function FilaPedido({
         soloLectura={soloLectura}
       />
     )
+  }
+  if (fila.tipo === 'entregado') {
+    return <FilaEntregado e={fila.entregado} indice={indice} soloLectura={soloLectura} />
   }
   if (fila.tipo === 'verificar') {
     return (
@@ -816,30 +858,53 @@ function FilaCobrar({
   indice: number
   soloLectura: boolean
 }) {
-  const [medio, setMedio] = useState<'efectivo' | 'transferencia' | 'datafono'>('efectivo')
+  const [medio, setMedio] = useState<MedioReal>('efectivo')
   const [abierto, setAbierto] = useState(false)
   const [propina, setPropina] = useState('')
+  const [repartido, setRepartido] = useState(false)
+  const [montos, setMontos] = useState<Record<MedioReal, string>>({
+    efectivo: '',
+    transferencia: '',
+    datafono: '',
+  })
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { mostrar } = useToast()
 
   const valorPropina = Number(propina) || 0
   const aCobrar = p.total + valorPropina
+  const repartidoTotal = MEDIOS.reduce((s, m) => s + (Number(montos[m.valor]) || 0), 0)
+  const falta = aCobrar - repartidoTotal
 
   async function cobrar() {
     setOcupado(true)
     setError(null)
-    const r = await registrarCobro(p.pedido_id, medio, valorPropina)
+    const r = repartido
+      ? await registrarCobroMixto(
+          p.pedido_id,
+          MEDIOS.map((m) => ({ medio: m.valor, monto: Number(montos[m.valor]) || 0 })),
+          valorPropina,
+        )
+      : await registrarCobro(p.pedido_id, medio, valorPropina)
     if (!r.ok) {
       setError(r.error)
       setOcupado(false)
     } else {
       mostrar(
         valorPropina > 0
-          ? `Cobrado ${formatearPesos(aCobrar)} · ${NOMBRE_MEDIO[medio]} (propina ${formatearPesos(valorPropina)})`
-          : `Cobrado ${formatearPesos(p.total)} · ${NOMBRE_MEDIO[medio]}`,
+          ? `Cobrado ${formatearPesos(aCobrar)} (propina ${formatearPesos(valorPropina)})`
+          : `Cobrado ${formatearPesos(aCobrar)}`,
       )
     }
+  }
+
+  /** Reparte el faltante en el medio que se toque: un toque y ya cuadra. */
+  function completar(m: MedioReal) {
+    const otros = MEDIOS.filter((x) => x.valor !== m).reduce(
+      (s, x) => s + (Number(montos[x.valor]) || 0),
+      0,
+    )
+    setMontos({ ...montos, [m]: String(Math.max(0, aCobrar - otros)) })
   }
 
   return (
@@ -862,31 +927,96 @@ function FilaCobrar({
       ) : (
       <div className="flex flex-col items-end gap-2">
         {abierto ? (
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            {MEDIOS.map((m) => (
+          <div className="flex flex-col items-end gap-2">
+            {repartido ? (
+              /* Una cuenta, varios medios. Cada renglón tiene un botón que le mete
+                 lo que falte, para no hacer restas de cabeza frente al cliente. */
+              <div className="flex flex-col items-end gap-1.5">
+                {MEDIOS.map((m) => (
+                  <div key={m.valor} className="flex items-center gap-1.5">
+                    <label
+                      className="w-24 text-right text-xs text-marca-texto-suave"
+                      htmlFor={`m-${m.valor}-${p.pedido_id}`}
+                    >
+                      {m.nombre}
+                    </label>
+                    <input
+                      id={`m-${m.valor}-${p.pedido_id}`}
+                      inputMode="numeric"
+                      value={montos[m.valor]}
+                      onChange={(e) =>
+                        setMontos({ ...montos, [m.valor]: e.target.value.replace(/\D/g, '') })
+                      }
+                      placeholder="0"
+                      className="min-h-9 w-28 rounded-lg border border-marca-borde bg-marca-fondo px-2 text-right text-sm tabular-nums text-marca-texto"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => completar(m.valor)}
+                      className="min-h-9 rounded-lg border border-marca-borde px-2 text-xs text-marca-texto-suave"
+                    >
+                      El resto
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {MEDIOS.map((m) => (
+                  <button
+                    key={m.valor}
+                    type="button"
+                    onClick={() => setMedio(m.valor)}
+                    aria-pressed={medio === m.valor}
+                    className={`min-h-9 rounded-lg border px-2 text-xs ${
+                      medio === m.valor
+                        ? 'border-marca-acento bg-marca-acento font-medium text-marca-acento-texto'
+                        : 'border-marca-borde text-marca-texto'
+                    }`}
+                  >
+                    {m.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
               <button
-                key={m.valor}
                 type="button"
-                onClick={() => setMedio(m.valor)}
-                aria-pressed={medio === m.valor}
-                className={`min-h-9 rounded-lg border px-2 text-xs ${
-                  medio === m.valor
-                    ? 'border-marca-acento bg-marca-acento font-medium text-marca-acento-texto'
-                    : 'border-marca-borde text-marca-texto'
+                onClick={() => setRepartido(!repartido)}
+                className="min-h-9 rounded-lg border border-marca-borde px-2 text-xs text-marca-texto-suave"
+              >
+                {repartido ? 'Un solo medio' : 'Dividir el pago'}
+              </button>
+              <Propina
+                pedidoId={p.pedido_id}
+                valor={propina}
+                onCambiar={setPropina}
+                base={p.total}
+              />
+              <Boton
+                variante="negro"
+                className="px-4"
+                onClick={cobrar}
+                disabled={ocupado || (repartido && falta !== 0)}
+              >
+                Cobrar
+              </Boton>
+            </div>
+
+            {repartido ? (
+              <p
+                className={`text-xs font-semibold tabular-nums ${
+                  falta === 0 ? 'text-[#116B47]' : 'text-marca-acento-fuerte'
                 }`}
               >
-                {m.nombre}
-              </button>
-            ))}
-            <Propina
-              pedidoId={p.pedido_id}
-              valor={propina}
-              onCambiar={setPropina}
-              base={p.total}
-            />
-            <Boton variante="negro" className="px-4" onClick={cobrar} disabled={ocupado}>
-              Cobrar
-            </Boton>
+                {falta === 0
+                  ? `Cuadra: ${formatearPesos(aCobrar)}`
+                  : falta > 0
+                    ? `Faltan ${formatearPesos(falta)}`
+                    : `Sobran ${formatearPesos(-falta)}`}
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="flex items-center gap-2">
@@ -1052,6 +1182,83 @@ function FilaDespachar({
           </div>
           {error ? <Error texto={error} /> : null}
         </div>
+      )}
+    </EnvolturaFila>
+  )
+}
+
+/**
+ * Una entrega que el cliente ya tiene en la mano y cuya plata todavía no está en caja.
+ *
+ * El domiciliario no vuelve a la caja después de cada domicilio: sale con varios, cobra
+ * en la calle y entrega todo junto al final. Así que estas filas se van acumulando y son
+ * la lista de lo que hay que recibirle antes de cerrar el turno.
+ *
+ * Si el cliente cambió de opinión en la puerta y prefirió transferir, el domiciliario lo
+ * marca desde su celular y la fila cambia: esa plata no la trae él, la verifica caja.
+ */
+function FilaEntregado({
+  e,
+  indice,
+  soloLectura,
+}: {
+  e: Entregado
+  indice: number
+  soloLectura: boolean
+}) {
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
+
+  async function verificar() {
+    setOcupado(true)
+    setError(null)
+    const r = await verificarTransferencia(e.pedido_id, true)
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+      return
+    }
+    mostrar(`Transferencia del #${e.numero} verificada`)
+  }
+
+  return (
+    <EnvolturaFila borde={BORDE.entregado} indice={indice}>
+      <ColPedido
+        titulo={`#${e.numero}`}
+        pastilla={e.transferencia ? 'Va a transferir' : 'Efectivo en la calle'}
+        tono={e.transferencia ? 'ambar' : 'azul'}
+        sub={e.domiciliario_nombre ? `Lo llevó ${e.domiciliario_nombre}` : 'Entregado'}
+      />
+
+      <div className="min-w-0">
+        <ColCliente nombre={e.cliente} telefono={null} extra={e.zona} />
+        {e.cambio_reportado ? (
+          <p className="mt-1 flex items-center gap-1 text-xs text-marca-acento-fuerte">
+            <IconoAlerta className="size-3.5" />
+            El domiciliario avisó que el cliente prefirió transferir
+          </p>
+        ) : null}
+      </div>
+
+      <div className="sm:text-left">
+        <p className="text-lg font-bold text-marca-texto">{formatearPesos(e.total)}</p>
+        <p className="text-xs text-marca-texto-suave">
+          {e.transferencia ? 'Lo cobra caja' : 'Lo trae el domiciliario'}
+        </p>
+      </div>
+
+      {soloLectura ? (
+        <EstadoSoloLectura texto={e.transferencia ? 'Por verificar' : 'Por recibir'} />
+      ) : e.transferencia ? (
+        <div className="flex flex-col items-end gap-1.5">
+          <Boton variante="exito" className="px-4" onClick={verificar} disabled={ocupado}>
+            {ocupado ? 'Verificando…' : 'Ya llegó la transferencia'}
+          </Boton>
+          {error ? <Error texto={error} /> : null}
+        </div>
+      ) : (
+        <EstadoSoloLectura texto="Se recibe al cierre" />
       )}
     </EnvolturaFila>
   )
@@ -1506,8 +1713,25 @@ function TarjetaLegalizar({
         </p>
       </div>
       <p className="mt-1 text-sm text-marca-texto-suave">
-        {liquidacion.pedidos} {liquidacion.pedidos === 1 ? 'entrega' : 'entregas'} en efectivo por recibir.
+        {liquidacion.pedidos} {liquidacion.pedidos === 1 ? 'entrega' : 'entregas'} en efectivo
+        por recibir.
       </p>
+
+      {/* El detalle importa: el domiciliario y caja cuentan sobre la misma lista, y si
+          falta plata se ve enseguida cuál pedido es. */}
+      <ul className="mt-3 divide-y divide-marca-borde border-t border-marca-borde">
+        {liquidacion.detalle.map((d) => (
+          <li key={d.numero} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+            <span className="min-w-0 truncate text-marca-texto">
+              <span className="font-semibold tabular-nums">#{d.numero}</span>
+              {d.cliente ? <span className="text-marca-texto-suave"> · {d.cliente}</span> : null}
+            </span>
+            <span className="shrink-0 tabular-nums text-marca-texto">
+              {formatearPesos(d.total)}
+            </span>
+          </li>
+        ))}
+      </ul>
 
       {error ? <Error texto={error} /> : null}
 
