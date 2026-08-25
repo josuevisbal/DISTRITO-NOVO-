@@ -11,12 +11,20 @@ import {
   YAxis,
 } from 'recharts'
 
-import { IconoBillete, IconoBolsa, IconoEtiqueta, IconoGrafica, IconoReloj } from '@/components/iconos'
+import {
+  IconoBillete,
+  IconoBolsa,
+  IconoCorazon,
+  IconoEtiqueta,
+  IconoGrafica,
+  IconoReloj,
+} from '@/components/iconos'
 import { Segmentado } from '@/components/segmentado'
 import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
 import { Vacio } from '@/components/ui/vacio'
 import { MARCA } from '@/config/tema'
 import { formatearPesos } from '@/lib/formato'
+import { PropinasPorDia, type PropinaDia } from './propinas'
 
 export type ReporteMes = {
   total_ventas: number
@@ -35,6 +43,8 @@ type Props = {
   mesSeleccionado: MesRef
   nombreMesAnterior: string
   meses: MesRef[]
+  propinas: PropinaDia[]
+  propinasMesAnterior: number
   rentabilidad: ReactNode
 }
 
@@ -44,9 +54,14 @@ export function ReportesCliente({
   mesSeleccionado,
   nombreMesAnterior,
   meses,
+  propinas,
+  propinasMesAnterior,
   rentabilidad,
 }: Props) {
   const router = useRouter()
+
+  const totalPropinas = propinas.reduce((s, d) => s + d.propina, 0)
+  const diasConPropina = propinas.filter((d) => d.propina > 0).length
 
   const totalEstaciones = Math.max(
     1,
@@ -81,7 +96,7 @@ export function ReportesCliente({
       </div>
 
       {/* KPIs con la tarjeta-indicador estándar y comparación vs mes anterior. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <TarjetaKpi
           titulo="Ventas del mes"
           valor={actual.total_ventas}
@@ -116,6 +131,23 @@ export function ReportesCliente({
             contra: nombreMesAnterior,
           }}
           indice={2}
+        />
+        {/* La propina no es venta: se muestra al lado, nunca sumada al total del mes. */}
+        <TarjetaKpi
+          titulo="Propinas del mes"
+          valor={totalPropinas}
+          dinero
+          color="#C2452F"
+          Icono={IconoCorazon}
+          sub={{
+            texto:
+              diasConPropina === 1 ? '1 día con propina' : `${diasConPropina} días con propina`,
+          }}
+          variacion={{
+            pct: variacionPct(totalPropinas, propinasMesAnterior),
+            contra: nombreMesAnterior,
+          }}
+          indice={3}
         />
       </div>
 
@@ -175,6 +207,8 @@ export function ReportesCliente({
           )}
         </section>
       </div>
+
+      <PropinasPorDia datos={propinas} mes={mesSeleccionado.etiqueta} />
 
       {rentabilidad}
     </div>

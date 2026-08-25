@@ -1,6 +1,7 @@
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { mesActual, nombreDeMes, rangoDeMesISO, zonaDelNegocio } from '@/lib/zona-horaria'
+import { type PropinaDia } from './propinas'
 import { Rentabilidad, type DatosRentabilidad } from './rentabilidad'
 import { ReportesCliente, type ReporteMes } from './reportes-cliente'
 
@@ -46,9 +47,16 @@ export default async function PaginaReportes({
   const rangoPrev = rangoDeMesISO(prev.anio, prev.mes)
   const zona = zonaDelNegocio()
 
-  const [actualRes, anteriorRes] = await Promise.all([
+  const [actualRes, anteriorRes, propinasRes, propinasPrevRes] = await Promise.all([
     supabase.rpc('reporte_rango', { p_desde: rango.desde, p_hasta: rango.hasta, p_zona: zona }),
     supabase.rpc('reporte_rango', {
+      p_desde: rangoPrev.desde,
+      p_hasta: rangoPrev.hasta,
+      p_zona: zona,
+    }),
+    // La propina va aparte de la venta: tiene su propia consulta y su propia lista.
+    supabase.rpc('propinas_por_dia', { p_desde: rango.desde, p_hasta: rango.hasta, p_zona: zona }),
+    supabase.rpc('propinas_por_dia', {
       p_desde: rangoPrev.desde,
       p_hasta: rangoPrev.hasta,
       p_zona: zona,
@@ -57,6 +65,8 @@ export default async function PaginaReportes({
 
   const actual = actualRes.data as unknown as ReporteMes | null
   const anterior = anteriorRes.data as unknown as ReporteMes | null
+  const propinas = (propinasRes.data as unknown as PropinaDia[] | null) ?? []
+  const propinasAnterior = (propinasPrevRes.data as unknown as PropinaDia[] | null) ?? []
 
   if (!actual) {
     return (
@@ -77,6 +87,8 @@ export default async function PaginaReportes({
       mesSeleccionado={{ anio: anioSel, mes: mesSel, etiqueta: `${nombreDeMes(mesSel)} ${anioSel}` }}
       nombreMesAnterior={nombreDeMes(prev.mes)}
       meses={mesesDisponibles(hoy.anio, hoy.mes)}
+      propinas={propinas}
+      propinasMesAnterior={propinasAnterior.reduce((s, d) => s + d.propina, 0)}
       rentabilidad={rentabilidad ? <Rentabilidad datos={rentabilidad} /> : null}
     />
   )

@@ -1351,6 +1351,37 @@ begin
   return v_res;
 end $$;
 
+-- Propinas día por día del rango. Van APARTE del reporte de ventas porque la propina no
+-- es venta del restaurante (regla: se digita al cobrar y el arqueo la separa). Se agrupan
+-- por el día del COBRO —cuando la plata entró a la caja y quedó marcada en
+-- `caja_movimientos`—, no por el día en que se tomó el pedido: un domicilio entregado hoy
+-- y cobrado mañana deja su propina en el día en que se recibió.
+create or replace function propinas_por_dia(p_desde timestamptz, p_hasta timestamptz, p_zona text default 'America/Bogota')
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare v_rest uuid; v_res jsonb;
+begin
+  if mi_rol() <> 'admin' then raise exception 'Solo administración'; end if;
+  v_rest := mi_restaurante();
+
+  select coalesce(jsonb_agg(x order by x->>'dia'), '[]'::jsonb) into v_res from (
+    select jsonb_build_object(
+      'dia',      to_char((m.creado_en at time zone p_zona)::date, 'YYYY-MM-DD'),
+      'propina',  coalesce(sum(m.propina), 0),
+      'cuentas',  count(*) filter (where m.propina > 0),
+      'cobrado',  coalesce(sum(m.monto - m.propina), 0)
+    ) x
+    from caja_movimientos m
+    join caja_turnos t on t.id = m.turno_id
+    where t.restaurante_id = v_rest
+      and m.tipo in ('ingreso','legalizacion')
+      and m.creado_en >= p_desde and m.creado_en < p_hasta
+    group by (m.creado_en at time zone p_zona)::date
+  ) s;
+
+  return v_res;
+end $$;
+
 -- Reporte por rango [desde, hasta): métricas del mes. El rango y la zona llegan del
 -- servidor (configuración por instancia); nada de zonas quemadas.
 create or replace function reporte_rango(p_desde timestamptz, p_hasta timestamptz, p_zona text default 'America/Bogota')
@@ -1845,12 +1876,14 @@ grant execute on function legalizar_domiciliario(uuid) to authenticated;
 -- reportes y equipo
 revoke all on function reporte_ventas(int) from public, anon;
 revoke all on function reporte_rango(timestamptz, timestamptz, text) from public, anon;
+revoke all on function propinas_por_dia(timestamptz, timestamptz, text) from public, anon;
 revoke all on function reporte_rentabilidad(int) from public, anon;
 revoke all on function actualizar_costo(uuid, bigint) from public, anon;
 revoke all on function crear_usuario(text, text, text, rol_usuario, uuid) from public, anon;
 revoke all on function eliminar_usuario(uuid) from public, anon;
 grant execute on function reporte_ventas(int) to authenticated;
 grant execute on function reporte_rango(timestamptz, timestamptz, text) to authenticated;
+grant execute on function propinas_por_dia(timestamptz, timestamptz, text) to authenticated;
 grant execute on function reporte_rentabilidad(int) to authenticated;
 grant execute on function actualizar_costo(uuid, bigint) to authenticated;
 grant execute on function crear_usuario(text, text, text, rol_usuario, uuid) to authenticated;

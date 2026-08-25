@@ -927,3 +927,32 @@ la misma mesa (una cuenta, $45.000, tres comandas), cobro repartido 20/20/10 con
 propina, la mesa volviendo a abrir cuenta después de cobrada, dos domicilios en efectivo
 con uno cambiado a transferencia en la puerta, y el turno negándose a cerrar mientras
 faltara plata. `tsc`, ESLint y `npm run build`, en verde.
+
+## Propinas día por día en Reportes (administración)
+
+La propina va aparte del total: la digita caja al cobrar y queda marcada en
+`caja_movimientos` para que el arqueo la separe de la venta. Pero eso solo se veía por
+turno, al cerrar caja: para repartir el mes había que volver a sumar cuenta por cuenta.
+Reportes ya mostraba la venta del mes y ninguna propina. Se agrega la lista, como la que
+ya tiene Caribbean Rooftop.
+
+- **Función `propinas_por_dia(desde, hasta, zona)`** (solo administración, la misma puerta
+  de `reporte_rango`): una fila por día con `propina`, `cuentas` (las que dejaron propina),
+  y `cobrado` (la venta de ese día ya **sin** la propina).
+- Sale de `caja_movimientos` —donde la propina queda marcada— y agrupa por el día del
+  **cobro**, no por el día del pedido: un domicilio entregado hoy y cobrado mañana deja su
+  propina en el día en que la plata entró a la caja, que es como cuadra el arqueo. Los
+  egresos no cuentan; ingresos y legalizaciones sí.
+- **En Reportes** (`/app/admin/reportes`): cuarta tarjeta **Propinas del mes** —con su
+  variación vs. el mes anterior y cuántos días tuvieron propina— y una tabla día por día
+  con día, cuentas, cobrado, propina y % del cobro, con totales al pie. Sigue el filtro de
+  mes que ya existía. La propina nunca se suma a las ventas: va al lado, con su aviso de
+  que es del equipo.
+- Los días con cobros pero sin propina aparecen en `$0` con "—": que un día no dejara nada
+  es un dato, no un hueco.
+- **Para una base ya montada**: `supabase/historial/propinas-por-dia.sql` (seguro de
+  re-correr). En bases nuevas ya viene en `supabase/schema.sql`.
+- Verificado en Postgres 16 con datos de prueba: el cobro de las 9 p. m. de Bogotá (que en
+  UTC es el día siguiente) cuenta en su día real, el egreso y el otro restaurante quedan
+  fuera, el mes vecino no se cuela, y un rol que no es administración rebota con "Solo
+  administración". `tsc`, ESLint y `npm run build`, en verde.

@@ -948,6 +948,10 @@ export type Database = {
         Args: { p_desde: string; p_hasta: string; p_zona?: string }
         Returns: Json
       }
+      propinas_por_dia: {
+        Args: { p_desde: string; p_hasta: string; p_zona?: string }
+        Returns: Json
+      }
       reporte_ventas: { Args: { p_dias?: number }; Returns: Json }
       registrar_cobro: {
         Args: {
