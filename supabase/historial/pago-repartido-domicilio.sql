@@ -482,5 +482,8 @@ begin
   );
 end $$;
 
+-- Ayudante interno: solo lo llaman las funciones de arriba, nunca el navegador.
+revoke all on function _repartir_pago(uuid, bigint) from public, anon, authenticated;
+
 revoke all on function repartir_pago_entrega(uuid, bigint) from public, anon;
 grant execute on function repartir_pago_entrega(uuid, bigint) to authenticated;

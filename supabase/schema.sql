@@ -1956,6 +1956,7 @@ end $$;
 revoke all on function _comanda_listo() from public, anon, authenticated;
 revoke all on function _insertar_items_pedido(uuid, uuid, jsonb, int) from public, anon, authenticated;
 revoke all on function _recalcular_totales(uuid) from public, anon, authenticated;
+revoke all on function _repartir_pago(uuid, bigint) from public, anon, authenticated;
 
 -- helpers de sesión: staff autenticado
 revoke all on function mi_restaurante() from public, anon;
