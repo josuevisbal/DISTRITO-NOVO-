@@ -142,7 +142,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     supabase
       .from('pedidos')
       .select(
-        'id, numero, total, medio_pago, entregado_en, pago_cambiado_en, cliente_nombre, direccion, domiciliario_id, usuarios!pedidos_domiciliario_id_fkey(nombre), zonas_domicilio(nombre), pagos(estado)',
+        'id, numero, total, medio_pago, entregado_en, pago_cambiado_en, cliente_nombre, direccion, domiciliario_id, usuarios!pedidos_domiciliario_id_fkey(nombre), zonas_domicilio(nombre), pagos(estado, medio, monto)',
       )
       .eq('restaurante_id', restauranteId)
       .eq('estado', 'entregado')
@@ -223,42 +223,49 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       total: p.total,
     }))
 
-  // Nada de esto está cobrado todavía: si ya tuviera un pago verificado, el pedido
-  // estaría cerrado y no aparecería aquí.
+  // Entregas con plata todavía en el aire. Con pago repartido una parte puede estar ya
+  // verificada (la transferencia) y la otra no: lo que manda es lo que sigue pendiente.
   const entregados: Entregado[] = (entregadosRes.data ?? [])
-    .filter((p) => !(p.pagos ?? []).some((g) => g.estado === 'verificado'))
-    .map((p) => ({
-      pedido_id: p.id,
-      numero: p.numero,
-      total: p.total,
-      cliente: p.cliente_nombre,
-      direccion: p.direccion,
-      zona: p.zonas_domicilio?.nombre ?? null,
-      entregado_en: p.entregado_en,
-      domiciliario_id: p.domiciliario_id,
-      domiciliario_nombre: p.usuarios?.nombre ?? null,
-      // El domiciliario avisó que el cliente prefirió transferir: la plata no viene
-      // con él, la tiene que verificar caja.
-      transferencia: p.medio_pago === 'transferencia',
-      cambio_reportado: p.pago_cambiado_en !== null,
-    }))
+    .map((p) => {
+      const pendientes = (p.pagos ?? []).filter((g) => g.estado === 'pendiente')
+      const sumar = (medio: string) =>
+        pendientes.filter((g) => g.medio === medio).reduce((s, g) => s + g.monto, 0)
+      return {
+        pedido_id: p.id,
+        numero: p.numero,
+        total: p.total,
+        cliente: p.cliente_nombre,
+        direccion: p.direccion,
+        zona: p.zonas_domicilio?.nombre ?? null,
+        entregado_en: p.entregado_en,
+        domiciliario_id: p.domiciliario_id,
+        domiciliario_nombre: p.usuarios?.nombre ?? null,
+        // Lo que trae el domiciliario y lo que tiene que verificar caja.
+        efectivo: sumar('efectivo'),
+        transferencia: sumar('transferencia'),
+        cambio_reportado: p.pago_cambiado_en !== null,
+      }
+    })
+    .filter((p) => p.efectivo > 0 || p.transferencia > 0)
 
-  // El efectivo que cada domiciliario debe entregar, con el detalle de qué pedidos.
+  // El efectivo que cada domiciliario debe entregar, con el detalle de qué pedidos. Se
+  // cuenta SOLO su parte en efectivo: lo transferido no pasa por sus manos.
   const porLegalizarMapa = new Map<string, PorLegalizar>()
   for (const p of entregados) {
-    if (!p.domiciliario_id || p.transferencia) continue
+    if (!p.domiciliario_id || p.efectivo === 0) continue
+    const renglon = { numero: p.numero, total: p.efectivo, cliente: p.cliente }
     const previo = porLegalizarMapa.get(p.domiciliario_id)
     if (previo) {
-      previo.total += p.total
+      previo.total += p.efectivo
       previo.pedidos += 1
-      previo.detalle.push({ numero: p.numero, total: p.total, cliente: p.cliente })
+      previo.detalle.push(renglon)
     } else {
       porLegalizarMapa.set(p.domiciliario_id, {
         domiciliario_id: p.domiciliario_id,
         nombre: p.domiciliario_nombre ?? 'Domiciliario',
-        total: p.total,
+        total: p.efectivo,
         pedidos: 1,
-        detalle: [{ numero: p.numero, total: p.total, cliente: p.cliente }],
+        detalle: [renglon],
       })
     }
   }

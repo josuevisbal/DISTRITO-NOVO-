@@ -29,6 +29,7 @@ const NOMBRE_MEDIO: Record<string, string> = {
   datafono: '💳 Datáfono',
   pasarela: '🌐 Pago en línea',
   mesa: '🍽️ Se paga en la mesa',
+  mixto: '🏦 Parte transferida y parte en efectivo',
 }
 
 const NOMBRE_CANAL: Record<string, string> = {

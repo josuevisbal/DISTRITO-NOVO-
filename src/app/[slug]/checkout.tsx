@@ -8,11 +8,13 @@ import type { ZonaCarta } from '@/lib/datos/carta'
 import { formatearPesos } from '@/lib/formato'
 
 export type Entrega = 'domicilio' | 'recoger'
-export type Medio = 'efectivo' | 'transferencia'
+export type Medio = 'efectivo' | 'transferencia' | 'mixto'
 
 export type DatosCheckout = {
   entrega: Entrega
   medio: Medio
+  /** Solo con pago dividido: cuánto pone en efectivo. El resto lo transfiere. */
+  efectivo: string
   nombre: string
   telefono: string
   direccion: string
@@ -33,6 +35,7 @@ type Props = {
 const VACIO: DatosCheckout = {
   entrega: 'domicilio',
   medio: 'efectivo',
+  efectivo: '',
   nombre: '',
   telefono: '',
   direccion: '',
@@ -50,6 +53,7 @@ export function Checkout({
   onConfirmar,
 }: Props) {
   const [datos, setDatos] = useState<DatosCheckout>(VACIO)
+  const [errorReparto, setErrorReparto] = useState<string | null>(null)
 
   const esDomicilio = datos.entrega === 'domicilio'
   const zona = zonas.find((z) => z.id === datos.zona_id)
@@ -60,6 +64,7 @@ export function Checkout({
     umbralEnvioGratis,
   })
   const total = subtotal + domicilio
+  const enEfectivo = Number(datos.efectivo) || 0
   const envioGratis = esDomicilio && zona !== undefined && domicilio === 0
   const faltaParaEnvioGratis =
     esDomicilio && umbralEnvioGratis !== null && subtotal < umbralEnvioGratis
@@ -74,6 +79,18 @@ export function Checkout({
     <form
       onSubmit={(e) => {
         e.preventDefault()
+        // Con pago dividido, lo que ponga en efectivo tiene que caber en la cuenta: si no,
+        // no hay nada que transferir (o no queda nada por pagar en la puerta).
+        if (datos.medio === 'mixto') {
+          const enEfectivo = Number(datos.efectivo) || 0
+          if (enEfectivo <= 0 || enEfectivo >= total) {
+            setErrorReparto(
+              `Escribe cuánto pagas en efectivo: entre $1 y ${formatearPesos(total - 1)}.`,
+            )
+            return
+          }
+        }
+        setErrorReparto(null)
         onConfirmar(datos)
       }}
       className="mx-auto max-w-2xl px-5 pb-40 pt-5 sm:px-8"
@@ -181,15 +198,50 @@ export function Checkout({
             titulo="Transferencia"
             detalle="Te damos la llave y el valor exacto"
           />
+          {/* Parte en efectivo y parte transferida: pasa seguido cuando no se tiene
+              todo el efectivo suelto. El cliente dice cuánto pone en la puerta. */}
+          <Opcion
+            nombre="medio"
+            seleccionada={datos.medio === 'mixto'}
+            onSelect={() => cambiar('medio', 'mixto')}
+            titulo="Pago dividido"
+            detalle="Parte en efectivo, parte transferida"
+          />
         </div>
 
-        {datos.medio === 'transferencia' ? (
+        {datos.medio === 'mixto' ? (
+          <div className="rounded-lg border border-marca-borde bg-marca-superficie p-3.5">
+            <label className="block text-sm text-marca-texto" htmlFor="efectivo-reparto">
+              ¿Cuánto pagas en efectivo {esDomicilio ? 'al recibir' : 'al recoger'}?
+            </label>
+            <input
+              id="efectivo-reparto"
+              inputMode="numeric"
+              value={datos.efectivo}
+              onChange={(e) => cambiar('efectivo', e.target.value.replace(/\D/g, ''))}
+              placeholder="0"
+              className="mt-1.5 min-h-12 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 text-right text-lg tabular-nums text-marca-texto"
+            />
+            <p className="mt-2 text-sm text-marca-texto-suave">
+              {enEfectivo > 0 && enEfectivo < total
+                ? `Transfieres ${formatearPesos(total - enEfectivo)} y pagas ${formatearPesos(enEfectivo)} en efectivo.`
+                : 'El resto queda por transferencia, con la llave y el valor exacto.'}
+            </p>
+            {errorReparto ? (
+              <p role="alert" className="mt-2 text-sm font-medium text-marca-acento-fuerte">
+                {errorReparto}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {datos.medio === 'transferencia' || datos.medio === 'mixto' ? (
           <p className="flex gap-2.5 rounded-lg border border-marca-borde bg-marca-superficie p-3.5 text-sm text-marca-texto-suave">
             <IconoAlerta className="size-5 shrink-0 text-marca-acento-fuerte" />
             <span>
-              Pagas exactamente el valor de tus platos y el domicilio, sin un peso de más.
-              Tras transferir, envía el pantallazo por WhatsApp: cuando caja lo verifique,
-              tu pedido entra a cocina.
+              {datos.medio === 'mixto'
+                ? 'Transfieres tu parte exacta, sin un peso de más. Tras transferir, envía el pantallazo por WhatsApp: cuando caja lo verifique, tu pedido entra a cocina y lo demás lo pagas en efectivo al recibir.'
+                : 'Pagas exactamente el valor de tus platos y el domicilio, sin un peso de más. Tras transferir, envía el pantallazo por WhatsApp: cuando caja lo verifique, tu pedido entra a cocina.'}
             </span>
           </p>
         ) : null}

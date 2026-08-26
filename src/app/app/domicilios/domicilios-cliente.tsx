@@ -7,7 +7,7 @@ import { Vacio } from '@/components/ui/vacio'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
 import { enlaceLlamar, enlaceWhatsApp } from '@/lib/telefono'
-import { entregarPedido, falloEntrega, pagaPorTransferencia, recogerPedido } from './acciones'
+import { entregarPedido, falloEntrega, recogerPedido, repartirPagoEntrega } from './acciones'
 
 export type Entrega = {
   pedido_id: string
@@ -19,9 +19,12 @@ export type Entrega = {
   indicaciones: string | null
   zona: string | null
   total: number
+  /** Ya no falta plata: nada que cobrar en la puerta. */
   pagado: boolean
-  /** El cliente cambió de opinión: paga por transferencia y la cobra caja. */
-  vaTransferir: boolean
+  /** Lo que tiene que recibir en efectivo. Con pago dividido es solo una parte. */
+  efectivoPendiente: number
+  /** Lo que el cliente transfiere y verifica caja: el domiciliario no lo toca. */
+  transferenciaPendiente: number
   nota_entrega: string | null
   items: { nombre: string; cantidad: number }[]
   /** Quién la lleva. Solo se usa en el monitoreo del admin; el domiciliario es él mismo. */
@@ -188,11 +191,11 @@ function TarjetaEntrega({
         <p className="mt-1 text-marca-texto-suave">{entrega.indicaciones}</p>
       ) : null}
 
-      {/* Recuadro de cobro: amarillo con el monto si es efectivo, verde si ya está pago. */}
+      {/* Recuadro de cobro: amarillo con el monto si hay efectivo por recibir, azul si
+          lo transfieren, verde si ya está pago. */}
       <CobroCaja
-        pagado={entrega.pagado}
-        vaTransferir={entrega.vaTransferir}
-        total={entrega.total}
+        efectivo={entrega.efectivoPendiente}
+        transferencia={entrega.transferenciaPendiente}
       />
 
       <details className="mt-3">
@@ -262,17 +265,16 @@ function TarjetaEntrega({
               <IconoCheck className="size-6" />
               Entregué
             </button>
-            {/* En la puerta el cliente dice que mejor transfiere. Un toque y caja
-                queda avisada: el domiciliario no carga con esa plata. */}
-            {!entrega.pagado && !entrega.vaTransferir ? (
-              <button
-                type="button"
+            {/* En la puerta el cliente paga distinto: todo transferido, o una parte en
+                efectivo y el resto transferido. Caja queda avisada de lo que falta. */}
+            {!entrega.pagado ? (
+              <PagoDistinto
                 disabled={ocupado}
-                onClick={() => correr(() => pagaPorTransferencia(entrega.pedido_id))}
-                className="flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 border-marca-borde text-base font-semibold text-marca-texto disabled:opacity-50"
-              >
-                El cliente va a pagar por transferencia
-              </button>
+                total={entrega.efectivoPendiente + entrega.transferenciaPendiente}
+                onConfirmar={(efectivo) =>
+                  correr(() => repartirPagoEntrega(entrega.pedido_id, efectivo))
+                }
+              />
             ) : null}
             <FalloEntrega
               disabled={ocupado}
@@ -286,28 +288,8 @@ function TarjetaEntrega({
   )
 }
 
-function CobroCaja({
-  pagado,
-  vaTransferir,
-  total,
-}: {
-  pagado: boolean
-  vaTransferir: boolean
-  total: number
-}) {
-  if (vaTransferir) {
-    // Azul: el cliente transfiere y caja lo verifica. El domiciliario no recibe nada.
-    return (
-      <p
-        className="mt-4 flex items-center justify-center gap-2 rounded-xl border-2 p-4 text-center text-lg font-bold"
-        style={{ backgroundColor: '#101b33', borderColor: '#5B6BF0', color: '#aeb8ff' }}
-      >
-        <IconoCheck className="size-6 shrink-0" />
-        Paga por transferencia · No recibas efectivo
-      </p>
-    )
-  }
-  if (pagado) {
+function CobroCaja({ efectivo, transferencia }: { efectivo: number; transferencia: number }) {
+  if (efectivo === 0 && transferencia === 0) {
     // Verde: ya está pago, no cobrar. (Paleta oscura: se lee de lejos, en la calle.)
     return (
       <p
@@ -320,17 +302,120 @@ function CobroCaja({
     )
   }
 
-  // Amarillo: cobrar este monto en efectivo.
+  if (efectivo === 0) {
+    // Azul: el cliente transfiere y caja lo verifica. El domiciliario no recibe nada.
+    return (
+      <p
+        className="mt-4 flex items-center justify-center gap-2 rounded-xl border-2 p-4 text-center text-lg font-bold"
+        style={{ backgroundColor: '#101b33', borderColor: '#5B6BF0', color: '#aeb8ff' }}
+      >
+        <IconoCheck className="size-6 shrink-0" />
+        Paga por transferencia · No recibas efectivo
+      </p>
+    )
+  }
+
+  // Amarillo: cobrar este monto en efectivo. Si hay parte transferida, se dice aparte
+  // para que no cobre de más: esa plata no la recibe él.
   return (
     <div
       className="mt-4 rounded-xl border-2 p-4 text-center"
       style={{ backgroundColor: '#3a2f05', borderColor: '#E0B02B', color: '#f4d873' }}
     >
       <span className="block text-sm font-medium">Cobrar en efectivo</span>
-      <span className="font-titulo text-3xl font-bold">{formatearPesos(total)}</span>
+      <span className="font-titulo text-3xl font-bold">{formatearPesos(efectivo)}</span>
+      {transferencia > 0 ? (
+        <span className="mt-1 block text-sm font-medium">
+          Los otros {formatearPesos(transferencia)} los transfiere · no los recibas
+        </span>
+      ) : null}
     </div>
   )
 }
+
+/**
+ * El cliente paga distinto a lo acordado. Dos toques para el caso común —transfiere
+ * todo— y un campo para cuando pone una parte en efectivo. Lo que digite es lo que va a
+ * traer al cierre: el resto queda esperando que caja verifique la transferencia.
+ */
+function PagoDistinto({
+  disabled,
+  total,
+  onConfirmar,
+}: {
+  disabled: boolean
+  total: number
+  onConfirmar: (efectivo: number) => void
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const [efectivo, setEfectivo] = useState('')
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        disabled={disabled}
+        className="flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 border-marca-borde text-base font-semibold text-marca-texto disabled:opacity-50"
+      >
+        El cliente paga distinto
+      </button>
+    )
+  }
+
+  const enEfectivo = Math.min(Number(efectivo) || 0, total)
+  const porTransferir = total - enEfectivo
+
+  return (
+    <div className="rounded-xl border border-marca-borde p-3">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onConfirmar(0)}
+        className="flex min-h-14 w-full items-center justify-center rounded-lg border-2 border-marca-borde text-base font-semibold text-marca-texto disabled:opacity-50"
+      >
+        Transfiere todo ({formatearPesos(total)})
+      </button>
+
+      <label className="mt-3 block text-sm text-marca-texto-suave" htmlFor="efectivo-puerta">
+        …o recibiste una parte en efectivo:
+      </label>
+      <input
+        id="efectivo-puerta"
+        inputMode="numeric"
+        value={efectivo}
+        onChange={(e) => setEfectivo(e.target.value.replace(/\D/g, ''))}
+        placeholder="0"
+        className="mt-1.5 min-h-12 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 text-right text-lg tabular-nums text-marca-texto"
+      />
+      {enEfectivo > 0 ? (
+        <p className="mt-2 text-sm text-marca-texto-suave">
+          Traes {formatearPesos(enEfectivo)} y el cliente transfiere{' '}
+          {formatearPesos(porTransferir)}.
+        </p>
+      ) : null}
+
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          disabled={disabled || enEfectivo <= 0 || enEfectivo >= total}
+          onClick={() => onConfirmar(enEfectivo)}
+          className="min-h-12 flex-1 rounded-lg border border-marca-acento font-medium text-marca-acento-fuerte disabled:opacity-50"
+        >
+          Confirmar
+        </button>
+        <button
+          type="button"
+          onClick={() => setAbierto(false)}
+          className="min-h-12 rounded-lg px-3 text-marca-texto-suave"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
 
 function FalloEntrega({
   disabled,

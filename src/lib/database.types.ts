@@ -944,6 +944,10 @@ export type Database = {
       }
       recoger_pedido: { Args: { p_pedido: string }; Returns: undefined }
       quitar_domiciliario: { Args: { p_pedido: string }; Returns: undefined }
+      repartir_pago_entrega: {
+        Args: { p_efectivo: number; p_pedido: string }
+        Returns: Json
+      }
       reporte_rentabilidad: { Args: { p_dias?: number }; Returns: Json }
       reporte_rango: {
         Args: { p_desde: string; p_hasta: string; p_zona?: string }

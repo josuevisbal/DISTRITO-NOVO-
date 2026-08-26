@@ -956,3 +956,68 @@ ya tiene Caribbean Rooftop.
   UTC es el día siguiente) cuenta en su día real, el egreso y el otro restaurante quedan
   fuera, el mes vecino no se cuela, y un rol que no es administración rebota con "Solo
   administración". `tsc`, ESLint y `npm run build`, en verde.
+
+
+## Domicilios: quitar la asignación, pago repartido y buscador
+
+Tres pedidos del cliente, en el mismo frente: el reparto.
+
+### Caja puede quitar la asignación
+
+Caja podía asignar y reasignar, pero no dejar el pedido sin nadie: si el domiciliario no
+llegó o se le dio por error, el pedido quedaba amarrado a él. `quitar_domiciliario()` lo
+devuelve a la fila de por despachar y libre para otro, **solo mientras no lo haya
+recogido**: si ya salió con la comida, el camino sigue siendo que él reporte "No pude
+entregar". El botón *Quitar* aparece al lado de *Reasignar*, y solo cuando hay a quién
+quitarle.
+
+### Un domicilio se puede pagar repartido
+
+Hasta ahora un domicilio se pagaba de UNA forma: todo en efectivo al recibir, o todo
+transferido antes de cocinar. En la calle no es así: el cliente tiene $30.000 sueltos y
+transfiere el resto.
+
+El reparto se puede decir en dos momentos, y los dos usan la misma función:
+
+- **El cliente, al pedir.** La carta gana la opción *Pago dividido*: digita cuánto pone en
+  efectivo y el servidor calcula el resto. Nunca manda un precio —`_repartir_pago()`
+  recorta lo que escriba a lo que de verdad vale la cuenta— y como queda una parte por
+  transferir, el pedido espera el visto bueno de caja como cualquier transferencia. El
+  seguimiento le muestra **su parte exacta**, no el total.
+- **El domiciliario, en la puerta.** El botón "El cliente va a pagar por transferencia" se
+  vuelve *El cliente paga distinto*: un toque para "transfiere todo" (el caso de siempre) o
+  un campo para digitar cuánto recibió en efectivo. Lo que digite es lo único que va a
+  traer al cierre.
+
+El desglose vive en `pagos`, una fila por medio, y la regla que manda es la de siempre:
+**la cuenta no cierra hasta que toda la plata esté verificada.** `entregar_pedido()` solo
+cierra si no queda nada pendiente; `verificar_transferencia()` anota en caja la parte
+transferida (no el total del pedido) y deja el pedido *entregado* si falta el efectivo;
+`legalizar_domiciliario()` recibe la parte en efectivo de cada entrega, no el total, y
+cierra el pedido solo cuando con eso queda completo; `cerrar_turno()` bloquea el cierre
+mientras alguna entrega tenga un pago pendiente. La tarjeta del domiciliario dice cuánto
+cobrar y cuánto NO recibir, y caja ve el pedido repartido pieza por pieza.
+
+De paso, rechazar una transferencia de un pedido **ya entregado** dejó de anular la venta:
+la comida está entregada, así que el pedido queda con la nota y la cuenta en deuda para que
+caja la resuelva.
+
+### Buscador para el domiciliario
+
+Con varias entregas encima, encontrar "la de Ana" o "la del Prado" era bajar y subir la
+lista. La pantalla gana un buscador por cliente, dirección, barrio, indicaciones o número
+—sin tildes: "bolivar" encuentra "Bolívar"— con el contador de cuántas coinciden. Y la
+tarjeta ahora dice **a quién** le lleva el pedido, no solo adónde.
+
+### Verificado
+
+En Postgres 16 con el esquema completo y el andamio de Supabase (auth, storage, roles):
+pedido repartido $30.000/$15.000 desde la carta —transferencia verificada $15.000 al
+arqueo, entrega, cierre bloqueado por el efectivo, legalización $30.000 y cuenta cerrada—;
+reparto en la puerta $20.000/$25.000 sobre un pedido que salió como contraentrega; el
+cliente recortando el pedido por debajo de lo que iba a poner en efectivo (deja de haber
+transferencia y el pedido pasa a contraentrega, sin quedarse trabado); y la regresión de
+los cuatro caminos de siempre —contraentrega, transferencia previa, cambio a transferencia
+en la puerta y cuenta de mesa con propina—, todos igual que antes. También el camino de
+actualización: `historial/pago-repartido-domicilio.sql` sobre una base con el esquema
+viejo deja el mismo comportamiento. `tsc`, ESLint y `npm run build`, en verde.

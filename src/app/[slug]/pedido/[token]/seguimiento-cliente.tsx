@@ -86,6 +86,11 @@ function PanelTransferencia({
   token: string
   slug: string
 }) {
+  // Pago dividido: solo se transfiere una parte y el resto se paga en la puerta. El
+  // valor a transferir lo puso el servidor en `monto_exacto`: aquí no se calcula nada.
+  const aTransferir = pedido.monto_exacto ?? pedido.total
+  const enEfectivo = Math.max(0, pedido.total - aTransferir)
+
   return (
     <section className="mt-6 rounded-xl border border-marca-acento bg-marca-superficie p-5">
       <p className="flex items-center gap-2 text-marca-acento-fuerte">
@@ -101,11 +106,18 @@ function PanelTransferencia({
       <div className="mt-4 rounded-lg border border-marca-borde bg-marca-fondo p-4 text-center">
         <p className="text-sm text-marca-texto-suave">Valor exacto a transferir</p>
         <p className="mt-1 font-titulo text-4xl font-bold text-marca-acento-fuerte">
-          {formatearPesos(pedido.total)}
+          {formatearPesos(aTransferir)}
         </p>
-        <p className="mt-1 text-xs text-marca-texto-suave">
-          Es el valor de tus platos y el domicilio, sin un peso de más.
-        </p>
+        {enEfectivo > 0 ? (
+          <p className="mt-1 text-xs text-marca-texto-suave">
+            Es tu parte transferida. Los otros {formatearPesos(enEfectivo)} los pagas en
+            efectivo al recibir.
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-marca-texto-suave">
+            Es el valor de tus platos y el domicilio, sin un peso de más.
+          </p>
+        )}
       </div>
 
       {pago.llave ? <DatoCopiable etiqueta="Llave / Nequi" valor={pago.llave} /> : null}

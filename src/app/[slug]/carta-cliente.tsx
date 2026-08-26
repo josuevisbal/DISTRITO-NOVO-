@@ -170,6 +170,7 @@ export function CartaCliente({ carta, mesa }: Props) {
     const resultado = await crearPedido(carta.restaurante.slug, {
       canal: mesa ? 'mesa' : datos?.entrega === 'recoger' ? 'recoger' : 'domicilio',
       medio_pago: mesa ? 'mesa' : (datos?.medio ?? 'efectivo'),
+      efectivo: datos?.medio === 'mixto' ? Number(datos.efectivo) || 0 : undefined,
       mesa_id: mesa?.id,
       cliente_nombre: datos?.nombre,
       cliente_tel: datos?.telefono,
@@ -197,7 +198,9 @@ export function CartaCliente({ carta, mesa }: Props) {
     // En transferencia NO se manda aquí: el cliente pasa primero a ver la llave y el
     // valor exacto, y desde esa pantalla manda el pedido anunciando el comprobante.
     // Así el restaurante recibe un solo mensaje, no dos.
-    const esTransferencia = datos?.medio === 'transferencia'
+    // El pago dividido también pasa por la pantalla de la llave: hay una parte que
+    // transferir, y de ahí sale el único mensaje al restaurante.
+    const esTransferencia = datos?.medio === 'transferencia' || datos?.medio === 'mixto'
     if (!mesa && numeroWa && !esTransferencia) {
       const canal = datos?.entrega === 'recoger' ? 'recoger' : 'domicilio'
       const mensaje = armarMensajePedido({

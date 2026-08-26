@@ -26,14 +26,22 @@ export async function entregarPedido(pedidoId: string): Promise<Resultado> {
 }
 
 /**
- * En la puerta el cliente dice que ya no paga en efectivo sino por transferencia. El
- * domiciliario lo marca y deja de traer esa plata: caja recibe la alerta y es quien
- * verifica la transferencia. El pedido NO se cierra aquí.
+ * En la puerta el cliente paga distinto a lo acordado: pone una parte en efectivo y
+ * transfiere el resto. El domiciliario digita cuánto recibió en efectivo —eso es lo
+ * único que va a traer al cierre— y lo demás queda para que caja lo verifique. Con 0
+ * de efectivo es el caso de siempre: el cliente transfiere todo. El pedido NO se cierra
+ * aquí: la cuenta sigue abierta hasta que la plata entre.
  */
-export async function pagaPorTransferencia(pedidoId: string): Promise<Resultado> {
+export async function repartirPagoEntrega(
+  pedidoId: string,
+  efectivo: number,
+): Promise<Resultado> {
   await exigirRol('domicilio')
   const supabase = await crearClienteServidor()
-  const { error } = await supabase.rpc('cambiar_a_transferencia', { p_pedido: pedidoId })
+  const { error } = await supabase.rpc('repartir_pago_entrega', {
+    p_pedido: pedidoId,
+    p_efectivo: Math.max(0, Math.trunc(efectivo)),
+  })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/domicilios')
   revalidatePath('/app/caja')

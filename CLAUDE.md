@@ -37,7 +37,10 @@ pantallas vivas. Sin librerías de estado global.
    dar exacta.
 9. El domiciliario no vuelve a caja después de cada entrega: cobra en la calle y entrega
    todo junto. Nada queda cerrado hasta que esa plata entre, y el turno no cierra con
-   entregas sin cobrar.
+   entregas sin cobrar. Un domicilio se puede pagar **repartido** —parte en efectivo y
+   parte transferida—: lo escoge el cliente al pedir o el domiciliario en la puerta, el
+   desglose vive en `pagos` y la cuenta solo cierra cuando las dos partes están
+   verificadas.
 10. `SUPABASE_SERVICE_ROLE_KEY` jamás llega al navegador.
 
 ## Roles

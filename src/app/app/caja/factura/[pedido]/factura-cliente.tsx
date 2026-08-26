@@ -13,6 +13,7 @@ const NOMBRE_MEDIO: Record<string, string> = {
   datafono: 'Datáfono',
   pasarela: 'Pasarela',
   mesa: 'Mesa',
+  mixto: 'Pago repartido',
 }
 
 const NOMBRE_CANAL: Record<string, string> = {

@@ -102,8 +102,10 @@ export type Entregado = {
   entregado_en: string | null
   domiciliario_id: string | null
   domiciliario_nombre: string | null
-  /** El cliente pagó (o va a pagar) por transferencia: la cobra caja, no el domiciliario. */
-  transferencia: boolean
+  /** Lo que trae el domiciliario en efectivo. Con pago repartido es solo una parte. */
+  efectivo: number
+  /** Lo que el cliente transfiere y verifica caja: no pasa por el domiciliario. */
+  transferencia: number
   /** El domiciliario avisó del cambio desde la puerta. */
   cambio_reportado: boolean
 }
@@ -1236,6 +1238,9 @@ function FilaEntregado({
   const [error, setError] = useState<string | null>(null)
   const { mostrar } = useToast()
 
+  const falta = e.efectivo + e.transferencia
+  const repartido = e.efectivo > 0 && e.transferencia > 0
+
   async function verificar() {
     setOcupado(true)
     setError(null)
@@ -1252,8 +1257,10 @@ function FilaEntregado({
     <EnvolturaFila borde={BORDE.entregado} indice={indice}>
       <ColPedido
         titulo={`#${e.numero}`}
-        pastilla={e.transferencia ? 'Va a transferir' : 'Efectivo en la calle'}
-        tono={e.transferencia ? 'ambar' : 'azul'}
+        pastilla={
+          repartido ? 'Pago repartido' : e.transferencia > 0 ? 'Va a transferir' : 'Efectivo en la calle'
+        }
+        tono={e.transferencia > 0 ? 'ambar' : 'azul'}
         sub={e.domiciliario_nombre ? `Lo llevó ${e.domiciliario_nombre}` : 'Entregado'}
       />
 
@@ -1268,19 +1275,37 @@ function FilaEntregado({
       </div>
 
       <div className="sm:text-left">
-        <p className="text-lg font-bold text-marca-texto">{formatearPesos(e.total)}</p>
-        <p className="text-xs text-marca-texto-suave">
-          {e.transferencia ? 'Lo cobra caja' : 'Lo trae el domiciliario'}
-        </p>
+        <p className="text-lg font-bold text-marca-texto">{formatearPesos(falta)}</p>
+        {repartido ? (
+          /* Pago repartido: se dice pieza por pieza para que caja no cobre de más ni
+             espere plata que no viene. */
+          <p className="text-xs text-marca-texto-suave">
+            {formatearPesos(e.efectivo)} con el domiciliario ·{' '}
+            {formatearPesos(e.transferencia)} por transferencia
+          </p>
+        ) : (
+          <p className="text-xs text-marca-texto-suave">
+            {e.transferencia > 0 ? 'Lo cobra caja' : 'Lo trae el domiciliario'}
+          </p>
+        )}
       </div>
 
       {soloLectura ? (
-        <EstadoSoloLectura texto={e.transferencia ? 'Por verificar' : 'Por recibir'} />
-      ) : e.transferencia ? (
+        <EstadoSoloLectura texto={e.transferencia > 0 ? 'Por verificar' : 'Por recibir'} />
+      ) : e.transferencia > 0 ? (
         <div className="flex flex-col items-end gap-1.5">
           <Boton variante="exito" className="px-4" onClick={verificar} disabled={ocupado}>
-            {ocupado ? 'Verificando…' : 'Ya llegó la transferencia'}
+            {ocupado
+              ? 'Verificando…'
+              : repartido
+                ? `Llegaron ${formatearPesos(e.transferencia)}`
+                : 'Ya llegó la transferencia'}
           </Boton>
+          {repartido ? (
+            <p className="text-xs text-marca-texto-suave">
+              Los {formatearPesos(e.efectivo)} en efectivo se reciben al cierre.
+            </p>
+          ) : null}
           {error ? <Error texto={error} /> : null}
         </div>
       ) : (

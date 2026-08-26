@@ -16,6 +16,11 @@ export type ComboPedido = { promocion_id: string; cantidad: number }
 export type DatosPedido = {
   canal: Canal
   medio_pago: MedioPago | null
+  /**
+   * Pago dividido: cuánto pone el cliente en efectivo. No es un precio —el servidor lo
+   * recorta a lo que de verdad vale la cuenta— sino cómo piensa pagarla.
+   */
+  efectivo?: number
   mesa_id?: string
   cliente_nombre?: string
   cliente_tel?: string
@@ -127,6 +132,7 @@ export async function crearPedido(
     p_payload: {
       canal: datos.canal,
       medio_pago: datos.medio_pago ?? '',
+      efectivo: Math.max(0, Math.trunc(datos.efectivo ?? 0)),
       mesa_id: datos.mesa_id ?? '',
       cliente_nombre: datos.cliente_nombre?.trim() ?? '',
       cliente_tel: datos.cliente_tel?.trim() ?? '',
