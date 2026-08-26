@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 import {
   IconoAlerta,
+  IconoAtras,
   IconoBillete,
   IconoCampana,
   IconoCheck,
@@ -28,7 +29,6 @@ import { useToast } from '@/components/toast'
 import { Boton } from '@/components/ui/boton'
 import { FichaCliente, FichaDireccion } from '@/components/ui/ficha-cliente'
 import { Pildora, type TonoPildora } from '@/components/ui/pildora'
-import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
 import { Vacio } from '@/components/ui/vacio'
 import { MARCA } from '@/config/tema'
 import { crearPedidoInterno } from '@/app/app/acciones'
@@ -222,8 +222,7 @@ export function CajaCliente(props: Props) {
     despachar: despachos.length,
     entregado: entregados.length,
   }
-  const [filtro, setFiltro] =
-    useState<'todos' | 'verificar' | 'confirmar' | 'cobrar' | 'despachar' | 'entregado'>('todos')
+  const [filtro, setFiltro] = useState<Filtro>('todos')
   const visibles = filtro === 'todos' ? filas : filas.filter((f) => f.tipo === filtro)
 
   // Suena cuando entra un domicilio por confirmar o cuando cocina deja uno por despachar:
@@ -239,13 +238,17 @@ export function CajaCliente(props: Props) {
   const [verCobrados, setVerCobrados] = useState(true)
   const [tomando, setTomando] = useState(false)
 
+  // Las cuatro que el cajero mira todo el tiempo, y el resto plegado: siete botones
+  // sueltos en un celular son ruido, pero ninguno se elimina.
   const pestanas = [
-    { valor: 'todos', etiqueta: `Todos · ${conteos.todos}` },
-    { valor: 'verificar', etiqueta: `Por verificar · ${conteos.verificar}` },
-    { valor: 'confirmar', etiqueta: `Por confirmar · ${conteos.confirmar}` },
-    { valor: 'cobrar', etiqueta: `Por cobrar · ${conteos.cobrar}` },
-    { valor: 'despachar', etiqueta: `Domicilios · ${conteos.despachar}` },
-    { valor: 'entregado', etiqueta: `Entregados sin cobrar · ${conteos.entregado}` },
+    { valor: 'todos', etiqueta: 'Todos', cuenta: conteos.todos },
+    { valor: 'cobrar', etiqueta: 'Por cobrar', cuenta: conteos.cobrar },
+    { valor: 'confirmar', etiqueta: 'Por confirmar', cuenta: conteos.confirmar },
+    { valor: 'despachar', etiqueta: 'Domicilios', cuenta: conteos.despachar },
+  ] as const
+  const pestanasMas = [
+    { valor: 'verificar', etiqueta: 'Por verificar', cuenta: conteos.verificar },
+    { valor: 'entregado', etiqueta: 'Entregados sin cobrar', cuenta: conteos.entregado },
   ] as const
 
   return (
@@ -276,90 +279,60 @@ export function CajaCliente(props: Props) {
         soloLectura={soloLectura}
       />
 
-      {/* Filtros con contador. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {pestanas.map((p) => {
-            const activa = filtro === p.valor
-            return (
-              <button
-                key={p.valor}
-                type="button"
-                onClick={() => setFiltro(p.valor)}
-                aria-pressed={activa}
-                className={`min-h-10 rounded-lg border px-3 text-sm font-medium ${
-                  activa
-                    ? 'border-transparent bg-panel-lateral text-marca-acento'
-                    : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
-                }`}
-              >
-                {p.etiqueta}
-              </button>
-            )
-          })}
-
-          {/* Chip de trazabilidad: no es un filtro de pendientes, muestra lo ya cobrado. */}
-          {turno ? (
-            <button
-              type="button"
-              onClick={() => setVerCobrados((v) => !v)}
-              aria-pressed={verCobrados}
-              className={`flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium ${
-                verCobrados
-                  ? 'border-[#1D9E75] bg-[#E7F6EE] text-[#116B47]'
-                  : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
-              }`}
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="font-semibold text-marca-texto">Pedidos</h2>
+          {/* No todo el mundo entra al menú digital: hay quien llama o llega al mostrador. */}
+          {soloLectura ? null : (
+            <Boton
+              variante="primario"
+              className="flex items-center gap-1.5 px-3"
+              onClick={() => setTomando(true)}
             >
-              <IconoReloj className="size-4" />
-              Cobrados hoy · {cobrados.length}
-            </button>
-          ) : null}
+              <IconoMas className="size-4" />
+              Tomar pedido
+            </Boton>
+          )}
         </div>
 
-        {/* No todo el mundo entra al menú digital: hay quien llama o llega al mostrador. */}
-        {soloLectura ? null : (
-          <Boton
-            variante="primario"
-            className="flex items-center gap-1.5 px-4"
-            onClick={() => setTomando(true)}
-          >
-            <IconoMas className="size-4" />
-            Tomar pedido
-          </Boton>
-        )}
-      </div>
+        <FiltrosPedidos
+          pestanas={pestanas}
+          pestanasMas={pestanasMas}
+          filtro={filtro}
+          onFiltro={setFiltro}
+          cobrados={turno ? cobrados.length : null}
+          verCobrados={verCobrados}
+          onVerCobrados={() => setVerCobrados((v) => !v)}
+        />
 
-      {/* Encabezado de columnas. */}
-      {visibles.length > 0 ? (
-        <div className="hidden grid-cols-[1.1fr_1.3fr_0.9fr_auto] gap-3 px-3 text-xs font-semibold uppercase tracking-wider text-marca-texto-suave sm:grid">
-          <span>Pedido</span>
-          <span>Cliente</span>
-          <span>Pago</span>
-          <span className="text-right">Acción</span>
-        </div>
-      ) : null}
+        {/* Encabezado de columnas: solo cabe en pantalla ancha. */}
+        {visibles.length > 0 ? (
+          <div className="mt-4 hidden grid-cols-[1.1fr_1.3fr_0.9fr_auto] gap-3 px-3 text-xs font-semibold uppercase tracking-wider text-marca-texto-suave sm:grid">
+            <span>Pedido</span>
+            <span>Cliente</span>
+            <span>Pago</span>
+            <span className="text-right">Acción</span>
+          </div>
+        ) : null}
 
-      <ul className="space-y-2.5">
-        {visibles.length === 0 ? (
-          <li>
-            <Vacio texto="No hay pedidos en este filtro." Icono={IconoCheck} />
-          </li>
-        ) : (
-          visibles.map((f, i) => (
-            <FilaPedido
-              key={f.key}
-              fila={f}
-              ahora={ahora}
-              indice={i}
-              soloLectura={soloLectura}
-            />
-          ))
-        )}
-      </ul>
-
-      {turno && verCobrados ? (
-        <CobradosHoy cobrados={cobrados} soloLectura={soloLectura} />
-      ) : null}
+        <ul className="mt-3 space-y-2.5">
+          {visibles.length === 0 ? (
+            <li>
+              <Vacio texto="No hay pedidos en este filtro." Icono={IconoCheck} />
+            </li>
+          ) : (
+            visibles.map((f, i) => (
+              <FilaPedido
+                key={f.key}
+                fila={f}
+                ahora={ahora}
+                indice={i}
+                soloLectura={soloLectura}
+              />
+            ))
+          )}
+        </ul>
+      </section>
 
       {tomando ? (
         <Modal titulo="Tomar pedido" onCerrar={() => setTomando(false)}>
@@ -392,18 +365,144 @@ export function CajaCliente(props: Props) {
           </div>
         </section>
       ) : null}
+
+      <ResumenPagos arqueo={arqueo} />
+
+      {turno && verCobrados ? (
+        <CobradosHoy cobrados={cobrados} soloLectura={soloLectura} />
+      ) : null}
+
     </div>
   )
 }
 
-/** "Ventas del turno" con conteo animado al entrar. */
-function VentasTurno({ total }: { total: number }) {
-  const animado = useConteo(total)
+type Filtro = 'todos' | 'verificar' | 'confirmar' | 'cobrar' | 'despachar' | 'entregado'
+type Pestana = { valor: Filtro; etiqueta: string; cuenta: number }
+
+/**
+ * Los estados de la lista. Arriba los cuatro que el cajero mira todo el tiempo; el resto
+ * —y el rastro de lo ya cobrado— detrás de "Más estados", que se abre de un toque. No se
+ * pierde ningún filtro: solo dejan de competir por la pantalla.
+ */
+function FiltrosPedidos({
+  pestanas,
+  pestanasMas,
+  filtro,
+  onFiltro,
+  cobrados,
+  verCobrados,
+  onVerCobrados,
+}: {
+  pestanas: readonly Pestana[]
+  pestanasMas: readonly Pestana[]
+  filtro: Filtro
+  onFiltro: (f: Filtro) => void
+  /** Cuántos cobros lleva el turno; null si no hay turno abierto. */
+  cobrados: number | null
+  verCobrados: boolean
+  onVerCobrados: () => void
+}) {
+  // Si el filtro activo está adentro, el grupo arranca abierto: nunca se esconde
+  // lo que el cajero está viendo.
+  const escondido = pestanasMas.some((p) => p.valor === filtro)
+  const [abierto, setAbierto] = useState(escondido)
+
   return (
-    <p className="text-right text-sm text-marca-texto-suave">
-      Ventas del turno{' '}
-      <span className="text-base font-bold text-marca-texto">{formatearPesos(animado)}</span>
-    </p>
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        {pestanas.map((p) => (
+          <ChipFiltro
+            key={p.valor}
+            etiqueta={p.etiqueta}
+            cuenta={p.cuenta}
+            activa={filtro === p.valor}
+            onClick={() => onFiltro(p.valor)}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        aria-expanded={abierto}
+        className="flex min-h-10 items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-marca-texto-suave"
+      >
+        Más estados
+        <IconoAtras
+          aria-hidden
+          className={`size-4 transition-transform ${abierto ? 'rotate-90' : '-rotate-90'}`}
+        />
+      </button>
+
+      {abierto ? (
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          {pestanasMas.map((p) => (
+            <ChipFiltro
+              key={p.valor}
+              etiqueta={p.etiqueta}
+              cuenta={p.cuenta}
+              activa={filtro === p.valor}
+              onClick={() => onFiltro(p.valor)}
+            />
+          ))}
+
+          {/* No es un filtro de pendientes: enciende el rastro de lo ya cobrado. */}
+          {cobrados !== null ? (
+            <button
+              type="button"
+              onClick={onVerCobrados}
+              aria-pressed={verCobrados}
+              className={`flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 text-sm font-medium ${
+                verCobrados
+                  ? 'border-[#1D9E75] bg-[#E7F6EE] text-[#116B47]'
+                  : 'border-marca-borde text-marca-texto-suave'
+              }`}
+            >
+              <span className="flex min-w-0 items-center gap-1.5">
+                <IconoReloj className="size-4 shrink-0" />
+                <span className="truncate">Cobrados hoy</span>
+              </span>
+              <span className="shrink-0 tabular-nums">{cobrados}</span>
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** Chip de filtro: nombre a la izquierda, cuántos a la derecha. Táctil de 44 px. */
+function ChipFiltro({
+  etiqueta,
+  cuenta,
+  activa,
+  onClick,
+}: {
+  etiqueta: string
+  cuenta: number
+  activa: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activa}
+      className={`flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 text-sm font-medium transition-colors ${
+        activa
+          ? 'border-transparent bg-panel-lateral text-marca-acento'
+          : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
+      }`}
+    >
+      <span className="min-w-0 truncate">{etiqueta}</span>
+      <span
+        className={`shrink-0 tabular-nums ${
+          activa ? 'text-marca-acento' : cuenta > 0 ? 'text-marca-texto' : 'text-marca-texto-suave'
+        }`}
+      >
+        {cuenta}
+      </span>
+    </button>
   )
 }
 
@@ -439,11 +538,11 @@ function CobradosHoy({
   })
 
   return (
-    <section className="space-y-3 pt-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-marca-texto">
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="flex items-center gap-2 font-semibold text-marca-texto">
           <IconoReloj className="size-4 text-[#116B47]" />
-          Cobrados hoy — trazabilidad del turno
+          Cobros del turno
         </h2>
         <p className="text-sm text-marca-texto-suave">
           {cobrados.length} {cobrados.length === 1 ? 'pedido' : 'pedidos'} ·{' '}
@@ -455,32 +554,40 @@ function CobradosHoy({
         <Vacio texto="Aún no se ha cobrado nada en este turno." Icono={IconoReloj} />
       ) : (
         <>
-          {/* Filtrar por medio de pago y buscar por pedido o cliente. */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Buscar por pedido o cliente, y filtrar por medio. Los medios van en una
+              tira que se desliza: en un celular no caben los cinco de frente. */}
+          <div className="space-y-2">
+            <label className="sr-only" htmlFor="buscar-cobro">
+              Buscar pedido o cliente
+            </label>
             <input
+              id="buscar-cobro"
+              type="search"
               value={buscar}
               onChange={(e) => setBuscar(e.target.value)}
               placeholder="Buscar pedido o cliente"
-              className="min-h-10 w-56 rounded-lg border border-marca-borde bg-marca-superficie px-3 text-sm text-marca-texto placeholder:text-marca-texto-suave/60"
+              className="min-h-11 w-full rounded-xl border border-marca-borde bg-marca-superficie px-3 text-sm text-marca-texto placeholder:text-marca-texto-suave/60"
             />
-            {['todos', 'efectivo', 'transferencia', 'datafono', 'pasarela'].map((m) => {
-              const activa = medio === m
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMedio(m)}
-                  aria-pressed={activa}
-                  className={`min-h-10 rounded-lg border px-2.5 text-xs font-medium ${
-                    activa
-                      ? 'border-transparent bg-panel-lateral text-marca-acento'
-                      : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
-                  }`}
-                >
-                  {m === 'todos' ? 'Todos' : (NOMBRE_MEDIO[m] ?? m)}
-                </button>
-              )
-            })}
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+              {['todos', 'efectivo', 'transferencia', 'datafono', 'pasarela'].map((m) => {
+                const activa = medio === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMedio(m)}
+                    aria-pressed={activa}
+                    className={`min-h-10 shrink-0 rounded-full border px-3 text-xs font-medium ${
+                      activa
+                        ? 'border-transparent bg-panel-lateral text-marca-acento'
+                        : 'border-marca-borde text-marca-texto-suave hover:text-marca-texto'
+                    }`}
+                  >
+                    {m === 'todos' ? 'Todos' : (NOMBRE_MEDIO[m] ?? m)}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {visibles.length === 0 ? (
@@ -520,41 +627,48 @@ function FilaCobrado({
   })
   const quien = cobrado.mesa != null ? `Mesa ${cobrado.mesa}` : (cobrado.cliente ?? '—')
 
+  // Dos renglones en el celular: arriba el pedido y la plata —que nunca se recorta—,
+  // abajo el detalle. En pantalla ancha vuelve a ser una sola línea.
   return (
     <li
-      className="entra grid grid-cols-[4.5rem_1fr_auto_auto_6rem_auto] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-marca-superficie-tenue"
+      className="entra px-3 py-2.5 transition-colors hover:bg-marca-superficie-tenue"
       style={{ '--i': Math.min(indice, 8) } as CSSProperties}
     >
-      <span className="font-semibold tabular-nums text-marca-texto">
-        {cobrado.numero != null ? `#${cobrado.numero}` : '—'}
-      </span>
-      <span className="min-w-0 truncate text-sm text-marca-texto">{quien}</span>
-      <span
-        className="flex items-center gap-1.5 text-xs font-semibold"
-        style={{ color: info?.color }}
-      >
-        {info ? <info.Icono className="size-4" /> : null}
-        {NOMBRE_MEDIO[cobrado.medio] ?? cobrado.medio}
-      </span>
-      <span className="text-xs tabular-nums text-marca-texto-suave" suppressHydrationWarning>
-        {hora}
-      </span>
-      <span className="text-right font-semibold tabular-nums text-marca-texto">
-        {formatearPesos(cobrado.monto)}
-      </span>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-semibold tabular-nums text-marca-texto">
+          {cobrado.numero != null ? `#${cobrado.numero}` : '—'}
+        </span>
+        <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-marca-texto">
+          {formatearPesos(cobrado.monto)}
+        </span>
+      </div>
 
-      {/* La factura que se le entrega al cliente. En monitoreo no se imprime. */}
-      {soloLectura || !cobrado.pedido_id ? (
-        <span />
-      ) : (
-        <Link
-          href={`/app/caja/factura/${cobrado.pedido_id}`}
-          className="flex min-h-9 items-center gap-1 rounded-lg border border-marca-borde px-2.5 text-xs font-medium text-marca-texto-suave transition-colors hover:border-marca-acento hover:text-marca-texto"
-        >
-          <IconoImprimir className="size-4 shrink-0" />
-          Factura
-        </Link>
-      )}
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2 text-xs">
+          <span
+            className="flex shrink-0 items-center gap-1 font-semibold"
+            style={{ color: info?.color }}
+          >
+            {info ? <info.Icono className="size-4" /> : null}
+            {NOMBRE_MEDIO[cobrado.medio] ?? cobrado.medio}
+          </span>
+          <span className="shrink-0 tabular-nums text-marca-texto-suave" suppressHydrationWarning>
+            {hora}
+          </span>
+          <span className="min-w-0 truncate text-marca-texto-suave">{quien}</span>
+        </span>
+
+        {/* La factura que se le entrega al cliente. En monitoreo no se imprime. */}
+        {soloLectura || !cobrado.pedido_id ? null : (
+          <Link
+            href={`/app/caja/factura/${cobrado.pedido_id}`}
+            className="flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-marca-borde px-2.5 text-xs font-medium text-marca-texto-suave transition-colors hover:border-marca-acento hover:text-marca-texto"
+          >
+            <IconoImprimir className="size-4 shrink-0" />
+            Factura
+          </Link>
+        )}
+      </div>
     </li>
   )
 }
@@ -621,9 +735,10 @@ function ColPedido({
   )
 }
 
+/** Monto y su medio. En el celular van en la misma línea; en ancho, uno bajo el otro. */
 function ColPago({ monto, medio }: { monto: number; medio: string }) {
   return (
-    <div className="sm:text-left">
+    <div className="flex items-baseline justify-between gap-2 sm:block sm:text-left">
       <p className="text-lg font-bold text-marca-texto">{formatearPesos(monto)}</p>
       <p className="text-xs text-marca-texto-suave">{NOMBRE_MEDIO[medio] ?? medio}</p>
     </div>
@@ -815,7 +930,7 @@ function FilaConfirmar({
       {soloLectura ? (
         <EstadoSoloLectura texto="Por confirmar" />
       ) : (
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
           {anulando ? (
             <MotivoInline
               marcador="Motivo de la anulación"
@@ -918,13 +1033,13 @@ function FilaCobrar({
       {soloLectura ? (
         <EstadoSoloLectura texto="Por cobrar" />
       ) : (
-      <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-col items-stretch gap-2 sm:items-end">
         {abierto ? (
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
             {repartido ? (
               /* Una cuenta, varios medios. Cada renglón tiene un botón que le mete
                  lo que falte, para no hacer restas de cabeza frente al cliente. */
-              <div className="flex flex-col items-end gap-1.5">
+              <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
                 {MEDIOS.map((m) => (
                   <div key={m.valor} className="flex items-center gap-1.5">
                     <label
@@ -1125,7 +1240,8 @@ function FilaDespachar({
       />
 
       <div className="min-w-0">
-        <FichaDireccion direccion={d.direccion} zona={d.zona} />
+        {/* El barrio ya lo dice el subtítulo de arriba: aquí solo la calle. */}
+        <FichaDireccion direccion={d.direccion} zona={null} />
         {d.nota_entrega ? (
           <p className="mt-1 flex items-center gap-1 text-xs text-marca-acento-fuerte">
             <IconoAlerta className="size-3.5" /> Volvió: {d.nota_entrega}
@@ -1133,7 +1249,7 @@ function FilaDespachar({
         ) : null}
       </div>
 
-      <div className="sm:text-left">
+      <div className="flex items-baseline justify-between gap-2 sm:block sm:text-left">
         <p className="text-lg font-bold text-marca-texto">{formatearPesos(d.total)}</p>
         <p className="text-xs text-marca-texto-suave">
           {d.contraentrega ? 'Cobra el domiciliario' : 'Ya está pago'}
@@ -1145,7 +1261,7 @@ function FilaDespachar({
           texto={d.domiciliario_nombre ?? (enMostrador ? 'En el mostrador' : 'Sin despachar')}
         />
       ) : (
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
           <div className="flex items-center gap-1.5">
             {/* La cuenta se imprime y se pega al pedido: es la guía del domiciliario. */}
             <BotonCuenta pedidoId={d.pedido_id} />
@@ -1255,7 +1371,7 @@ function FilaEntregado({
         ) : null}
       </div>
 
-      <div className="sm:text-left">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2 sm:block sm:text-left">
         <p className="text-lg font-bold text-marca-texto">{formatearPesos(falta)}</p>
         {repartido ? (
           /* Pago repartido: se dice pieza por pieza para que caja no cobre de más ni
@@ -1274,7 +1390,7 @@ function FilaEntregado({
       {soloLectura ? (
         <EstadoSoloLectura texto={e.transferencia > 0 ? 'Por verificar' : 'Por recibir'} />
       ) : e.transferencia > 0 ? (
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
           <Boton variante="exito" className="px-4" onClick={verificar} disabled={ocupado}>
             {ocupado
               ? 'Verificando…'
@@ -1576,7 +1692,10 @@ function PilaNotificaciones({
   return (
     <div
       aria-label="Transferencias por verificar"
-      className="fixed right-4 top-4 z-50 flex max-h-[calc(100vh-2rem)] w-80 max-w-[calc(100vw-2rem)] flex-col gap-3 overflow-y-auto"
+      /* En el celular va en el flujo, de primera: flotando tapaba el resumen del turno
+         o los botones de la tarjeta de abajo. Sigue siendo lo primero que se ve y sigue
+         sin cerrarse sola. En pantalla ancha sí flota, que ahí sobra espacio. */
+      className="relative z-50 flex flex-col gap-3 sm:fixed sm:right-4 sm:top-4 sm:max-h-[calc(100vh-2rem)] sm:w-80 sm:max-w-[calc(100vw-2rem)] sm:overflow-y-auto"
     >
       {transferencias.map((t) => (
         <NotificacionTransferencia key={t.pedido_id} transferencia={t} ahora={ahora} />
@@ -1804,6 +1923,9 @@ function SeccionTurno({
   }
 
   const total = Object.values(arqueo).reduce((s, v) => s + v.monto, 0)
+  // Lo que de verdad hay en el cajón: la base más lo cobrado en efectivo. Las
+  // transferencias y el datáfono son venta del turno, pero no plata en la mano.
+  const enCaja = turno.base_inicial + (arqueo.efectivo?.monto ?? 0)
   const desde = new Date(turno.abierto_en).toLocaleTimeString('es-CO', {
     hour: 'numeric',
     minute: '2-digit',
@@ -1811,19 +1933,73 @@ function SeccionTurno({
   })
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="tarjeta p-4">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-marca-texto">Turno abierto</h2>
-          <p className="text-sm text-marca-texto-suave" suppressHydrationWarning>
-            Base: {formatearPesos(turno.base_inicial)} · desde {desde}
+          <h2 className="font-semibold text-marca-texto">Estado de la caja</h2>
+          <p className="mt-0.5 text-xs text-marca-texto-suave" suppressHydrationWarning>
+            Desde {desde}
           </p>
         </div>
-        {soloLectura ? null : <CerrarTurno onCerrado={onCerrado} />}
+        <Pildora tono="verde">Turno abierto</Pildora>
       </div>
 
-      {/* Los cuatro medios con la tarjeta-indicador estándar: la composición del día de un vistazo. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <dl className="mt-4 space-y-2 text-sm">
+        <RenglonTurno termino="Base inicial" valor={turno.base_inicial} />
+        <RenglonTurno termino="Ventas del turno" valor={total} animado />
+      </dl>
+
+      {/* El dato que el cajero busca al abrir la pantalla: cuánta plata tiene en la mano. */}
+      <div className="mt-3 border-t border-marca-borde pt-3">
+        <p className="text-sm text-marca-texto-suave">Efectivo en caja</p>
+        <p className="mt-0.5 font-titulo text-3xl font-bold tabular-nums text-marca-texto">
+          {formatearPesos(enCaja)}
+        </p>
+        <p className="mt-1 text-xs text-marca-texto-suave">
+          Base más lo cobrado en efectivo. Transferencias y datáfono no están en el cajón.
+        </p>
+      </div>
+
+      {soloLectura ? null : (
+        <CerrarTurno esperado={enCaja} onCerrado={onCerrado} />
+      )}
+    </section>
+  )
+}
+
+/** Renglón término/valor del resumen del turno: etiqueta a la izquierda, plata a la derecha. */
+function RenglonTurno({
+  termino,
+  valor,
+  animado = false,
+}: {
+  termino: string
+  valor: number
+  /** El dato que se mueve durante el turno entra con conteo; la base es fija. */
+  animado?: boolean
+}) {
+  const mostrado = useConteo(animado ? valor : 0)
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-marca-texto-suave">{termino}</dt>
+      <dd className="font-semibold tabular-nums text-marca-texto">
+        {formatearPesos(animado ? mostrado : valor)}
+      </dd>
+    </div>
+  )
+}
+
+/**
+ * Los cuatro medios del turno, compactos: monto grande, cuántos pedidos y qué parte del
+ * turno se llevó. Los que van en cero bajan el tono — están, pero no gritan.
+ */
+function ResumenPagos({ arqueo }: { arqueo: Record<string, ArqueoMedio> }) {
+  const total = Object.values(arqueo).reduce((s, v) => s + v.monto, 0)
+
+  return (
+    <section>
+      <h2 className="mb-2 text-sm font-semibold text-marca-texto">Resumen de pagos</h2>
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m, i) => (
           <TarjetaMedioPago
             key={m}
@@ -1835,13 +2011,16 @@ function SeccionTurno({
           />
         ))}
       </div>
-
-      <VentasTurno total={total} />
     </section>
   )
 }
 
-/** Medio de pago con la tarjeta-KPI estándar: monto, pedidos y % del turno con barra. */
+/**
+ * Medio de pago del turno, en versión compacta para el celular del cajero: la
+ * tarjeta-indicador estándar es demasiado alta cuando van cuatro seguidas y hay que
+ * seguir bajando. Mismo lenguaje —franja de color, ícono, monto, mini-dato y barra—
+ * en menos alto. En cero, todo baja de tono: el medio sigue ahí, pero no compite.
+ */
 function TarjetaMedioPago({
   medio,
   monto,
@@ -1858,22 +2037,53 @@ function TarjetaMedioPago({
 }) {
   const info = MEDIO_INFO[medio]
   const pct = total > 0 ? Math.round((monto / total) * 100) : 0
+  const vacio = monto === 0
+  const color = vacio ? 'var(--marca-texto-suave)' : info.color
+
   return (
-    <TarjetaKpi
-      titulo={NOMBRE_MEDIO[medio] ?? medio}
-      valor={monto}
-      dinero
-      color={info.color}
-      Icono={info.Icono}
-      sub={{
-        texto:
-          pedidos !== undefined
+    <article
+      className="tarjeta entra overflow-hidden p-3"
+      style={{ '--i': indice, opacity: vacio ? 0.7 : 1 } as CSSProperties}
+    >
+      <p className="flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className="flex size-6 shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: vacio ? 'var(--marca-superficie-tenue)' : `${info.color}14`, color }}
+        >
+          <info.Icono className="size-3.5" />
+        </span>
+        <span className="min-w-0 truncate text-xs font-medium text-marca-texto-suave">
+          {NOMBRE_MEDIO[medio] ?? medio}
+        </span>
+      </p>
+
+      <p
+        className={`mt-1.5 text-lg font-bold tabular-nums ${
+          vacio ? 'text-marca-texto-suave' : 'text-marca-texto'
+        }`}
+      >
+        {formatearPesos(monto)}
+      </p>
+
+      <p className="mt-0.5 flex items-baseline justify-between gap-2 text-[11px] text-marca-texto-suave">
+        <span className="min-w-0 truncate">
+          {pedidos !== undefined
             ? `${pedidos} ${pedidos === 1 ? 'pedido' : 'pedidos'}`
-            : 'del total del turno',
-        porcentaje: pct,
-      }}
-      indice={indice}
-    />
+            : 'del turno'}
+        </span>
+        <span className="shrink-0 font-semibold tabular-nums" style={{ color }}>
+          {pct}%
+        </span>
+      </p>
+
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-marca-superficie-tenue">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
+    </article>
   )
 }
 
@@ -1922,7 +2132,19 @@ function AbrirTurno() {
   )
 }
 
-function CerrarTurno({ onCerrado }: { onCerrado: (arqueo: ArqueoCierre) => void }) {
+/**
+ * Cerrar el turno. El formulario no vive abierto ocupando pantalla: es un botón que abre
+ * el cuadre en una ventana, con el efectivo esperado a la vista y la diferencia calculada
+ * mientras digita. La cifra que manda sigue siendo la que devuelve la base al cerrar.
+ */
+function CerrarTurno({
+  esperado,
+  onCerrado,
+}: {
+  /** Base + efectivo cobrado: contra esto se compara lo que el cajero cuente. */
+  esperado: number
+  onCerrado: (arqueo: ArqueoCierre) => void
+}) {
   const [abierto, setAbierto] = useState(false)
   const [contado, setContado] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -1941,49 +2163,78 @@ function CerrarTurno({ onCerrado }: { onCerrado: (arqueo: ArqueoCierre) => void 
     onCerrado(r.arqueo)
   }
 
-  if (!abierto) {
-    return (
-      <button
-        type="button"
-        onClick={() => setAbierto(true)}
-        className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto"
-      >
-        Cerrar turno
-      </button>
-    )
-  }
+  // La diferencia solo tiene sentido cuando ya contó: en blanco no es un faltante.
+  const contando = contado.trim() !== ''
+  const diferencia = (Number(contado) || 0) - esperado
+  const tono = diferencia === 0 ? '#116B47' : diferencia > 0 ? '#0C447C' : '#9A3320'
 
   return (
-    <div className="w-full max-w-xs rounded-lg border border-marca-borde bg-marca-fondo p-3">
-      <label className="block">
-        <span className="text-sm text-marca-texto-suave">Efectivo contado</span>
-        <input
-          inputMode="numeric"
-          autoFocus
-          value={contado}
-          onChange={(e) => setContado(e.target.value.replace(/\D/g, ''))}
-          className="mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-superficie px-3 tabular-nums text-marca-texto"
-        />
-      </label>
-      {error ? <Error texto={error} /> : null}
-      <div className="mt-2 flex gap-2">
-        <button
-          type="button"
-          onClick={cerrar}
-          disabled={enviando}
-          className="min-h-11 flex-1 rounded-lg bg-marca-acento px-3 text-sm font-medium text-marca-acento-texto disabled:opacity-60"
-        >
-          {enviando ? 'Cerrando…' : 'Cerrar y cuadrar'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setAbierto(false)}
-          className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave"
-        >
-          Cancelar
-        </button>
-      </div>
-    </div>
+    <>
+      <Boton
+        variante="primario"
+        className="mt-4 w-full justify-center"
+        onClick={() => setAbierto(true)}
+      >
+        Cerrar turno
+      </Boton>
+
+      {abierto ? (
+        <Modal titulo="Cerrar turno" onCerrar={() => setAbierto(false)}>
+          <dl className="space-y-2 text-sm">
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-marca-texto-suave">Efectivo esperado</dt>
+              <dd className="font-semibold tabular-nums text-marca-texto">
+                {formatearPesos(esperado)}
+              </dd>
+            </div>
+          </dl>
+
+          <label className="mt-4 block">
+            <span className="text-sm text-marca-texto-suave">Efectivo contado</span>
+            <input
+              inputMode="numeric"
+              autoFocus
+              value={contado}
+              onChange={(e) => setContado(e.target.value.replace(/\D/g, ''))}
+              placeholder="0"
+              className="mt-1 min-h-12 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 text-right text-lg tabular-nums text-marca-texto"
+            />
+          </label>
+
+          <p className="mt-3 flex items-baseline justify-between gap-3 text-sm">
+            <span className="text-marca-texto-suave">Diferencia</span>
+            {contando ? (
+              <span className="font-bold tabular-nums" style={{ color: tono }}>
+                {diferencia > 0 ? '+' : ''}
+                {formatearPesos(diferencia)}
+              </span>
+            ) : (
+              <span className="text-marca-texto-suave">—</span>
+            )}
+          </p>
+
+          {error ? <Error texto={error} /> : null}
+
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              className="min-h-12 flex-1 rounded-lg border border-marca-borde text-sm font-medium text-marca-texto-suave"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={cerrar}
+              disabled={enviando}
+              className="min-h-12 flex-[2] rounded-lg bg-marca-acento text-sm font-semibold text-marca-acento-texto disabled:opacity-60"
+            >
+              {enviando ? 'Cerrando…' : 'Cerrar y cuadrar'}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+    </>
   )
 }
 

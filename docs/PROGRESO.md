@@ -1056,3 +1056,44 @@ el segundo rebota, caja se lo quita y vuelve al mostrador, el segundo lo toma y 
 caja no puede quitárselo ya en camino, y los dos roles cruzados rebotan (el cajero no toma
 domicilios, el domiciliario no despacha). `tsc`, ESLint y `npm run build`, en verde.
 Aplicado a la base de producción y verificado por hash contra lo probado aquí.
+
+
+## Caja, más limpia en el celular
+
+La caja se opera desde el teléfono y la pantalla tenía quince cosas compitiendo: el turno,
+los cuatro medios de pago, siete filtros sueltos, el formulario de cierre siempre abierto y
+un historial que cortaba las cifras. Se reorganizó **sin tocar una sola regla de negocio**:
+mismos estados, mismos cálculos, mismas acciones, mismos datos.
+
+- **Resumen del turno en una sola tarjeta**: estado y hora arriba, base y ventas como
+  renglones, y de dato principal **Efectivo en caja** — base más lo cobrado en efectivo,
+  que es lo que de verdad hay en el cajón. Se dice explícitamente que transferencias y
+  datáfono no están ahí, para que nadie cuente esa plata dos veces.
+- **El cierre dejó de ocupar pantalla**: el botón *Cerrar turno* abre una ventana con el
+  efectivo esperado, el campo de contado y la diferencia calculada mientras digita (en
+  blanco no dice "faltan", dice "—"). La cifra que manda sigue siendo la que devuelve
+  `cerrar_turno`; esto es solo la vista previa.
+- **Filtros**: los cuatro que se miran todo el tiempo (Todos, Por cobrar, Por confirmar,
+  Domicilios) y el resto —Por verificar, Entregados sin cobrar y el rastro de Cobrados
+  hoy— detrás de *Más estados*, que se abre solo si el filtro activo está adentro. No se
+  quitó ningún filtro.
+- **Medios de pago**: la tarjeta-indicador estándar es demasiado alta cuando van cuatro
+  seguidas en un celular. Se usa una versión compacta con el mismo lenguaje (franja, ícono,
+  monto, mini-dato y barra) y los que van en cero bajan de tono en vez de desaparecer.
+- **Cobros del turno**: buscador a lo ancho y los medios en una tira que se desliza. Cada
+  fila pasó a dos renglones en el celular —pedido y plata arriba, medio, hora y cliente
+  abajo— así **ningún valor se corta**, que era el defecto más visible.
+- **Tarjetas de pedido**: el barrio ya no se repite (estaba en el subtítulo y otra vez en
+  la ficha de dirección), monto y estado de pago van en la misma línea, y los botones se
+  estiran a lo ancho en el celular en vez de amontonarse a la derecha.
+- **La alerta de transferencias** deja de flotar en el celular: iba fija arriba y tapaba el
+  resumen del turno; abajo tapaba los botones de la última tarjeta. Ahora va de primera en
+  el flujo —sigue siendo lo primero que se ve y sigue sin cerrarse sola— y solo flota en
+  pantalla ancha, donde sobra espacio.
+
+### Verificado
+
+Con la pantalla real montada en el navegador (Playwright, con datos de prueba que cubren
+los cinco tipos de fila, el pago repartido y el efectivo por legalizar): sin scroll
+horizontal ni desbordes a 360, 390, 430, 768 y 1280 px, el modal de cierre, el cobro con
+pago dividido y la vista de escritorio intacta. `tsc`, ESLint y `npm run build`, en verde.
