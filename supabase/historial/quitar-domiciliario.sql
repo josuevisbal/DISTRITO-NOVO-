@@ -7,6 +7,9 @@
 -- `quitar_domiciliario` lo devuelve a la fila de por despachar. Solo mientras NO lo haya
 -- recogido: si ya salió con la comida, el camino sigue siendo que él reporte desde su
 -- celular que no pudo entregarla.
+--
+-- OJO: `mostrador-domicilios.sql` (posterior) reemplaza esta versión — allí el pedido
+-- vuelve al MOSTRADOR y no a 'listo'. Si vas a correr los dos, corre este primero.
 
 create or replace function quitar_domiciliario(p_pedido uuid) returns void
 language plpgsql security definer set search_path = public as $$

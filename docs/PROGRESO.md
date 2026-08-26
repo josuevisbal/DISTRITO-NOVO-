@@ -1021,3 +1021,38 @@ los cuatro caminos de siempre —contraentrega, transferencia previa, cambio a t
 en la puerta y cuenta de mesa con propina—, todos igual que antes. También el camino de
 actualización: `historial/pago-repartido-domicilio.sql` sobre una base con el esquema
 viejo deja el mismo comportamiento. `tsc`, ESLint y `npm run build`, en verde.
+
+
+## Caja no reparte: el mostrador de domicilios
+
+**Lo que dijo el cliente:** caja no quiere escoger quién lleva cada domicilio. Imprime la
+cuenta, la pega al pedido y le da listo. Los domiciliarios se organizan entre ellos
+guiándose por la comanda pegada al plato, y cada uno busca en su celular el nombre del
+cliente para tomar el que va a llevar.
+
+Así quedó el reparto:
+
+- **Caja** ya no tiene el selector de domiciliarios. En su lugar, un botón **Listo, a la
+  calle** (`despachar_domicilio`) que suelta el pedido al mostrador: pasa a `en_despacho`
+  **sin dueño**. Al lado sigue *Cuenta*, que es lo que se imprime y se pega.
+- **El domiciliario** ve dos grupos: *Mis entregas* y *En el mostrador*, con el buscador
+  arriba. Encuentra el nombre que trae la cuenta pegada, toca **Yo lo llevo**
+  (`tomar_domicilio`) y de ahí sigue el camino de siempre: recogí → entregué.
+- **Si dos tocan a la vez**, el `update` va con `domiciliario_id is null` en el `where`:
+  el segundo recibe "Otro domiciliario acaba de tomar ese pedido" en lugar de quitárselo.
+- **Quitar** cambia de significado: el pedido vuelve al **mostrador** (antes volvía a
+  'listo'), listo para que lo tome otro. Sigue prohibido cuando ya va en camino.
+- **RLS**: el domiciliario ve lo suyo y lo que está libre en el mostrador. Lo que otro se
+  llevó no lo ve.
+
+`asignar_domiciliario` se queda en la base —una instancia vieja puede seguir usándola—
+pero la aplicación ya no la llama, y con ella salió la consulta de la lista de
+domiciliarios que cargaba Caja para nada.
+
+### Verificado
+
+En Postgres 16 con el esquema completo: caja suelta al mostrador, un domiciliario lo toma,
+el segundo rebota, caja se lo quita y vuelve al mostrador, el segundo lo toma y lo lleva,
+caja no puede quitárselo ya en camino, y los dos roles cruzados rebotan (el cajero no toma
+domicilios, el domiciliario no despacha). `tsc`, ESLint y `npm run build`, en verde.
+Aplicado a la base de producción y verificado por hash contra lo probado aquí.

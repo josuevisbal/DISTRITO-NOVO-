@@ -1,7 +1,6 @@
 import type {
   Contraentrega,
   Despacho,
-  Domiciliario,
   Entregado,
   PorCobrar,
   PorLegalizar,
@@ -45,7 +44,6 @@ export type DatosCaja = {
   entregados: Entregado[]
   /** Domicilios que cocina ya terminó: caja escoge quién los lleva. */
   despachos: Despacho[]
-  domiciliarios: Domiciliario[]
   /** La carta, para que caja tome pedidos de quien llama o llega al mostrador. */
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
@@ -109,7 +107,6 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     cobrarRes,
     entregadosRes,
     despachoRes,
-    domiRes,
     categoriaRes,
     productoRes,
     zonaRes,
@@ -158,13 +155,6 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       .eq('canal', 'domicilio')
       .in('estado', ['listo', 'en_despacho'])
       .order('creado_en'),
-    supabase
-      .from('usuarios')
-      .select('id, nombre')
-      .eq('restaurante_id', restauranteId)
-      .eq('rol', 'domicilio')
-      .eq('activo', true)
-      .order('nombre'),
     supabase
       .from('categorias')
       .select('id, nombre')
@@ -293,7 +283,6 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     porLegalizar: [...porLegalizarMapa.values()],
     entregados,
     despachos,
-    domiciliarios: domiRes.data ?? [],
     categorias: categoriaRes.data ?? [],
     productos: productoRes.data ?? [],
     zonas: zonaRes.data ?? [],

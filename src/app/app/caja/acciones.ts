@@ -90,19 +90,14 @@ export async function registrarCobroMixto(
 }
 
 /**
- * Caja le entrega el domicilio a un repartidor. Sin pase de por medio: en cuanto cocina
- * deja el pedido listo, caja escoge a quién se lo lleva y el pedido pasa a despacho.
+ * Caja no reparte los domicilios: imprime la cuenta, la pega al pedido y lo suelta al
+ * mostrador. De ahí los domiciliarios se organizan entre ellos —se guían por la comanda
+ * pegada— y cada uno toma desde su celular el que va a llevar.
  */
-export async function asignarDomiciliario(
-  pedidoId: string,
-  domiciliarioId: string,
-): Promise<Resultado> {
+export async function despacharDomicilio(pedidoId: string): Promise<Resultado> {
   await exigirRol('cajero', 'admin')
   const supabase = await crearClienteServidor()
-  const { error } = await supabase.rpc('asignar_domiciliario', {
-    p_pedido: pedidoId,
-    p_domi: domiciliarioId,
-  })
+  const { error } = await supabase.rpc('despachar_domicilio', { p_pedido: pedidoId })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
   revalidatePath('/app/admin/caja')
@@ -111,9 +106,10 @@ export async function asignarDomiciliario(
 }
 
 /**
- * Caja se arrepiente de la asignación: el pedido vuelve a la fila de por despachar y el
- * domiciliario deja de verlo. Solo mientras no lo haya recogido; si ya salió con la
- * comida, la base lo rechaza y el camino es que él reporte que no pudo entregar.
+ * El domiciliario tomó el que no era, o caja necesita moverlo: el pedido vuelve al
+ * mostrador y queda libre para que lo tome otro. Solo mientras no lo haya recogido; si ya
+ * salió con la comida, la base lo rechaza y el camino es que él reporte que no pudo
+ * entregar.
  */
 export async function quitarDomiciliario(pedidoId: string): Promise<Resultado> {
   await exigirRol('cajero', 'admin')

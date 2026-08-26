@@ -7,12 +7,20 @@ import { Vacio } from '@/components/ui/vacio'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
 import { enlaceLlamar, enlaceWhatsApp } from '@/lib/telefono'
-import { entregarPedido, falloEntrega, recogerPedido, repartirPagoEntrega } from './acciones'
+import {
+  entregarPedido,
+  falloEntrega,
+  recogerPedido,
+  repartirPagoEntrega,
+  tomarDomicilio,
+} from './acciones'
 
 export type Entrega = {
   pedido_id: string
   numero: number
   estado: 'en_despacho' | 'en_camino'
+  /** Null = está en el mostrador, sin dueño: cualquiera lo puede tomar. */
+  domiciliario_id: string | null
   cliente: string | null
   telefono: string | null
   direccion: string | null
@@ -33,9 +41,12 @@ export type Entrega = {
 
 export function DomiciliosCliente({
   entregas,
+  miId,
   soloLectura = false,
 }: {
   entregas: Entrega[]
+  /** Quién está mirando: separa lo que ya tomó de lo que sigue en el mostrador. */
+  miId?: string
   /** Monitoreo del admin: espejo sin controles. Observa, no opera. */
   soloLectura?: boolean
 }) {
@@ -51,11 +62,15 @@ export function DomiciliosCliente({
   }
 
   const encontradas = filtrarEntregas(entregas, busqueda)
+  // Lo que ya tomó y lo que sigue en el mostrador. En monitoreo no se separa: el admin
+  // ve el tablero completo, con el nombre de quién lleva cada una.
+  const mias = soloLectura ? encontradas : encontradas.filter((e) => e.domiciliario_id === miId)
+  const mostrador = soloLectura ? [] : encontradas.filter((e) => e.domiciliario_id === null)
 
   return (
     <div className="mx-auto max-w-xl p-4">
-      {/* Con varias entregas encima, encontrar "la de Ana" o "la del Prado" a mano es
-          perder tiempo parado en la moto. Busca por cliente, dirección, barrio o número. */}
+      {/* El domiciliario se guía por la cuenta pegada al pedido: busca ese nombre aquí
+          y toma el suyo. Con varias encima, buscar a mano es perder tiempo en la moto. */}
       {entregas.length > 1 ? (
         <div className="mb-4">
           <label className="sr-only" htmlFor="buscar-entrega">
@@ -79,14 +94,53 @@ export function DomiciliosCliente({
 
       {encontradas.length === 0 ? (
         <Vacio texto={`Ninguna entrega coincide con "${busqueda.trim()}".`} Icono={IconoMoto} />
-      ) : (
-        <ul className="space-y-4">
-          {encontradas.map((e, i) => (
-            <TarjetaEntrega key={e.pedido_id} entrega={e} indice={i} soloLectura={soloLectura} />
-          ))}
-        </ul>
-      )}
+      ) : null}
+
+      {mias.length > 0 ? (
+        <>
+          {!soloLectura && mostrador.length > 0 ? <Titulo texto="Mis entregas" /> : null}
+          <ul className="space-y-4">
+            {mias.map((e, i) => (
+              <TarjetaEntrega
+                key={e.pedido_id}
+                entrega={e}
+                indice={i}
+                soloLectura={soloLectura}
+                enMostrador={false}
+              />
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {mostrador.length > 0 ? (
+        <>
+          <Titulo texto="En el mostrador" />
+          <p className="mb-3 text-sm text-marca-texto-suave">
+            Busca el nombre que trae la cuenta pegada al pedido y tómalo.
+          </p>
+          <ul className="space-y-4">
+            {mostrador.map((e, i) => (
+              <TarjetaEntrega
+                key={e.pedido_id}
+                entrega={e}
+                indice={mias.length + i}
+                soloLectura={soloLectura}
+                enMostrador
+              />
+            ))}
+          </ul>
+        </>
+      ) : null}
     </div>
+  )
+}
+
+function Titulo({ texto }: { texto: string }) {
+  return (
+    <h2 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-marca-texto-suave first:mt-0">
+      {texto}
+    </h2>
   )
 }
 
@@ -118,10 +172,13 @@ function TarjetaEntrega({
   entrega,
   indice,
   soloLectura,
+  enMostrador,
 }: {
   entrega: Entrega
   indice: number
   soloLectura: boolean
+  /** Está libre: todavía no es de nadie, así que lo único que se puede hacer es tomarlo. */
+  enMostrador: boolean
 }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -155,6 +212,12 @@ function TarjetaEntrega({
     void correr(() => entregarPedido(entrega.pedido_id))
   }
 
+  /** Lo toma del mostrador: de aquí en adelante es suyo y sigue el camino de siempre. */
+  function tomar() {
+    navigator.vibrate?.(15)
+    void correr(() => tomarDomicilio(entrega.pedido_id))
+  }
+
   if (oculta) return null
 
   return (
@@ -166,7 +229,7 @@ function TarjetaEntrega({
         <p className="font-titulo text-xl text-marca-texto">Pedido #{entrega.numero}</p>
         <span className="flex items-center gap-1.5 rounded-full border border-marca-borde px-2.5 py-1 text-xs text-marca-texto-suave">
           <IconoMoto className="size-3.5" />
-          {estado === 'en_despacho' ? 'Por recoger' : 'En camino'}
+          {enMostrador ? 'Libre' : estado === 'en_despacho' ? 'Por recoger' : 'En camino'}
         </span>
       </div>
 
@@ -244,7 +307,19 @@ function TarjetaEntrega({
         </p>
       ) : null}
 
-      {soloLectura ? null : (
+      {soloLectura ? null : enMostrador ? (
+        <div className="mt-4">
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={tomar}
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto disabled:opacity-50"
+          >
+            <IconoMoto className="size-5" />
+            Yo lo llevo
+          </button>
+        </div>
+      ) : (
       <div className="mt-4 flex flex-col gap-2">
         {estado === 'en_despacho' ? (
           <button

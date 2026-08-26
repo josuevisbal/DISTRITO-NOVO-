@@ -9,8 +9,9 @@ export const dynamic = 'force-dynamic'
 export default async function PaginaDomicilios() {
   const staff = await exigirRol('domicilio', 'admin')
 
-  // La RLS ya limita al domiciliario a SUS pedidos; aun así filtramos por su id. Un admin
-  // (que aquí llega en operación) ve todo lo que esté en despacho o en camino.
+  // El domiciliario ve lo que ya tomó y lo que está libre en el mostrador (la RLS le
+  // acota lo mismo). Un admin, que aquí llega en operación, ve todo lo que esté en
+  // despacho o en camino.
   const entregas = await cargarEntregas(
     staff.restaurante_id,
     staff.rol === 'domicilio' ? staff.id : undefined,
@@ -19,7 +20,7 @@ export default async function PaginaDomicilios() {
   return (
     <MarcoOscuro>
       <BarraStaff staff={staff} titulo="Mis entregas" />
-      <DomiciliosCliente entregas={entregas} />
+      <DomiciliosCliente entregas={entregas} miId={staff.id} />
     </MarcoOscuro>
   )
 }

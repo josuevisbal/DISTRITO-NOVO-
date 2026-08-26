@@ -41,7 +41,7 @@ import { haceCuanto } from '@/lib/tiempo'
 import {
   abrirTurno,
   anularPedido,
-  asignarDomiciliario,
+  despacharDomicilio,
   quitarDomiciliario,
   cerrarTurno,
   confirmarContraentrega,
@@ -163,7 +163,6 @@ type Props = {
   porLegalizar: PorLegalizar[]
   entregados: Entregado[]
   despachos: Despacho[]
-  domiciliarios: Domiciliario[]
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
   zonas: ZonaCaja[]
@@ -183,7 +182,6 @@ export function CajaCliente(props: Props) {
     porLegalizar,
     entregados,
     despachos,
-    domiciliarios,
     categorias,
     productos,
     zonas,
@@ -354,7 +352,6 @@ export function CajaCliente(props: Props) {
               ahora={ahora}
               indice={i}
               soloLectura={soloLectura}
-              domiciliarios={domiciliarios}
             />
           ))
         )}
@@ -638,22 +635,15 @@ function FilaPedido({
   ahora,
   indice,
   soloLectura,
-  domiciliarios,
 }: {
   fila: FilaCaja
   ahora: number
   indice: number
   soloLectura: boolean
-  domiciliarios: Domiciliario[]
 }) {
   if (fila.tipo === 'despachar') {
     return (
-      <FilaDespachar
-        d={fila.despacho}
-        domiciliarios={domiciliarios}
-        indice={indice}
-        soloLectura={soloLectura}
-      />
+      <FilaDespachar d={fila.despacho} indice={indice} soloLectura={soloLectura} />
     )
   }
   if (fila.tipo === 'entregado') {
@@ -1098,53 +1088,39 @@ function Propina({
  */
 function FilaDespachar({
   d,
-  domiciliarios,
   indice,
   soloLectura,
 }: {
   d: Despacho
-  domiciliarios: Domiciliario[]
   indice: number
   soloLectura: boolean
 }) {
-  const [domi, setDomi] = useState(d.domiciliario_id ?? '')
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { mostrar } = useToast()
 
-  async function asignar() {
-    if (!domi) return
-    setOcupado(true)
-    setError(null)
-    const r = await asignarDomiciliario(d.pedido_id, domi)
-    if (!r.ok) {
-      setError(r.error)
-      setOcupado(false)
-      return
-    }
-    mostrar(`Pedido #${d.numero} asignado`)
-  }
+  const enMostrador = d.estado === 'en_despacho' && d.domiciliario_id === null
 
-  /** Se la quita: el pedido vuelve a la fila de por despachar y queda libre para otro. */
-  async function quitar() {
+  async function correr(fn: () => Promise<{ ok: boolean; error?: string }>, aviso: string) {
     setOcupado(true)
     setError(null)
-    const r = await quitarDomiciliario(d.pedido_id)
+    const r = await fn()
     if (!r.ok) {
-      setError(r.error)
+      setError(r.error ?? 'No se pudo')
       setOcupado(false)
       return
     }
-    setDomi('')
-    mostrar(`Pedido #${d.numero} sin domiciliario`)
+    mostrar(aviso)
   }
 
   return (
     <EnvolturaFila borde={BORDE.despachar} indice={indice}>
       <ColPedido
         titulo={`#${d.numero}`}
-        pastilla={d.estado === 'listo' ? 'Por despachar' : 'En la calle'}
-        tono={d.estado === 'listo' ? 'azul' : 'verde'}
+        pastilla={
+          d.estado === 'listo' ? 'Por despachar' : enMostrador ? 'En el mostrador' : 'En la calle'
+        }
+        tono={d.estado === 'listo' ? 'azul' : enMostrador ? 'ambar' : 'verde'}
         sub={d.zona ? `Domicilio · ${d.zona}` : 'Domicilio'}
       />
 
@@ -1165,48 +1141,52 @@ function FilaDespachar({
       </div>
 
       {soloLectura ? (
-        <EstadoSoloLectura texto={d.domiciliario_nombre ?? 'Sin asignar'} />
+        <EstadoSoloLectura
+          texto={d.domiciliario_nombre ?? (enMostrador ? 'En el mostrador' : 'Sin despachar')}
+        />
       ) : (
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-1.5">
-            {/* La cuenta que el domiciliario lleva al cliente en una contraentrega. */}
+            {/* La cuenta se imprime y se pega al pedido: es la guía del domiciliario. */}
             <BotonCuenta pedidoId={d.pedido_id} />
-            <label className="sr-only" htmlFor={`domi-${d.pedido_id}`}>
-              Domiciliario
-            </label>
-            <select
-              id={`domi-${d.pedido_id}`}
-              value={domi}
-              onChange={(e) => setDomi(e.target.value)}
-              className="min-h-11 rounded-lg border border-marca-borde bg-marca-fondo px-2 text-sm text-marca-texto"
-            >
-              <option value="">Escoge</option>
-              {domiciliarios.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.nombre}
-                </option>
-              ))}
-            </select>
-            <Boton
-              variante="negro"
-              className="px-3"
-              onClick={asignar}
-              disabled={ocupado || !domi || domi === d.domiciliario_id}
-            >
-              <IconoMoto className="mr-1 inline size-4" />
-              {d.domiciliario_id ? 'Reasignar' : 'Asignar'}
-            </Boton>
-            {/* Asignado pero todavía sin recoger: caja puede devolverlo a la fila. */}
-            {d.domiciliario_id ? (
-              <button
-                type="button"
-                onClick={quitar}
+
+            {d.estado === 'listo' ? (
+              /* Caja no reparte los domicilios: los suelta al mostrador y los
+                 domiciliarios se organizan entre ellos con la cuenta pegada. */
+              <Boton
+                variante="negro"
+                className="px-3"
+                onClick={() =>
+                  correr(() => despacharDomicilio(d.pedido_id), `Pedido #${d.numero} al mostrador`)
+                }
                 disabled={ocupado}
-                className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave disabled:opacity-50"
               >
-                Quitar
-              </button>
-            ) : null}
+                <IconoMoto className="mr-1 inline size-4" />
+                Listo, a la calle
+              </Boton>
+            ) : enMostrador ? (
+              <span className="text-sm text-marca-texto-suave">Esperando domiciliario</span>
+            ) : (
+              <>
+                <span className="text-sm text-marca-texto">
+                  Lo lleva <span className="font-medium">{d.domiciliario_nombre}</span>
+                </span>
+                {/* Tomó el que no era: vuelve al mostrador para que lo tome otro. */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    correr(
+                      () => quitarDomiciliario(d.pedido_id),
+                      `Pedido #${d.numero} de vuelta al mostrador`,
+                    )
+                  }
+                  disabled={ocupado}
+                  className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave disabled:opacity-50"
+                >
+                  Quitar
+                </button>
+              </>
+            )}
           </div>
           {error ? <Error texto={error} /> : null}
         </div>
@@ -1214,6 +1194,7 @@ function FilaDespachar({
     </EnvolturaFila>
   )
 }
+
 
 /**
  * Una entrega que el cliente ya tiene en la mano y cuya plata todavía no está en caja.

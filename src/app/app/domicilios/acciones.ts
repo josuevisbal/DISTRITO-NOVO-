@@ -7,6 +7,21 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 type Resultado = { ok: true } | { ok: false; error: string }
 
+/**
+ * El domiciliario toma del mostrador el pedido que va a llevar: lo busca por el nombre
+ * del cliente —el mismo que trae la cuenta pegada al pedido— y lo marca suyo. Si otro se
+ * le adelantó, la base lo dice en vez de quitárselo.
+ */
+export async function tomarDomicilio(pedidoId: string): Promise<Resultado> {
+  await exigirRol('domicilio')
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('tomar_domicilio', { p_pedido: pedidoId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/domicilios')
+  revalidatePath('/app/caja')
+  return { ok: true }
+}
+
 export async function recogerPedido(pedidoId: string): Promise<Resultado> {
   await exigirRol('domicilio')
   const supabase = await crearClienteServidor()
