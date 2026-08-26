@@ -110,6 +110,22 @@ export async function asignarDomiciliario(
   return { ok: true }
 }
 
+/**
+ * Caja se arrepiente de la asignación: el pedido vuelve a la fila de por despachar y el
+ * domiciliario deja de verlo. Solo mientras no lo haya recogido; si ya salió con la
+ * comida, la base lo rechaza y el camino es que él reporte que no pudo entregar.
+ */
+export async function quitarDomiciliario(pedidoId: string): Promise<Resultado> {
+  await exigirRol('cajero', 'admin')
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('quitar_domiciliario', { p_pedido: pedidoId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
+  revalidatePath('/app/domicilios')
+  return { ok: true }
+}
+
 export async function confirmarContraentrega(pedidoId: string): Promise<Resultado> {
   await exigirRol('cajero', 'admin')
   const supabase = await crearClienteServidor()

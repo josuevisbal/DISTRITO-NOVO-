@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from 'react'
 
 import { IconoAlerta, IconoCheck, IconoMoto } from '@/components/iconos'
+import { Vacio } from '@/components/ui/vacio'
 import { formatearPesos } from '@/lib/formato'
 import { useRefrescarEnCambios } from '@/lib/realtime'
 import { enlaceLlamar, enlaceWhatsApp } from '@/lib/telefono'
@@ -36,6 +37,7 @@ export function DomiciliosCliente({
   soloLectura?: boolean
 }) {
   useRefrescarEnCambios(['pedidos'], { intervaloMs: 20000 })
+  const [busqueda, setBusqueda] = useState('')
 
   if (entregas.length === 0) {
     return (
@@ -45,12 +47,67 @@ export function DomiciliosCliente({
     )
   }
 
+  const encontradas = filtrarEntregas(entregas, busqueda)
+
   return (
-    <ul className="mx-auto max-w-xl space-y-4 p-4">
-      {entregas.map((e, i) => (
-        <TarjetaEntrega key={e.pedido_id} entrega={e} indice={i} soloLectura={soloLectura} />
-      ))}
-    </ul>
+    <div className="mx-auto max-w-xl p-4">
+      {/* Con varias entregas encima, encontrar "la de Ana" o "la del Prado" a mano es
+          perder tiempo parado en la moto. Busca por cliente, dirección, barrio o número. */}
+      {entregas.length > 1 ? (
+        <div className="mb-4">
+          <label className="sr-only" htmlFor="buscar-entrega">
+            Buscar entrega
+          </label>
+          <input
+            id="buscar-entrega"
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Cliente, dirección, barrio o #"
+            className="min-h-12 w-full rounded-xl border border-marca-borde bg-marca-superficie px-4 text-base text-marca-texto placeholder:text-marca-texto-suave/70"
+          />
+          {busqueda.trim() !== '' ? (
+            <p className="mt-1.5 text-sm tabular-nums text-marca-texto-suave">
+              {encontradas.length} de {entregas.length}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {encontradas.length === 0 ? (
+        <Vacio texto={`Ninguna entrega coincide con "${busqueda.trim()}".`} Icono={IconoMoto} />
+      ) : (
+        <ul className="space-y-4">
+          {encontradas.map((e, i) => (
+            <TarjetaEntrega key={e.pedido_id} entrega={e} indice={i} soloLectura={soloLectura} />
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/** Sin tildes y en minúsculas: "Bolívar" se encuentra escribiendo "bolivar". */
+function normalizar(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+/**
+ * Busca en todo lo que el domiciliario sabe de la entrega: a quién se la lleva, adónde,
+ * el barrio, las indicaciones y el número del pedido. Sin texto, devuelve todo.
+ */
+function filtrarEntregas(entregas: Entrega[], busqueda: string): Entrega[] {
+  const aguja = normalizar(busqueda.trim())
+  if (aguja === '') return entregas
+  return entregas.filter((e) =>
+    normalizar(
+      [e.cliente, e.direccion, e.zona, e.indicaciones, e.telefono, `#${e.numero}`, String(e.numero)]
+        .filter(Boolean)
+        .join(' '),
+    ).includes(aguja),
   )
 }
 
@@ -117,8 +174,13 @@ function TarjetaEntrega({
         </p>
       ) : null}
 
+      {/* A quién y adónde: lo primero que necesita al llegar. */}
+      {entrega.cliente ? (
+        <p className="mt-3 text-lg font-medium text-marca-texto">{entrega.cliente}</p>
+      ) : null}
+
       {/* Dirección grande: se lee de pie, con las manos ocupadas. */}
-      <p className="mt-3 text-2xl font-semibold leading-tight text-marca-texto">
+      <p className={`text-2xl font-semibold leading-tight text-marca-texto ${entrega.cliente ? '' : 'mt-3'}`}>
         {entrega.direccion ?? 'Sin dirección'}
       </p>
       {entrega.zona ? <p className="text-marca-texto-suave">{entrega.zona}</p> : null}

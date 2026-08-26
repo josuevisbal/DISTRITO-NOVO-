@@ -1193,6 +1193,25 @@ begin
   update pedidos set domiciliario_id = p_domi, estado = 'en_despacho' where id = p_pedido;
 end $$;
 
+-- Caja se arrepiente: el domicilio vuelve a la fila de por despachar y queda libre para
+-- otro. Solo mientras el domiciliario NO lo haya recogido. Si ya salió con la comida,
+-- este no es el camino: él reporta "No pude entregar" y el pedido vuelve solo.
+create or replace function quitar_domiciliario(p_pedido uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_rest uuid; v_estado estado_pedido;
+begin
+  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+
+  select restaurante_id, estado into v_rest, v_estado from pedidos where id = p_pedido;
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+  if v_estado = 'en_camino' then
+    raise exception 'Ese pedido ya salió con el domiciliario. Si no pudo entregarlo, él lo reporta desde su celular.';
+  end if;
+  if v_estado <> 'en_despacho' then raise exception 'Ese pedido no tiene domiciliario asignado'; end if;
+
+  update pedidos set domiciliario_id = null, estado = 'listo' where id = p_pedido;
+end $$;
+
 -- el domiciliario recoge: en_despacho -> en_camino (solo su pedido)
 create or replace function recoger_pedido(p_pedido uuid) returns void
 language plpgsql security definer set search_path = public as $$
@@ -1861,12 +1880,14 @@ grant execute on function cerrar_turno(bigint, text) to authenticated;
 
 -- domiciliario: asignación (pase), estados de entrega (domiciliario) y legalización (caja)
 revoke all on function asignar_domiciliario(uuid, uuid) from public, anon;
+revoke all on function quitar_domiciliario(uuid) from public, anon;
 revoke all on function recoger_pedido(uuid) from public, anon;
 revoke all on function entregar_pedido(uuid) from public, anon;
 revoke all on function fallo_entrega(uuid, text) from public, anon;
 revoke all on function cambiar_a_transferencia(uuid) from public, anon;
 revoke all on function legalizar_domiciliario(uuid) from public, anon;
 grant execute on function asignar_domiciliario(uuid, uuid) to authenticated;
+grant execute on function quitar_domiciliario(uuid) to authenticated;
 grant execute on function recoger_pedido(uuid) to authenticated;
 grant execute on function entregar_pedido(uuid) to authenticated;
 grant execute on function fallo_entrega(uuid, text) to authenticated;

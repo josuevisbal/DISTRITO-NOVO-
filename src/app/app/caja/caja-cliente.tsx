@@ -42,6 +42,7 @@ import {
   abrirTurno,
   anularPedido,
   asignarDomiciliario,
+  quitarDomiciliario,
   cerrarTurno,
   confirmarContraentrega,
   legalizarDomiciliario,
@@ -1122,6 +1123,20 @@ function FilaDespachar({
     mostrar(`Pedido #${d.numero} asignado`)
   }
 
+  /** Se la quita: el pedido vuelve a la fila de por despachar y queda libre para otro. */
+  async function quitar() {
+    setOcupado(true)
+    setError(null)
+    const r = await quitarDomiciliario(d.pedido_id)
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+      return
+    }
+    setDomi('')
+    mostrar(`Pedido #${d.numero} sin domiciliario`)
+  }
+
   return (
     <EnvolturaFila borde={BORDE.despachar} indice={indice}>
       <ColPedido
@@ -1179,6 +1194,17 @@ function FilaDespachar({
               <IconoMoto className="mr-1 inline size-4" />
               {d.domiciliario_id ? 'Reasignar' : 'Asignar'}
             </Boton>
+            {/* Asignado pero todavía sin recoger: caja puede devolverlo a la fila. */}
+            {d.domiciliario_id ? (
+              <button
+                type="button"
+                onClick={quitar}
+                disabled={ocupado}
+                className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave disabled:opacity-50"
+              >
+                Quitar
+              </button>
+            ) : null}
           </div>
           {error ? <Error texto={error} /> : null}
         </div>
