@@ -377,6 +377,54 @@ body {
     padding: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    /* La térmica imprime a 203 ppp sobre 58 mm de papel: con la letra de pantalla la
+       cuenta salía diminuta. Esta base manda sobre todo el documento —adentro las
+       medidas van en `em`— y deja renglones de unos 26 caracteres, que es lo que se
+       lee de lejos y con el papel en la mano. */
+    font-size: 15.5px !important;
+    line-height: 1.35 !important;
+  }
+  /* Tinta térmica: no hay grises. Todo lo que se imprima, negro y con cuerpo. */
+  .factura,
+  .factura * {
+    color: #000 !important;
+    font-weight: 500;
+  }
+  .factura hr,
+  .factura table tr,
+  .factura .border-t {
+    border-color: #000 !important;
+  }
+  /* El sello del documento pierde el fondo de color —que sale como una mancha gris— y
+     se queda con el marco y la palabra en negro. */
+  .factura .estado-doc {
+    background: none !important;
+    border-color: #000 !important;
+  }
+  /* El logo, grande y limpio: fuera el aro dorado y la viñeta, que en papel solo
+     ensucian, y la imagen entera sin recortar. */
+  .factura .logo-tirilla {
+    width: 26mm !important;
+    height: 26mm !important;
+    background: none !important;
+    padding: 0 !important;
+  }
+  .factura .logo-tirilla > span[aria-hidden] {
+    display: none !important;
+  }
+  .factura .logo-tirilla img {
+    border-radius: 0 !important;
+    object-fit: contain !important;
+  }
+  /* El logotipo dibujado (cuando el restaurante no subió foto) va en crema sobre fondo
+     oscuro: en papel blanco no se vería. En la tirilla se pinta en negro. */
+  .factura svg text {
+    fill: #000 !important;
+    stroke: none !important;
+  }
+  .factura svg ellipse,
+  .factura svg path {
+    stroke: #000 !important;
   }
   .factura + *,
   body:has(.factura) > div > .no-imprimir {

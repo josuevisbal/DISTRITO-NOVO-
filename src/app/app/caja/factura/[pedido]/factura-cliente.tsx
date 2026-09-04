@@ -71,17 +71,23 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
         </button>
       </div>
 
-      <article className="factura mx-auto max-w-[80mm] bg-white p-5 text-[#111] shadow-sm">
+      {/* Todo el tamaño de la tirilla cuelga de aquí: adentro las medidas van en `em`,
+          así que subir esta base agranda la cuenta entera. En papel sube a 15,5 px
+          (regla de impresión en globals.css), que es lo que se lee de un vistazo en una
+          térmica de 58 mm. */}
+      <article className="factura mx-auto max-w-[80mm] bg-white p-5 text-[13px] leading-snug text-[#111] shadow-sm">
         <header className="text-center">
           <div className="flex justify-center">
-            <LogoMarca className="size-16" url={logo} />
+            <LogoMarca className="logo-tirilla size-20" url={logo} />
           </div>
-          <h1 className="mt-2 text-lg font-bold">{factura.restaurante.nombre}</h1>
+          <h1 className="mt-2 text-[1.5em] font-bold leading-tight">
+            {factura.restaurante.nombre}
+          </h1>
           {factura.restaurante.direccion ? (
-            <p className="text-[11px] leading-snug">{factura.restaurante.direccion}</p>
+            <p className="text-[0.9em] leading-snug">{factura.restaurante.direccion}</p>
           ) : null}
           {factura.restaurante.whatsapp ? (
-            <p className="text-[11px]">WhatsApp {factura.restaurante.whatsapp}</p>
+            <p className="text-[0.9em]">WhatsApp {factura.restaurante.whatsapp}</p>
           ) : null}
         </header>
 
@@ -90,7 +96,7 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
         {/* Qué documento es: la cuenta que se lleva antes de pagar, o la factura ya
             cobrada. Se dice claro para que nadie confunda una con otra. */}
         <p
-          className="mb-2 rounded border py-1 text-center text-[11px] font-bold uppercase tracking-wider"
+          className="estado-doc mb-2 rounded border py-1 text-center text-[0.9em] font-bold uppercase tracking-wider"
           style={
             factura.pagado
               ? { borderColor: '#0F6E56', color: '#0F6E56', backgroundColor: '#E1F5EE' }
@@ -100,8 +106,8 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
           {factura.pagado ? 'Pagado' : 'Cuenta de cobro · pendiente de pago'}
         </p>
 
-        <div className="space-y-0.5 text-[11px]">
-          <p className="text-sm font-bold">Pedido #{factura.numero}</p>
+        <div className="space-y-0.5 text-[0.95em]">
+          <p className="text-[1.25em] font-bold">Pedido #{factura.numero}</p>
           <p suppressHydrationWarning>{fecha}</p>
           <p>{origen}</p>
           {factura.cliente ? <p>Cliente: {factura.cliente}</p> : null}
@@ -116,30 +122,32 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
 
         <hr className="my-3 border-dashed border-[#bbb]" />
 
-        <table className="w-full text-[11px]">
-          <thead>
-            <tr className="border-b border-[#ddd] text-left">
-              <th className="pb-1 font-semibold">Producto</th>
-              <th className="pb-1 text-center font-semibold">Cant</th>
-              <th className="pb-1 text-right font-semibold">Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {factura.items.map((i, n) => (
-              <tr key={n} className="align-top">
-                <td className="py-1 pr-1 leading-snug">{i.nombre}</td>
-                <td className="py-1 text-center tabular-nums">{i.cantidad}</td>
-                <td className="py-1 text-right tabular-nums">
-                  {formatearPesos(i.precio * i.cantidad)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* En 58 mm no caben tres columnas: el nombre de un plato se parte a la mitad.
+            Va la cantidad pegada al nombre y el valor a la derecha, sin partirse nunca.
+            Es como se lee una tirilla de verdad. */}
+        <div className="flex items-baseline justify-between border-b border-[#ddd] pb-1 text-[0.9em] font-semibold">
+          <span>Producto</span>
+          <span>Valor</span>
+        </div>
+        <ul className="mt-1 space-y-1.5 text-[0.95em]">
+          {factura.items.map((i, n) => (
+            <li key={n} className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 leading-snug">
+                {i.cantidad > 1 ? (
+                  <span className="font-semibold tabular-nums">{i.cantidad} × </span>
+                ) : null}
+                {i.nombre}
+              </span>
+              <span className="shrink-0 whitespace-nowrap tabular-nums">
+                {formatearPesos(i.precio * i.cantidad)}
+              </span>
+            </li>
+          ))}
+        </ul>
 
         <hr className="my-3 border-dashed border-[#bbb]" />
 
-        <dl className="space-y-1 text-[11px]">
+        <dl className="space-y-1 text-[0.95em]">
           <Renglon termino="Subtotal" valor={formatearPesos(factura.subtotal)} />
           {factura.domicilio > 0 ? (
             <Renglon termino="Domicilio" valor={formatearPesos(factura.domicilio)} />
@@ -151,7 +159,7 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
           {factura.propina > 0 ? (
             <Renglon termino="Propina" valor={formatearPesos(factura.propina)} />
           ) : null}
-          <div className="flex justify-between border-t border-[#ddd] pt-1.5 text-base font-bold">
+          <div className="flex justify-between border-t border-[#ddd] pt-1.5 text-[1.5em] font-bold">
             <dt>TOTAL</dt>
             <dd className="tabular-nums">{formatearPesos(factura.total + factura.propina)}</dd>
           </div>
@@ -164,13 +172,13 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
         </dl>
 
         {factura.pagado ? (
-          <p className="mt-4 text-center text-[11px] leading-snug">
+          <p className="mt-4 text-center text-[0.95em] leading-snug">
             ¡Gracias por tu compra!
             <br />
             Te esperamos pronto.
           </p>
         ) : (
-          <p className="mt-4 border-t border-dashed border-[#bbb] pt-3 text-center text-[11px] leading-snug">
+          <p className="mt-4 border-t border-dashed border-[#bbb] pt-3 text-center text-[0.95em] leading-snug">
             <span className="font-bold">Este documento no es su factura de venta.</span>
             <br />
             {factura.canal === 'domicilio' || factura.canal === 'whatsapp'

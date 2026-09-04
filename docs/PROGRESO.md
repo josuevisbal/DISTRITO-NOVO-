@@ -1113,3 +1113,29 @@ es humana y el pedido no se va de la lista hasta que caja actúe. El aviso sonor
 tocó.
 
 `tsc`, ESLint y `npm run build`, en verde.
+
+
+## La tirilla, hecha para la térmica de 58 mm
+
+Al imprimirla por primera vez en la portátil del local (DigitalPOS 58 mm, por RawBT) salió
+ilegible: letra diminuta, el logo como una mancha y los valores contra el borde. Estaba
+diseñada para pantalla y para 80 mm.
+
+- **Un solo tamaño manda**: la tirilla tiene su base (13 px en pantalla, **15,5 px en
+  papel**) y todo lo de adentro va en `em`. Subir esa base agranda el documento entero.
+  A 58 mm quedan renglones de unos 26 caracteres, que es lo que se lee con el papel en
+  la mano.
+- **Tinta térmica: no hay grises.** En impresión todo va en negro y con algo de cuerpo;
+  el sello del documento pierde el fondo de color —salía como una mancha— y se queda con
+  el marco y la palabra.
+- **El logo grande y limpio**: fuera el aro dorado y la viñeta, que solo ensucian en
+  papel, y la imagen sin recortar. El logotipo dibujado (cuando el restaurante no subió
+  foto) va en crema sobre oscuro: en la tirilla se pinta en negro.
+- **Los renglones de producto dejaron de ser una tabla de tres columnas**: en 58 mm el
+  nombre se partía a la mitad ("Hamburgu / esa"). Ahora la cantidad va pegada al nombre y
+  el valor a la derecha, sin partirse nunca.
+- El ancho ya no está clavado en 80 mm: la cuenta se arma sobre el papel real, y el margen
+  de página bajó de 8 a 4 mm.
+
+Verificado renderizando la página en modo impresión a 58 mm (187 px útiles) y a 80 mm: sin
+un solo elemento fuera del papel, sin cortes de palabra, y la vista en pantalla intacta.
