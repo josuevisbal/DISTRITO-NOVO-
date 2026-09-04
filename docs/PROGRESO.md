@@ -1097,3 +1097,19 @@ Con la pantalla real montada en el navegador (Playwright, con datos de prueba qu
 los cinco tipos de fila, el pago repartido y el efectivo por legalizar): sin scroll
 horizontal ni desbordes a 360, 390, 430, 768 y 1280 px, el modal de cierre, el cobro con
 pago dividido y la vista de escritorio intacta. `tsc`, ESLint y `npm run build`, en verde.
+
+
+## Fuera la tarjeta flotante de transferencias
+
+A pedido del cliente. Cuando entraba una transferencia por verificar, saltaba una tarjeta
+flotante ("Nueva transferencia") con el valor y los botones *Verifiqué / No llegó*. Estorbaba
+más de lo que ayudaba: en el celular tapaba el resumen del turno o los botones de la tarjeta
+de abajo.
+
+**Lo que se quitó es la tarjeta, no la alerta.** El pedido sigue apareciendo en la lista bajo
+*Por verificar* con su borde ámbar, el valor exacto a comparar en el banco y los mismos dos
+botones, y el contador del filtro lo sigue anunciando. La regla se mantiene: la verificación
+es humana y el pedido no se va de la lista hasta que caja actúe. El aviso sonoro tampoco se
+tocó.
+
+`tsc`, ESLint y `npm run build`, en verde.
