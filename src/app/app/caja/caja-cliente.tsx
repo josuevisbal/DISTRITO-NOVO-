@@ -15,7 +15,9 @@ import {
   IconoMas,
   IconoMoto,
   IconoReloj,
+  IconoSilla,
   IconoTarjeta,
+  IconoTienda,
 } from '@/components/iconos'
 import { Modal } from '@/components/modal'
 import {
@@ -32,7 +34,7 @@ import { Pildora, type TonoPildora } from '@/components/ui/pildora'
 import { Vacio } from '@/components/ui/vacio'
 import { MARCA } from '@/config/tema'
 import { crearPedidoInterno } from '@/app/app/acciones'
-import type { ArqueoMedio, Cobrado, ZonaCaja } from '@/lib/datos/caja'
+import type { ArqueoMedio, Cobrado, OrigenVenta, ZonaCaja } from '@/lib/datos/caja'
 import { useAviso } from '@/lib/aviso'
 import { formatearPesos } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
@@ -156,6 +158,7 @@ const MEDIO_INFO: Record<
 type Props = {
   turno: Turno
   arqueo: Record<string, ArqueoMedio>
+  porOrigen: Record<OrigenVenta, ArqueoMedio>
   cobrados: Cobrado[]
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
@@ -175,6 +178,7 @@ export function CajaCliente(props: Props) {
   const {
     turno,
     arqueo,
+    porOrigen,
     cobrados,
     transferencias,
     contraentregas,
@@ -361,7 +365,7 @@ export function CajaCliente(props: Props) {
         </section>
       ) : null}
 
-      <ResumenPagos arqueo={arqueo} />
+      <ResumenPagos arqueo={arqueo} porOrigen={porOrigen} />
 
       {turno && verCobrados ? (
         <CobradosHoy cobrados={cobrados} soloLectura={soloLectura} />
@@ -1835,29 +1839,144 @@ function RenglonTurno({
   )
 }
 
+/** De dónde vino la venta: nombre, ícono y color, iguales en toda la caja. */
+const ORIGEN_INFO: Record<
+  OrigenVenta,
+  { nombre: string; detalle: string; Icono: (p: { className?: string }) => React.ReactNode; color: string }
+> = {
+  salon: { nombre: 'Salón', detalle: 'Mesas', Icono: IconoSilla, color: '#1D9E75' },
+  domicilio: { nombre: 'Domicilio', detalle: 'A la calle', Icono: IconoMoto, color: '#2563EB' },
+  mostrador: { nombre: 'Mostrador', detalle: 'Para llevar', Icono: IconoTienda, color: MARCA.naranja },
+}
+
 /**
- * Los cuatro medios del turno, compactos: monto grande, cuántos pedidos y qué parte del
- * turno se llevó. Los que van en cero bajan el tono — están, pero no gritan.
+ * Todo el dinero del turno, en tres lecturas que responden tres preguntas distintas:
+ * cuánto entró en total, CÓMO entró (efectivo, transferencia, datáfono, pasarela) y DE
+ * DÓNDE vino (salón, domicilio, mostrador). Es la misma plata mirada de tres maneras:
+ * las dos listas suman igual que el total.
  */
-function ResumenPagos({ arqueo }: { arqueo: Record<string, ArqueoMedio> }) {
+function ResumenPagos({
+  arqueo,
+  porOrigen,
+}: {
+  arqueo: Record<string, ArqueoMedio>
+  porOrigen: Record<OrigenVenta, ArqueoMedio>
+}) {
   const total = Object.values(arqueo).reduce((s, v) => s + v.monto, 0)
+  const pedidos = Object.values(porOrigen).reduce((s, v) => s + v.pedidos, 0)
+  const origenes: OrigenVenta[] = ['salon', 'domicilio', 'mostrador']
 
   return (
-    <section>
-      <h2 className="mb-2 text-sm font-semibold text-marca-texto">Resumen de pagos</h2>
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m, i) => (
-          <TarjetaMedioPago
-            key={m}
-            medio={m}
-            monto={arqueo[m]?.monto ?? 0}
-            pedidos={arqueo[m]?.pedidos ?? 0}
-            total={total}
-            indice={i}
-          />
-        ))}
+    <section className="space-y-4">
+      <h2 className="font-semibold text-marca-texto">Resumen de pagos</h2>
+
+      {/* El número grande: cuánto entró en el turno, sumando todo. */}
+      <div className="tarjeta p-4">
+        <p className="text-sm text-marca-texto-suave">Total cobrado en el turno</p>
+        <p className="mt-0.5 font-titulo text-3xl font-bold tabular-nums text-marca-texto">
+          {formatearPesos(total)}
+        </p>
+        <p className="mt-1 text-xs text-marca-texto-suave">
+          {pedidos} {pedidos === 1 ? 'pedido cobrado' : 'pedidos cobrados'}
+        </p>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-marca-texto-suave">
+          Cómo entró la plata
+        </h3>
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m, i) => (
+            <TarjetaMedioPago
+              key={m}
+              medio={m}
+              monto={arqueo[m]?.monto ?? 0}
+              pedidos={arqueo[m]?.pedidos ?? 0}
+              total={total}
+              indice={i}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-marca-texto-suave">
+          De dónde vino la venta
+        </h3>
+        {/* En lista y no en tarjetas: tres columnas en un celular quedan ilegibles, y
+            así se comparan de un vistazo por la barra. */}
+        <ul className="tarjeta divide-y divide-marca-borde overflow-hidden">
+          {origenes.map((o) => (
+            <RenglonOrigen key={o} origen={o} datos={porOrigen[o]} total={total} />
+          ))}
+        </ul>
       </div>
     </section>
+  )
+}
+
+/** Un origen de venta: ícono, nombre, cuántos pedidos, cuánta plata y qué parte del turno. */
+function RenglonOrigen({
+  origen,
+  datos,
+  total,
+}: {
+  origen: OrigenVenta
+  datos: ArqueoMedio
+  total: number
+}) {
+  const info = ORIGEN_INFO[origen]
+  const pct = total > 0 ? Math.round((datos.monto / total) * 100) : 0
+  const vacio = datos.monto === 0
+
+  return (
+    <li className="px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            aria-hidden
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+            style={{
+              backgroundColor: vacio ? 'var(--marca-superficie-tenue)' : `${info.color}14`,
+              color: vacio ? 'var(--marca-texto-suave)' : info.color,
+            }}
+          >
+            <info.Icono className="size-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-marca-texto">
+              {info.nombre}
+            </span>
+            <span className="block text-xs text-marca-texto-suave">
+              {datos.pedidos} {datos.pedidos === 1 ? 'pedido' : 'pedidos'} · {info.detalle}
+            </span>
+          </span>
+        </span>
+
+        <span className="shrink-0 text-right">
+          <span
+            className={`block whitespace-nowrap font-bold tabular-nums ${
+              vacio ? 'text-marca-texto-suave' : 'text-marca-texto'
+            }`}
+          >
+            {formatearPesos(datos.monto)}
+          </span>
+          <span
+            className="block text-xs font-semibold tabular-nums"
+            style={{ color: vacio ? 'var(--marca-texto-suave)' : info.color }}
+          >
+            {pct}%
+          </span>
+        </span>
+      </div>
+
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-marca-superficie-tenue">
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${pct}%`, backgroundColor: vacio ? 'transparent' : info.color }}
+        />
+      </div>
+    </li>
   )
 }
 

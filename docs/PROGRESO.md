@@ -1157,3 +1157,27 @@ solo formato:
 
 Lo que trae el documento (pedido, fecha, canal, cliente, dirección de entrega, renglones,
 subtotal, domicilio, propina y total) no cambió.
+
+
+## Resumen de pagos: la misma plata mirada de tres maneras
+
+El cliente pedía "ver el resumen más a detalle": cuánto entró, cuánto se vendió en mesa y
+cuánto en domicilio. La caja solo mostraba los cuatro medios de pago, que responden *cómo*
+entró la plata pero no *de dónde* vino.
+
+La sección quedó en tres lecturas de lo mismo, en este orden:
+
+1. **Total cobrado en el turno** — el número grande, con cuántos pedidos se cobraron.
+2. **Cómo entró la plata** — efectivo, transferencia, datáfono y pasarela, como antes.
+3. **De dónde vino la venta** — **Salón** (mesas), **Domicilio** (lo que sale a la calle,
+   incluye WhatsApp) y **Mostrador** (para recoger y lo que se toma en el punto), en lista
+   con barra para compararlos de un vistazo. En tarjetas no cabían: tres columnas en un
+   celular quedan ilegibles.
+
+Las dos listas suman igual que el total: es la misma plata, agrupada distinto. Sale de los
+mismos `caja_movimientos` del turno —ninguna consulta nueva, solo el `canal` del pedido
+agregado al select— así que no hay forma de que una diga una cosa y la otra otra.
+
+De paso se corrigió un conteo: un pedido pagado a medias (efectivo + transferencia) deja
+**dos** movimientos y se contaba como dos pedidos. Ahora se cuentan pedidos distintos, por
+medio y por origen.

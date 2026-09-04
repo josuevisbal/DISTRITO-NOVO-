@@ -13,8 +13,18 @@ import { crearClienteServidor } from '@/lib/supabase/servidor'
 /** Barrio y su tarifa fija: el domicilio se cobra por zona, no por distancia. */
 export type ZonaCaja = { id: string; nombre: string; valor: number }
 
-/** Lo cobrado por un medio en el turno: monto y cuántos pedidos entraron por ahí. */
+/** Lo cobrado por un medio (o por un origen) en el turno: monto y cuántos pedidos. */
 export type ArqueoMedio = { monto: number; pedidos: number }
+
+/** De dónde vino la venta. El cajero lo lee como "salón", "domicilio" y "mostrador". */
+export type OrigenVenta = 'salon' | 'domicilio' | 'mostrador'
+
+/** Un pedido de mesa es salón; lo que se lleva a la casa, domicilio; el resto, mostrador. */
+function origenDe(canal: string | null): OrigenVenta {
+  if (canal === 'mesa') return 'salon'
+  if (canal === 'domicilio' || canal === 'whatsapp') return 'domicilio'
+  return 'mostrador'
+}
 
 /** Un cobro ya hecho en el turno: la trazabilidad de "Cobrados hoy". */
 export type Cobrado = {
@@ -32,6 +42,8 @@ export type Cobrado = {
 export type DatosCaja = {
   turno: Turno
   arqueo: Record<string, ArqueoMedio>
+  /** La misma plata, pero por origen: salón, domicilio y mostrador. */
+  porOrigen: Record<OrigenVenta, ArqueoMedio>
   cobrados: Cobrado[]
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
@@ -74,20 +86,52 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   // Arqueo en vivo: ingresos y legalizaciones del turno, sumados y contados por medio.
   // La misma pasada arma "Cobrados hoy": cada cobro con su pedido, del más reciente al primero.
   const arqueo: Record<string, ArqueoMedio> = {}
+  const porOrigen: Record<OrigenVenta, ArqueoMedio> = {
+    salon: { monto: 0, pedidos: 0 },
+    domicilio: { monto: 0, pedidos: 0 },
+    mostrador: { monto: 0, pedidos: 0 },
+  }
+  // Un pedido pagado a medias (efectivo + transferencia) deja DOS movimientos: para
+  // contar pedidos se anota cuáles ya se contaron, si no saldría dos veces.
+  const contadosMedio = new Map<string, Set<string>>()
+  const contadosOrigen: Record<OrigenVenta, Set<string>> = {
+    salon: new Set(),
+    domicilio: new Set(),
+    mostrador: new Set(),
+  }
   const cobrados: Cobrado[] = []
   if (turno) {
     const { data: movs } = await supabase
       .from('caja_movimientos')
       .select(
-        'id, medio, monto, tipo, creado_en, pedido_id, pedidos(numero, cliente_nombre, mesas(numero))',
+        'id, medio, monto, tipo, creado_en, pedido_id, pedidos(numero, canal, cliente_nombre, mesas(numero))',
       )
       .eq('turno_id', turno.id)
       .in('tipo', ['ingreso', 'legalizacion'])
       .order('creado_en', { ascending: false })
     for (const m of movs ?? []) {
       if (!m.medio) continue
+      // La llave para no contar dos veces: el pedido si lo hay, si no el movimiento.
+      const llave = m.pedido_id ?? m.id
+
+      const vistosMedio = contadosMedio.get(m.medio) ?? new Set<string>()
+      const nuevoEnMedio = !vistosMedio.has(llave)
+      vistosMedio.add(llave)
+      contadosMedio.set(m.medio, vistosMedio)
+
       const previo = arqueo[m.medio] ?? { monto: 0, pedidos: 0 }
-      arqueo[m.medio] = { monto: previo.monto + m.monto, pedidos: previo.pedidos + 1 }
+      arqueo[m.medio] = {
+        monto: previo.monto + m.monto,
+        pedidos: previo.pedidos + (nuevoEnMedio ? 1 : 0),
+      }
+
+      const origen = origenDe(m.pedidos?.canal ?? null)
+      porOrigen[origen] = {
+        monto: porOrigen[origen].monto + m.monto,
+        pedidos: porOrigen[origen].pedidos + (contadosOrigen[origen].has(llave) ? 0 : 1),
+      }
+      contadosOrigen[origen].add(llave)
+
       cobrados.push({
         movimiento_id: m.id,
         pedido_id: m.pedido_id,
@@ -276,6 +320,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   return {
     turno,
     arqueo,
+    porOrigen,
     cobrados,
     transferencias,
     contraentregas,
