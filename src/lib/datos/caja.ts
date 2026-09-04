@@ -16,14 +16,26 @@ export type ZonaCaja = { id: string; nombre: string; valor: number }
 /** Lo cobrado por un medio (o por un origen) en el turno: monto y cuántos pedidos. */
 export type ArqueoMedio = { monto: number; pedidos: number }
 
-/** De dónde vino la venta. El cajero lo lee como "salón", "domicilio" y "mostrador". */
-export type OrigenVenta = 'salon' | 'domicilio' | 'mostrador'
+/**
+ * Los tres bloques del resumen de la caja:
+ *  · `fisicas`  — lo que se vendió EN el local: mesas del salón, mostrador y para recoger.
+ *  · `calle`    — lo que salió con un domiciliario (domicilio y lo que entra por WhatsApp).
+ *  · `general`  — las dos anteriores juntas. Es el total del turno.
+ */
+export type GrupoVenta = 'fisicas' | 'calle' | 'general'
 
-/** Un pedido de mesa es salón; lo que se lleva a la casa, domicilio; el resto, mostrador. */
-function origenDe(canal: string | null): OrigenVenta {
-  if (canal === 'mesa') return 'salon'
-  if (canal === 'domicilio' || canal === 'whatsapp') return 'domicilio'
-  return 'mostrador'
+/** Un bloque del resumen: su total, cuántos pedidos y el desglose por medio de pago. */
+export type ResumenGrupo = {
+  total: number
+  pedidos: number
+  medios: Record<string, ArqueoMedio>
+}
+
+export type ResumenVentas = Record<GrupoVenta, ResumenGrupo>
+
+/** Lo que sale con domiciliario es "de la calle"; todo lo demás se vendió en el local. */
+function grupoDe(canal: string | null): Exclude<GrupoVenta, 'general'> {
+  return canal === 'domicilio' || canal === 'whatsapp' ? 'calle' : 'fisicas'
 }
 
 /** Un cobro ya hecho en el turno: la trazabilidad de "Cobrados hoy". */
@@ -42,8 +54,8 @@ export type Cobrado = {
 export type DatosCaja = {
   turno: Turno
   arqueo: Record<string, ArqueoMedio>
-  /** La misma plata, pero por origen: salón, domicilio y mostrador. */
-  porOrigen: Record<OrigenVenta, ArqueoMedio>
+  /** Ventas físicas, de la calle y generales, cada una con su desglose por medio. */
+  ventas: ResumenVentas
   cobrados: Cobrado[]
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
@@ -83,22 +95,46 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
 
   const turno: Turno = turnoRows?.[0] ?? null
 
-  // Arqueo en vivo: ingresos y legalizaciones del turno, sumados y contados por medio.
-  // La misma pasada arma "Cobrados hoy": cada cobro con su pedido, del más reciente al primero.
-  const arqueo: Record<string, ArqueoMedio> = {}
-  const porOrigen: Record<OrigenVenta, ArqueoMedio> = {
-    salon: { monto: 0, pedidos: 0 },
-    domicilio: { monto: 0, pedidos: 0 },
-    mostrador: { monto: 0, pedidos: 0 },
+  // Arqueo en vivo: ingresos y legalizaciones del turno, repartidos en los tres bloques
+  // del resumen y, dentro de cada uno, por medio de pago. La misma pasada arma
+  // "Cobros del turno": cada cobro con su pedido, del más reciente al primero.
+  const grupoVacio = (): ResumenGrupo => ({ total: 0, pedidos: 0, medios: {} })
+  const ventas: ResumenVentas = {
+    fisicas: grupoVacio(),
+    calle: grupoVacio(),
+    general: grupoVacio(),
   }
-  // Un pedido pagado a medias (efectivo + transferencia) deja DOS movimientos: para
-  // contar pedidos se anota cuáles ya se contaron, si no saldría dos veces.
-  const contadosMedio = new Map<string, Set<string>>()
-  const contadosOrigen: Record<OrigenVenta, Set<string>> = {
-    salon: new Set(),
-    domicilio: new Set(),
-    mostrador: new Set(),
+  // Un pedido pagado a medias (efectivo + transferencia) deja DOS movimientos: se anota
+  // cuáles ya se contaron para no contar el mismo pedido dos veces.
+  const vistos: Record<GrupoVenta, Set<string>> = {
+    fisicas: new Set(),
+    calle: new Set(),
+    general: new Set(),
   }
+  const vistosPorMedio: Record<GrupoVenta, Map<string, Set<string>>> = {
+    fisicas: new Map(),
+    calle: new Map(),
+    general: new Map(),
+  }
+
+  function anotar(grupo: GrupoVenta, medio: string, monto: number, llave: string) {
+    const bloque = ventas[grupo]
+    bloque.total += monto
+    if (!vistos[grupo].has(llave)) {
+      bloque.pedidos += 1
+      vistos[grupo].add(llave)
+    }
+
+    const yaEnMedio = vistosPorMedio[grupo].get(medio) ?? new Set<string>()
+    const previo = bloque.medios[medio] ?? { monto: 0, pedidos: 0 }
+    bloque.medios[medio] = {
+      monto: previo.monto + monto,
+      pedidos: previo.pedidos + (yaEnMedio.has(llave) ? 0 : 1),
+    }
+    yaEnMedio.add(llave)
+    vistosPorMedio[grupo].set(medio, yaEnMedio)
+  }
+
   const cobrados: Cobrado[] = []
   if (turno) {
     const { data: movs } = await supabase
@@ -113,24 +149,9 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       if (!m.medio) continue
       // La llave para no contar dos veces: el pedido si lo hay, si no el movimiento.
       const llave = m.pedido_id ?? m.id
-
-      const vistosMedio = contadosMedio.get(m.medio) ?? new Set<string>()
-      const nuevoEnMedio = !vistosMedio.has(llave)
-      vistosMedio.add(llave)
-      contadosMedio.set(m.medio, vistosMedio)
-
-      const previo = arqueo[m.medio] ?? { monto: 0, pedidos: 0 }
-      arqueo[m.medio] = {
-        monto: previo.monto + m.monto,
-        pedidos: previo.pedidos + (nuevoEnMedio ? 1 : 0),
-      }
-
-      const origen = origenDe(m.pedidos?.canal ?? null)
-      porOrigen[origen] = {
-        monto: porOrigen[origen].monto + m.monto,
-        pedidos: porOrigen[origen].pedidos + (contadosOrigen[origen].has(llave) ? 0 : 1),
-      }
-      contadosOrigen[origen].add(llave)
+      const grupo = grupoDe(m.pedidos?.canal ?? null)
+      anotar(grupo, m.medio, m.monto, llave)
+      anotar('general', m.medio, m.monto, llave)
 
       cobrados.push({
         movimiento_id: m.id,
@@ -319,8 +340,9 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
 
   return {
     turno,
-    arqueo,
-    porOrigen,
+    // El arqueo por medio del turno es, exactamente, el desglose del bloque general.
+    arqueo: ventas.general.medios,
+    ventas,
     cobrados,
     transferencias,
     contraentregas,

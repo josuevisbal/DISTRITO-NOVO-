@@ -15,7 +15,6 @@ import {
   IconoMas,
   IconoMoto,
   IconoReloj,
-  IconoSilla,
   IconoTarjeta,
   IconoTienda,
 } from '@/components/iconos'
@@ -34,7 +33,7 @@ import { Pildora, type TonoPildora } from '@/components/ui/pildora'
 import { Vacio } from '@/components/ui/vacio'
 import { MARCA } from '@/config/tema'
 import { crearPedidoInterno } from '@/app/app/acciones'
-import type { ArqueoMedio, Cobrado, OrigenVenta, ZonaCaja } from '@/lib/datos/caja'
+import type { ArqueoMedio, Cobrado, GrupoVenta, ResumenVentas, ZonaCaja } from '@/lib/datos/caja'
 import { useAviso } from '@/lib/aviso'
 import { formatearPesos } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
@@ -158,7 +157,7 @@ const MEDIO_INFO: Record<
 type Props = {
   turno: Turno
   arqueo: Record<string, ArqueoMedio>
-  porOrigen: Record<OrigenVenta, ArqueoMedio>
+  ventas: ResumenVentas
   cobrados: Cobrado[]
   transferencias: Transferencia[]
   contraentregas: Contraentrega[]
@@ -178,7 +177,7 @@ export function CajaCliente(props: Props) {
   const {
     turno,
     arqueo,
-    porOrigen,
+    ventas,
     cobrados,
     transferencias,
     contraentregas,
@@ -365,7 +364,7 @@ export function CajaCliente(props: Props) {
         </section>
       ) : null}
 
-      <ResumenPagos arqueo={arqueo} porOrigen={porOrigen} />
+      <ResumenPagos ventas={ventas} />
 
       {turno && verCobrados ? (
         <CobradosHoy cobrados={cobrados} soloLectura={soloLectura} />
@@ -1839,144 +1838,142 @@ function RenglonTurno({
   )
 }
 
-/** De dónde vino la venta: nombre, ícono y color, iguales en toda la caja. */
-const ORIGEN_INFO: Record<
-  OrigenVenta,
-  { nombre: string; detalle: string; Icono: (p: { className?: string }) => React.ReactNode; color: string }
+/** Los tres bloques del resumen, con el nombre que usa el negocio. */
+const GRUPO_INFO: Record<
+  GrupoVenta,
+  {
+    titulo: string
+    detalle: string
+    Icono: (p: { className?: string }) => React.ReactNode
+    color: string
+  }
 > = {
-  salon: { nombre: 'Salón', detalle: 'Mesas', Icono: IconoSilla, color: '#1D9E75' },
-  domicilio: { nombre: 'Domicilio', detalle: 'A la calle', Icono: IconoMoto, color: '#2563EB' },
-  mostrador: { nombre: 'Mostrador', detalle: 'Para llevar', Icono: IconoTienda, color: MARCA.naranja },
+  fisicas: {
+    titulo: 'Ventas físicas',
+    detalle: 'En el local',
+    Icono: IconoTienda,
+    color: '#1D9E75',
+  },
+  calle: {
+    titulo: 'Ventas a la calle',
+    detalle: 'Domicilios',
+    Icono: IconoMoto,
+    color: '#2563EB',
+  },
+  general: {
+    titulo: 'Ventas generales',
+    detalle: 'Todo el turno',
+    Icono: IconoBillete,
+    color: MARCA.dorado,
+  },
 }
 
+/** Los medios que se muestran siempre, en el orden en que se nombran en el negocio. */
+const MEDIOS_RESUMEN = ['efectivo', 'datafono', 'transferencia'] as const
+
 /**
- * Todo el dinero del turno, en tres lecturas que responden tres preguntas distintas:
- * cuánto entró en total, CÓMO entró (efectivo, transferencia, datáfono, pasarela) y DE
- * DÓNDE vino (salón, domicilio, mostrador). Es la misma plata mirada de tres maneras:
- * las dos listas suman igual que el total.
+ * El dinero del turno en tres bloques —lo que se vendió en el local, lo que salió a la
+ * calle y el total— y cada uno con el mismo desglose: efectivo, datáfono y transferencia.
+ * Los dos primeros suman el tercero: es la misma plata, partida por dónde se vendió.
  */
-function ResumenPagos({
-  arqueo,
-  porOrigen,
-}: {
-  arqueo: Record<string, ArqueoMedio>
-  porOrigen: Record<OrigenVenta, ArqueoMedio>
-}) {
-  const total = Object.values(arqueo).reduce((s, v) => s + v.monto, 0)
-  const pedidos = Object.values(porOrigen).reduce((s, v) => s + v.pedidos, 0)
-  const origenes: OrigenVenta[] = ['salon', 'domicilio', 'mostrador']
+function ResumenPagos({ ventas }: { ventas: ResumenVentas }) {
+  const grupos: GrupoVenta[] = ['fisicas', 'calle', 'general']
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <h2 className="font-semibold text-marca-texto">Resumen de pagos</h2>
-
-      {/* El número grande: cuánto entró en el turno, sumando todo. */}
-      <div className="tarjeta p-4">
-        <p className="text-sm text-marca-texto-suave">Total cobrado en el turno</p>
-        <p className="mt-0.5 font-titulo text-3xl font-bold tabular-nums text-marca-texto">
-          {formatearPesos(total)}
-        </p>
-        <p className="mt-1 text-xs text-marca-texto-suave">
-          {pedidos} {pedidos === 1 ? 'pedido cobrado' : 'pedidos cobrados'}
-        </p>
-      </div>
-
-      <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-marca-texto-suave">
-          Cómo entró la plata
-        </h3>
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-          {['efectivo', 'transferencia', 'datafono', 'pasarela'].map((m, i) => (
-            <TarjetaMedioPago
-              key={m}
-              medio={m}
-              monto={arqueo[m]?.monto ?? 0}
-              pedidos={arqueo[m]?.pedidos ?? 0}
-              total={total}
-              indice={i}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-marca-texto-suave">
-          De dónde vino la venta
-        </h3>
-        {/* En lista y no en tarjetas: tres columnas en un celular quedan ilegibles, y
-            así se comparan de un vistazo por la barra. */}
-        <ul className="tarjeta divide-y divide-marca-borde overflow-hidden">
-          {origenes.map((o) => (
-            <RenglonOrigen key={o} origen={o} datos={porOrigen[o]} total={total} />
-          ))}
-        </ul>
-      </div>
+      {grupos.map((g) => (
+        <BloqueVentas key={g} grupo={g} datos={ventas[g]} />
+      ))}
     </section>
   )
 }
 
-/** Un origen de venta: ícono, nombre, cuántos pedidos, cuánta plata y qué parte del turno. */
-function RenglonOrigen({
-  origen,
+/** Un bloque: su total arriba y debajo un renglón por medio de pago. */
+function BloqueVentas({
+  grupo,
   datos,
-  total,
 }: {
-  origen: OrigenVenta
-  datos: ArqueoMedio
-  total: number
+  grupo: GrupoVenta
+  datos: { total: number; pedidos: number; medios: Record<string, ArqueoMedio> }
 }) {
-  const info = ORIGEN_INFO[origen]
-  const pct = total > 0 ? Math.round((datos.monto / total) * 100) : 0
-  const vacio = datos.monto === 0
+  const info = GRUPO_INFO[grupo]
+  const general = grupo === 'general'
+
+  // La pasarela solo aparece si tiene plata: hoy no se usa y un renglón en cero por
+  // bloque es ruido. Lo que sí se cobró nunca se esconde.
+  const medios: string[] = [
+    ...MEDIOS_RESUMEN,
+    ...((datos.medios.pasarela?.monto ?? 0) > 0 ? ['pasarela'] : []),
+  ]
 
   return (
-    <li className="px-3 py-2.5">
-      <div className="flex items-center justify-between gap-3">
+    <article className={`tarjeta overflow-hidden ${general ? 'border-2 border-marca-acento' : ''}`}>
+      <header className="flex items-center justify-between gap-3 px-3 py-2.5">
         <span className="flex min-w-0 items-center gap-2">
           <span
             aria-hidden
-            className="flex size-7 shrink-0 items-center justify-center rounded-lg"
-            style={{
-              backgroundColor: vacio ? 'var(--marca-superficie-tenue)' : `${info.color}14`,
-              color: vacio ? 'var(--marca-texto-suave)' : info.color,
-            }}
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: `${info.color}14`, color: info.color }}
           >
             <info.Icono className="size-4" />
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-marca-texto">
-              {info.nombre}
-            </span>
-            <span className="block text-xs text-marca-texto-suave">
+            <span className="block truncate font-semibold text-marca-texto">{info.titulo}</span>
+            <span className="block truncate text-xs text-marca-texto-suave">
               {datos.pedidos} {datos.pedidos === 1 ? 'pedido' : 'pedidos'} · {info.detalle}
             </span>
           </span>
         </span>
 
-        <span className="shrink-0 text-right">
-          <span
-            className={`block whitespace-nowrap font-bold tabular-nums ${
-              vacio ? 'text-marca-texto-suave' : 'text-marca-texto'
-            }`}
-          >
-            {formatearPesos(datos.monto)}
-          </span>
-          <span
-            className="block text-xs font-semibold tabular-nums"
-            style={{ color: vacio ? 'var(--marca-texto-suave)' : info.color }}
-          >
-            {pct}%
-          </span>
+        <span
+          className={`shrink-0 whitespace-nowrap font-bold tabular-nums ${
+            general ? 'font-titulo text-2xl' : 'text-lg'
+          } ${datos.total === 0 ? 'text-marca-texto-suave' : 'text-marca-texto'}`}
+        >
+          {formatearPesos(datos.total)}
         </span>
-      </div>
+      </header>
 
-      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-marca-superficie-tenue">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${pct}%`, backgroundColor: vacio ? 'transparent' : info.color }}
-        />
-      </div>
-    </li>
+      <ul className="divide-y divide-marca-borde border-t border-marca-borde">
+        {medios.map((m) => {
+          const dato = datos.medios[m] ?? { monto: 0, pedidos: 0 }
+          const vacio = dato.monto === 0
+          const medio = MEDIO_INFO[m]
+          return (
+            <li key={m} className="flex items-center justify-between gap-3 px-3 py-2">
+              <span className="flex min-w-0 items-center gap-2 text-sm">
+                <span
+                  aria-hidden
+                  className="shrink-0"
+                  style={{ color: vacio ? 'var(--marca-texto-suave)' : medio.color }}
+                >
+                  <medio.Icono className="size-4" />
+                </span>
+                <span
+                  className={`truncate ${vacio ? 'text-marca-texto-suave' : 'text-marca-texto'}`}
+                >
+                  {NOMBRE_MEDIO[m] ?? m}
+                </span>
+              </span>
+
+              <span className="flex shrink-0 items-baseline gap-3">
+                <span className="text-xs tabular-nums text-marca-texto-suave">
+                  {dato.pedidos} {dato.pedidos === 1 ? 'pedido' : 'pedidos'}
+                </span>
+                <span
+                  className={`w-[5.5rem] whitespace-nowrap text-right font-semibold tabular-nums ${
+                    vacio ? 'text-marca-texto-suave' : 'text-marca-texto'
+                  }`}
+                >
+                  {formatearPesos(dato.monto)}
+                </span>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </article>
   )
 }
 
