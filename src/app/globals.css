@@ -366,21 +366,24 @@ body {
 }
 
 /* ---------- Factura para el cliente ---------- */
-/* Sale sola en la hoja: sin fondos ni sombras que gasten tinta, y a 80 mm para que
-   encaje en impresora de tirilla. */
+/* Sale sola en la hoja: sin fondos ni sombras que gasten tinta, y del ANCHO DEL PAPEL,
+   sea el que sea. Antes iba clavada en 80 mm: en una térmica portátil de 58 mm el
+   sistema tenía que encogerla y el texto salía diminuto. Con el ancho al 100 % la
+   tirilla se arma sobre el papel real —58 u 80 mm— sin achicar la letra. */
 @media print {
   .factura {
     box-shadow: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    max-width: 80mm !important;
-    width: 80mm !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   .factura + *,
   body:has(.factura) > div > .no-imprimir {
     display: none !important;
   }
 }
+/* Margen corto: en una tirilla de 58 mm, 8 mm por lado se comían un tercio del papel. */
 @page {
-  margin: 8mm;
+  margin: 4mm;
 }
