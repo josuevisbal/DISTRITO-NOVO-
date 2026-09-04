@@ -83,28 +83,12 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
           <h1 className="mt-2 text-[1.5em] font-bold leading-tight">
             {factura.restaurante.nombre}
           </h1>
-          {factura.restaurante.direccion ? (
-            <p className="text-[0.9em] leading-snug">{factura.restaurante.direccion}</p>
-          ) : null}
           {factura.restaurante.whatsapp ? (
             <p className="text-[0.9em]">WhatsApp {factura.restaurante.whatsapp}</p>
           ) : null}
         </header>
 
         <hr className="my-3 border-dashed border-[#bbb]" />
-
-        {/* Qué documento es: la cuenta que se lleva antes de pagar, o la factura ya
-            cobrada. Se dice claro para que nadie confunda una con otra. */}
-        <p
-          className="estado-doc mb-2 rounded border py-1 text-center text-[0.9em] font-bold uppercase tracking-wider"
-          style={
-            factura.pagado
-              ? { borderColor: '#0F6E56', color: '#0F6E56', backgroundColor: '#E1F5EE' }
-              : { borderColor: '#854F0B', color: '#854F0B', backgroundColor: '#FAEEDA' }
-          }
-        >
-          {factura.pagado ? 'Pagado' : 'Cuenta de cobro · pendiente de pago'}
-        </p>
 
         <div className="space-y-0.5 text-[0.95em]">
           <p className="text-[1.25em] font-bold">Pedido #{factura.numero}</p>
@@ -165,27 +149,19 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
           </div>
           {factura.medio_pago ? (
             <Renglon
-              termino={factura.pagado ? 'Pagado con' : 'Va a pagar con'}
+              termino="Pago"
               valor={NOMBRE_MEDIO[factura.medio_pago] ?? factura.medio_pago}
             />
           ) : null}
         </dl>
 
-        {factura.pagado ? (
-          <p className="mt-4 text-center text-[0.95em] leading-snug">
-            ¡Gracias por tu compra!
-            <br />
-            Te esperamos pronto.
-          </p>
-        ) : (
-          <p className="mt-4 border-t border-dashed border-[#bbb] pt-3 text-center text-[0.95em] leading-snug">
-            <span className="font-bold">Este documento no es su factura de venta.</span>
-            <br />
-            {factura.canal === 'domicilio' || factura.canal === 'whatsapp'
-              ? 'Pague este valor al domiciliario al recibir.'
-              : 'Presente esta cuenta en la caja para pagar.'}
-          </p>
-        )}
+        {/* Un solo pie, esté cobrada o no: el documento es el mismo. El aviso legal se
+            queda porque esto no es factura electrónica. */}
+        <p className="mt-4 border-t border-dashed border-[#bbb] pt-3 text-center text-[0.95em] leading-snug">
+          ¡Gracias por tu compra!
+          <br />
+          <span className="font-bold">Este documento no es su factura de venta.</span>
+        </p>
       </article>
     </div>
   )

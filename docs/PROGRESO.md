@@ -1139,3 +1139,21 @@ diseñada para pantalla y para 80 mm.
 
 Verificado renderizando la página en modo impresión a 58 mm (187 px útiles) y a 80 mm: sin
 un solo elemento fuera del papel, sin cortes de palabra, y la vista en pantalla intacta.
+
+
+## Una sola tirilla
+
+A pedido del cliente: el documento dejó de tener dos caras. Antes salía con el sello
+*CUENTA DE COBRO · PENDIENTE DE PAGO* o *PAGADO* según el estado, y con pie distinto en
+cada caso ("Pague este valor al domiciliario" / "¡Gracias por tu compra!"). Ahora es un
+solo formato:
+
+- Sin sello de estado.
+- El medio de pago se dice igual siempre: **Pago · Efectivo** (antes "Va a pagar con" /
+  "Pagado con").
+- Un solo pie: gracias por la compra y el aviso de que el documento no es factura de
+  venta, que se queda porque esto no es facturación electrónica.
+- Fuera la dirección del local del encabezado: quedan el logo, el nombre y el WhatsApp.
+
+Lo que trae el documento (pedido, fecha, canal, cliente, dirección de entrega, renglones,
+subtotal, domicilio, propina y total) no cambió.
