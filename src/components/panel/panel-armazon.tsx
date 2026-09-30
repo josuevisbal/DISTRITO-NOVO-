@@ -220,7 +220,7 @@ function ContenidoLateral({
         ))}
 
         <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-wider text-panel-lateral-texto-suave">
-          Monitoreo en vivo
+          Operación en vivo
         </p>
         {MONITOREO.map((m) => (
           <LinkModulo key={m.href} modulo={m} ruta={ruta} enVivo={enVivo} />

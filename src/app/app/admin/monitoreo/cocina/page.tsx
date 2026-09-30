@@ -6,8 +6,8 @@ import { exigirRol } from '@/lib/sesion'
 export const dynamic = 'force-dynamic'
 
 /**
- * Monitoreo del admin: la pantalla de cocina tal como la ve el cocinero, en vivo y en
- * modo solo lectura. No marca ni libera nada.
+ * La pantalla de cocina dentro del panel: administración ve los pedidos en vivo y puede
+ * marcarlos en preparación, listos o agotar un plato, igual que el cocinero.
  */
 export default async function MonitoreoCocina() {
   const staff = await exigirRol('admin')
@@ -32,7 +32,7 @@ export default async function MonitoreoCocina() {
         tickets={tickets}
         estaciones={estaciones}
         servidorAhoraISO={ahora.toISOString()}
-        soloLectura
+        enPanel
       />
     </>
   )

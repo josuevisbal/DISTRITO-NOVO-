@@ -6,8 +6,8 @@ import { exigirRol } from '@/lib/sesion'
 export const dynamic = 'force-dynamic'
 
 /**
- * Monitoreo del admin: el salón en vivo (lo que pidió cada mesa, cómo va en cocina y qué
- * está por llevar), en modo solo lectura.
+ * La pantalla del mesero dentro del panel: administración ve el salón en vivo y puede
+ * confirmar, tomar pedidos, sumar rondas y marcar servido igual que un mesero.
  */
 export default async function MonitoreoSalon() {
   const staff = await exigirRol('admin')
@@ -16,7 +16,7 @@ export default async function MonitoreoSalon() {
   return (
     <>
       <AvisoMonitoreo />
-      <MeseroCliente datos={datos} servidorAhoraISO={new Date().toISOString()} soloLectura />
+      <MeseroCliente datos={datos} servidorAhoraISO={new Date().toISOString()} />
     </>
   )
 }

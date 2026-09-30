@@ -13,7 +13,7 @@ type Resultado = { ok: true } | { ok: false; error: string }
  * le adelantó, la base lo dice en vez de quitárselo.
  */
 export async function tomarDomicilio(pedidoId: string): Promise<Resultado> {
-  await exigirRol('domicilio')
+  await exigirRol('domicilio', 'admin')
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('tomar_domicilio', { p_pedido: pedidoId })
   if (error) return { ok: false, error: error.message }
@@ -23,7 +23,7 @@ export async function tomarDomicilio(pedidoId: string): Promise<Resultado> {
 }
 
 export async function recogerPedido(pedidoId: string): Promise<Resultado> {
-  await exigirRol('domicilio')
+  await exigirRol('domicilio', 'admin')
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('recoger_pedido', { p_pedido: pedidoId })
   if (error) return { ok: false, error: error.message }
@@ -32,7 +32,7 @@ export async function recogerPedido(pedidoId: string): Promise<Resultado> {
 }
 
 export async function entregarPedido(pedidoId: string): Promise<Resultado> {
-  await exigirRol('domicilio')
+  await exigirRol('domicilio', 'admin')
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('entregar_pedido', { p_pedido: pedidoId })
   if (error) return { ok: false, error: error.message }
@@ -51,7 +51,7 @@ export async function repartirPagoEntrega(
   pedidoId: string,
   efectivo: number,
 ): Promise<Resultado> {
-  await exigirRol('domicilio')
+  await exigirRol('domicilio', 'admin')
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('repartir_pago_entrega', {
     p_pedido: pedidoId,
@@ -64,7 +64,7 @@ export async function repartirPagoEntrega(
 }
 
 export async function falloEntrega(pedidoId: string, motivo: string): Promise<Resultado> {
-  await exigirRol('domicilio')
+  await exigirRol('domicilio', 'admin')
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('fallo_entrega', { p_pedido: pedidoId, p_motivo: motivo })
   if (error) return { ok: false, error: error.message }

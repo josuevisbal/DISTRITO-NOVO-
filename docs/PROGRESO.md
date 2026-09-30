@@ -1294,3 +1294,30 @@ no puede marcar cocina. Playwright a 390 y 1024 px, claro y oscuro. `tsc`, ESLin
 `npm run build`, en verde. La migración está en
 `supabase/historial/cocina-pedido-completo.sql` y **hay que correrla en producción antes
 de desplegar**, porque la pantalla de cocina llama a la función nueva.
+
+
+## Administración opera en todos los módulos
+
+Las pantallas "en vivo" del panel (caja, cocina, salón y domicilios) eran solo para mirar.
+Ahora el admin puede hacer desde ahí todo lo que hace cada rol: confirmar, cobrar,
+verificar, despachar y cerrar turno en caja; empezar, marcar listo y agotar en cocina;
+confirmar, tomar pedidos y marcar servido en el salón; y en domicilios, tomar un pedido del
+mostrador (queda a su nombre) o marcar recogido, entregado, pago repartido o "no se pudo
+entregar" en cualquier entrega, a nombre del domiciliario que la lleva.
+
+En la base, caja, cocina y mesero ya aceptaban al admin; lo que faltaba eran las funciones
+del domiciliario. `tomar_domicilio`, `recoger_pedido`, `entregar_pedido`,
+`repartir_pago_entrega` y `fallo_entrega` aceptan ahora `admin` para cualquier pedido de su
+restaurante, con dos candados: el pedido tiene que ser de su restaurante, y nadie saca a la
+calle un pedido sin domiciliario. El domiciliario sigue operando solo lo suyo.
+
+En la interfaz se quitó el modo solo lectura de las cuatro pantallas. Domicilios, en vista
+de admin, muestra "En la calle" (todas, con quién lleva cada una) y "En el mostrador". El
+aviso del panel dice ahora "Operación en vivo · lo que hagas aquí queda hecho igual que si
+lo hiciera el equipo", y el grupo del menú se llama "Operación en vivo".
+
+Probado en Postgres local: un domiciliario no puede recoger el pedido de otro; el admin sí
+lo recoge y entrega, y queda a nombre del domiciliario; el admin no puede recoger un pedido
+sin dueño y sí puede tomarlo. `tsc`, ESLint y `npm run build`, en verde. Migración en
+`supabase/historial/admin-opera-domicilios.sql`: caja, cocina y salón funcionan sin ella;
+las acciones del admin en domicilios necesitan que se corra.

@@ -48,7 +48,8 @@ pantallas vivas. Sin librerías de estado global.
 ## Roles
 
 Cinco, ni uno más (tabla `usuarios`): `admin · cajero · mesero · cocina · domicilio`.
-`admin` es el único rol de mando y ve todo, incluidos costos y rentabilidad.
+`admin` es el único rol de mando y ve todo, incluidos costos y rentabilidad. Además
+puede **operar** cualquier módulo —caja, cocina, salón y domicilios— igual que el equipo.
 El comensal no tiene cuenta: entra por `slug`, pide, y sigue su pedido con un `token`.
 
 ## Los dos flujos

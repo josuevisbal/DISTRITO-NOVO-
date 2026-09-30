@@ -20,7 +20,11 @@ export default async function PaginaDomicilios() {
   return (
     <MarcoOscuro>
       <BarraStaff staff={staff} titulo="Mis entregas" />
-      <DomiciliosCliente entregas={entregas} miId={staff.id} />
+      <DomiciliosCliente
+        entregas={entregas}
+        miId={staff.id}
+        vistaAdmin={staff.rol === 'admin'}
+      />
     </MarcoOscuro>
   )
 }

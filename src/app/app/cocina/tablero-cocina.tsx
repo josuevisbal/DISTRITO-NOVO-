@@ -53,8 +53,8 @@ type Props = {
   servidorAhoraISO: string
   /** Barra de sesión (server component) que se pinta dentro del tema elegido. */
   barraStaff?: ReactNode
-  /** Monitoreo del admin: espejo sin controles. Observa, no opera. */
-  soloLectura?: boolean
+  /** Dentro del panel de administración: marco con borde y cabecera no fija. */
+  enPanel?: boolean
 }
 
 const NOMBRE_CANAL: Record<string, string> = {
@@ -95,7 +95,7 @@ export function TableroCocina({
   estaciones,
   servidorAhoraISO,
   barraStaff,
-  soloLectura = false,
+  enPanel = false,
 }: Props) {
   const router = useRouter()
 
@@ -194,14 +194,14 @@ export function TableroCocina({
     <div
       style={variablesTema(oscuro ? obtenerTemaOperacion() : obtenerTema(''))}
       className={`bg-marca-fondo text-marca-texto ${
-        soloLectura ? 'overflow-hidden rounded-2xl border border-marca-borde' : 'min-h-screen'
+        enPanel ? 'overflow-hidden rounded-2xl border border-marca-borde' : 'min-h-screen'
       }`}
     >
       {barraStaff}
 
       {/* Barra de cocina: identidad, carga por estación, cola y reloj. */}
       <header
-        className={`${soloLectura ? '' : 'sticky top-0'} z-20 border-b border-marca-borde bg-marca-superficie`}
+        className={`${enPanel ? '' : 'sticky top-0'} z-20 border-b border-marca-borde bg-marca-superficie`}
       >
         <div className="flex items-center gap-3 px-4 py-3">
           <span
@@ -266,7 +266,6 @@ export function TableroCocina({
               ahora={ahora}
               indice={i}
               onMarcar={marcar}
-              soloLectura={soloLectura}
             />
           ))}
         </ul>
@@ -301,14 +300,12 @@ function TicketKds({
   ahora,
   indice,
   onMarcar,
-  soloLectura,
 }: {
   ticket: Ticket
   paleta: Paleta
   ahora: number
   indice: number
   onMarcar: (ticket: Ticket, estado: 'preparando' | 'listo') => void
-  soloLectura: boolean
 }) {
   const [ocupado, setOcupado] = useState(false)
 
@@ -371,16 +368,14 @@ function TicketKds({
                 {item.nombre}{' '}
                 <ChipEstacion nombre={item.estacion.nombre} color={item.estacion.color} />
               </p>
-              {soloLectura ? null : (
-                <button
-                  type="button"
-                  onClick={() => agotar(item.producto_id)}
-                  disabled={ocupado}
-                  className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-2.5 text-xs text-marca-texto-suave disabled:opacity-50"
-                >
-                  Agotar
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => agotar(item.producto_id)}
+                disabled={ocupado}
+                className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-2.5 text-xs text-marca-texto-suave disabled:opacity-50"
+              >
+                Agotar
+              </button>
             </div>
             {item.notas ? (
               <p
@@ -432,11 +427,7 @@ function TicketKds({
       ) : null}
 
       <div className="p-3">
-        {soloLectura ? (
-          <p className="flex min-h-14 items-center justify-center rounded-xl border border-marca-borde text-sm font-semibold text-marca-texto-suave">
-            {ticket.estado === 'pendiente' ? 'En espera' : 'Preparando'}
-          </p>
-        ) : ticket.estado === 'pendiente' ? (
+        {ticket.estado === 'pendiente' ? (
           <button
             type="button"
             onClick={() => onMarcar(ticket, 'preparando')}

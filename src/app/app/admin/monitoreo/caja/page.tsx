@@ -6,10 +6,8 @@ import { exigirRol } from '@/lib/sesion'
 export const dynamic = 'force-dynamic'
 
 /**
- * Monitoreo del admin: la pantalla del cajero en vivo (turno, medios de pago, pedidos
- * por cobrar/verificar y lo cobrado hoy), en modo solo lectura. No cobra ni verifica
- * desde aquí — para operar, el cajero lo hace en su puesto. El módulo "Caja y finanzas"
- * es el del panel (arqueo y cierres); este es ver la operación.
+ * La pantalla del cajero dentro del panel: administración ve la caja en vivo y puede
+ * hacer todo lo que hace el cajero (confirmar, cobrar, verificar, despachar, cerrar).
  */
 export default async function MonitoreoCaja() {
   const staff = await exigirRol('admin')
@@ -18,7 +16,7 @@ export default async function MonitoreoCaja() {
   return (
     <>
       <AvisoMonitoreo />
-      <CajaCliente {...datos} servidorAhoraISO={new Date().toISOString()} soloLectura />
+      <CajaCliente {...datos} servidorAhoraISO={new Date().toISOString()} />
     </>
   )
 }

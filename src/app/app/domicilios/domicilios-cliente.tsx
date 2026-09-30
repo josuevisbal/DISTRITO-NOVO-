@@ -35,20 +35,23 @@ export type Entrega = {
   transferenciaPendiente: number
   nota_entrega: string | null
   items: { nombre: string; cantidad: number }[]
-  /** Quién la lleva. Solo se usa en el monitoreo del admin; el domiciliario es él mismo. */
+  /** Quién la lleva. Solo lo ve administración; el domiciliario es él mismo. */
   domiciliario?: string | null
 }
 
 export function DomiciliosCliente({
   entregas,
   miId,
-  soloLectura = false,
+  vistaAdmin = false,
 }: {
   entregas: Entrega[]
   /** Quién está mirando: separa lo que ya tomó de lo que sigue en el mostrador. */
   miId?: string
-  /** Monitoreo del admin: espejo sin controles. Observa, no opera. */
-  soloLectura?: boolean
+  /**
+   * Administración: ve TODAS las entregas en la calle (con el nombre de quién lleva cada
+   * una) y puede operarlas igual que el domiciliario.
+   */
+  vistaAdmin?: boolean
 }) {
   useRefrescarEnCambios(['pedidos'], { intervaloMs: 20000 })
   const [busqueda, setBusqueda] = useState('')
@@ -56,16 +59,18 @@ export function DomiciliosCliente({
   if (entregas.length === 0) {
     return (
       <p className="mx-auto mt-24 max-w-sm px-6 text-center text-lg text-marca-texto-suave">
-        {soloLectura ? 'No hay entregas en curso por ahora.' : 'No tienes entregas asignadas por ahora.'}
+        {vistaAdmin ? 'No hay entregas en curso por ahora.' : 'No tienes entregas asignadas por ahora.'}
       </p>
     )
   }
 
   const encontradas = filtrarEntregas(entregas, busqueda)
-  // Lo que ya tomó y lo que sigue en el mostrador. En monitoreo no se separa: el admin
-  // ve el tablero completo, con el nombre de quién lleva cada una.
-  const mias = soloLectura ? encontradas : encontradas.filter((e) => e.domiciliario_id === miId)
-  const mostrador = soloLectura ? [] : encontradas.filter((e) => e.domiciliario_id === null)
+  // Lo que ya tomó y lo que sigue en el mostrador. Administración ve todo lo que ya
+  // tiene dueño, con el nombre de quién lo lleva.
+  const mias = vistaAdmin
+    ? encontradas.filter((e) => e.domiciliario_id !== null)
+    : encontradas.filter((e) => e.domiciliario_id === miId)
+  const mostrador = encontradas.filter((e) => e.domiciliario_id === null)
 
   return (
     <div className="mx-auto max-w-xl p-4">
@@ -98,14 +103,16 @@ export function DomiciliosCliente({
 
       {mias.length > 0 ? (
         <>
-          {!soloLectura && mostrador.length > 0 ? <Titulo texto="Mis entregas" /> : null}
+          {mostrador.length > 0 ? (
+            <Titulo texto={vistaAdmin ? 'En la calle' : 'Mis entregas'} />
+          ) : null}
           <ul className="space-y-4">
             {mias.map((e, i) => (
               <TarjetaEntrega
                 key={e.pedido_id}
                 entrega={e}
                 indice={i}
-                soloLectura={soloLectura}
+                vistaAdmin={vistaAdmin}
                 enMostrador={false}
               />
             ))}
@@ -125,7 +132,7 @@ export function DomiciliosCliente({
                 key={e.pedido_id}
                 entrega={e}
                 indice={mias.length + i}
-                soloLectura={soloLectura}
+                vistaAdmin={vistaAdmin}
                 enMostrador
               />
             ))}
@@ -171,12 +178,12 @@ function filtrarEntregas(entregas: Entrega[], busqueda: string): Entrega[] {
 function TarjetaEntrega({
   entrega,
   indice,
-  soloLectura,
+  vistaAdmin,
   enMostrador,
 }: {
   entrega: Entrega
   indice: number
-  soloLectura: boolean
+  vistaAdmin: boolean
   /** Está libre: todavía no es de nadie, así que lo único que se puede hacer es tomarlo. */
   enMostrador: boolean
 }) {
@@ -233,8 +240,8 @@ function TarjetaEntrega({
         </span>
       </div>
 
-      {/* En monitoreo se muestra quién la lleva; el domiciliario en operación es él mismo. */}
-      {soloLectura ? (
+      {/* Administración ve quién la lleva; el domiciliario es él mismo. */}
+      {vistaAdmin && !enMostrador ? (
         <p className="mt-1 text-sm text-marca-texto-suave">
           Lleva: <span className="font-medium text-marca-texto">{entrega.domiciliario ?? 'Sin asignar'}</span>
         </p>
@@ -274,7 +281,7 @@ function TarjetaEntrega({
         </ul>
       </details>
 
-      {entrega.telefono && !soloLectura ? (
+      {entrega.telefono ? (
         <div className="mt-3 grid grid-cols-2 gap-2">
           <a
             href={enlaceLlamar(entrega.telefono)}
@@ -307,7 +314,7 @@ function TarjetaEntrega({
         </p>
       ) : null}
 
-      {soloLectura ? null : enMostrador ? (
+      {enMostrador ? (
         <div className="mt-4">
           <button
             type="button"

@@ -1383,7 +1383,7 @@ create or replace function tomar_domicilio(p_pedido uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare v_rest uuid; v_estado estado_pedido; v_domi uuid; v_ok int;
 begin
-  if mi_rol() <> 'domicilio' then raise exception 'Solo el domiciliario'; end if;
+  if mi_rol() not in ('domicilio','admin') then raise exception 'Solo el domiciliario'; end if;
 
   select restaurante_id, estado, domiciliario_id into v_rest, v_estado, v_domi
     from pedidos where id = p_pedido;
@@ -1422,11 +1422,17 @@ end $$;
 -- el domiciliario recoge: en_despacho -> en_camino (solo su pedido)
 create or replace function recoger_pedido(p_pedido uuid) returns void
 language plpgsql security definer set search_path = public as $$
-declare v_domi uuid; v_estado estado_pedido;
+declare v_domi uuid; v_estado estado_pedido; v_rest uuid;
 begin
-  if mi_rol() <> 'domicilio' then raise exception 'Solo el domiciliario'; end if;
-  select domiciliario_id, estado into v_domi, v_estado from pedidos where id = p_pedido;
-  if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
+  if mi_rol() not in ('domicilio','admin') then raise exception 'Solo el domiciliario'; end if;
+  select domiciliario_id, estado, restaurante_id into v_domi, v_estado, v_rest from pedidos where id = p_pedido;
+  -- Administración puede operar cualquier entrega de su restaurante (a nombre del
+  -- domiciliario que la lleva); el domiciliario, solo las suyas.
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+  if v_domi is null then raise exception 'Ese pedido todavía no tiene domiciliario'; end if;
+  if v_domi is distinct from auth.uid() and mi_rol() <> 'admin' then
+    raise exception 'Ese pedido no es tuyo';
+  end if;
   if v_estado <> 'en_despacho' then raise exception 'El pedido no está por recoger'; end if;
 
   update pedidos set estado = 'en_camino' where id = p_pedido;
@@ -1436,12 +1442,18 @@ end $$;
 -- caja quien recibe la plata: el efectivo al legalizar, la transferencia al verificarla.
 create or replace function entregar_pedido(p_pedido uuid) returns void
 language plpgsql security definer set search_path = public as $$
-declare v_domi uuid; v_estado estado_pedido; v_medio medio_pago;
+declare v_domi uuid; v_estado estado_pedido; v_medio medio_pago; v_rest uuid;
 begin
-  if mi_rol() <> 'domicilio' then raise exception 'Solo el domiciliario'; end if;
-  select domiciliario_id, estado, medio_pago into v_domi, v_estado, v_medio
+  if mi_rol() not in ('domicilio','admin') then raise exception 'Solo el domiciliario'; end if;
+  select domiciliario_id, estado, medio_pago, restaurante_id into v_domi, v_estado, v_medio, v_rest
     from pedidos where id = p_pedido;
-  if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
+  -- Administración puede operar cualquier entrega de su restaurante (a nombre del
+  -- domiciliario que la lleva); el domiciliario, solo las suyas.
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+  if v_domi is null then raise exception 'Ese pedido todavía no tiene domiciliario'; end if;
+  if v_domi is distinct from auth.uid() and mi_rol() <> 'admin' then
+    raise exception 'Ese pedido no es tuyo';
+  end if;
   if v_estado <> 'en_camino' then raise exception 'El pedido no está en camino'; end if;
 
   -- Solo se cierra lo que YA está pago (transferencia aprobada antes de salir, o
@@ -1470,13 +1482,19 @@ end $$;
 create or replace function repartir_pago_entrega(p_pedido uuid, p_efectivo bigint)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_domi uuid; v_estado estado_pedido; v_transf bigint; v_efec bigint;
+declare v_domi uuid; v_estado estado_pedido; v_transf bigint; v_efec bigint; v_rest uuid;
 begin
-  if mi_rol() <> 'domicilio' then raise exception 'Solo el domiciliario'; end if;
+  if mi_rol() not in ('domicilio','admin') then raise exception 'Solo el domiciliario'; end if;
   if coalesce(p_efectivo, 0) < 0 then raise exception 'El efectivo no puede ser negativo'; end if;
 
-  select domiciliario_id, estado into v_domi, v_estado from pedidos where id = p_pedido;
-  if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
+  select domiciliario_id, estado, restaurante_id into v_domi, v_estado, v_rest from pedidos where id = p_pedido;
+  -- Administración puede operar cualquier entrega de su restaurante (a nombre del
+  -- domiciliario que la lleva); el domiciliario, solo las suyas.
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+  if v_domi is null then raise exception 'Ese pedido todavía no tiene domiciliario'; end if;
+  if v_domi is distinct from auth.uid() and mi_rol() <> 'admin' then
+    raise exception 'Ese pedido no es tuyo';
+  end if;
   if v_estado not in ('en_despacho','en_camino','entregado') then
     raise exception 'Ese pedido no está en reparto';
   end if;
@@ -1505,12 +1523,18 @@ end $$;
 -- no se pudo entregar: vuelve a despacho con el motivo, para que pase o caja decidan
 create or replace function fallo_entrega(p_pedido uuid, p_motivo text) returns void
 language plpgsql security definer set search_path = public as $$
-declare v_domi uuid; v_estado estado_pedido;
+declare v_domi uuid; v_estado estado_pedido; v_rest uuid;
 begin
-  if mi_rol() <> 'domicilio' then raise exception 'Solo el domiciliario'; end if;
+  if mi_rol() not in ('domicilio','admin') then raise exception 'Solo el domiciliario'; end if;
   if coalesce(trim(p_motivo),'') = '' then raise exception 'Escribe por qué no se pudo entregar'; end if;
-  select domiciliario_id, estado into v_domi, v_estado from pedidos where id = p_pedido;
-  if v_domi is distinct from auth.uid() then raise exception 'Ese pedido no es tuyo'; end if;
+  select domiciliario_id, estado, restaurante_id into v_domi, v_estado, v_rest from pedidos where id = p_pedido;
+  -- Administración puede operar cualquier entrega de su restaurante (a nombre del
+  -- domiciliario que la lleva); el domiciliario, solo las suyas.
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+  if v_domi is null then raise exception 'Ese pedido todavía no tiene domiciliario'; end if;
+  if v_domi is distinct from auth.uid() and mi_rol() <> 'admin' then
+    raise exception 'Ese pedido no es tuyo';
+  end if;
   if v_estado not in ('en_camino','en_despacho') then raise exception 'El pedido no está en reparto'; end if;
 
   update pedidos set estado = 'en_despacho', nota_entrega = p_motivo where id = p_pedido;

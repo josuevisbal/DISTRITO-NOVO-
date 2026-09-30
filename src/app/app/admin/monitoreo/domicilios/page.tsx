@@ -6,8 +6,9 @@ import { exigirRol } from '@/lib/sesion'
 export const dynamic = 'force-dynamic'
 
 /**
- * Monitoreo del admin: las entregas en curso, quién las lleva y su estado, en vivo y en
- * modo solo lectura. No reasigna domiciliarios desde aquí.
+ * La pantalla del domiciliario dentro del panel: administración ve todas las entregas en
+ * curso, quién lleva cada una, y puede marcarlas recogidas, entregadas o con otro pago
+ * a nombre del domiciliario. Lo que está en el mostrador lo puede tomar él mismo.
  */
 export default async function MonitoreoDomicilios() {
   const staff = await exigirRol('admin')
@@ -16,7 +17,7 @@ export default async function MonitoreoDomicilios() {
   return (
     <>
       <AvisoMonitoreo />
-      <DomiciliosCliente entregas={entregas} soloLectura />
+      <DomiciliosCliente entregas={entregas} miId={staff.id} vistaAdmin />
     </>
   )
 }
