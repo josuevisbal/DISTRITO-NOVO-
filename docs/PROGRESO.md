@@ -1239,3 +1239,19 @@ en negrilla**, para que no se pase en el chat:
 Sale en los dos mensajes: el de contraentrega (desde la carta) y el de transferencia
 (desde la pantalla de la llave). Los combos no llevan nota. Sin nota, el renglón queda como
 antes.
+
+
+## Tarjetas plegadas en el celular
+
+Con muchos pedidos en Caja, cada tarjeta abierta ocupaba media pantalla del celular y
+encontrar una era bajar y bajar. Ahora, **solo en el celular**, cada tarjeta arranca
+plegada: número, estado, hace cuánto, la plata y una línea de resumen (cliente y barrio,
+o la calle, o los productos). Un **+** a la derecha de la plata la abre completa —ficha
+del cliente, dirección y botones— y un **−** la vuelve a cerrar. Cada tarjeta recuerda su
+estado mientras la pantalla está abierta.
+
+Va en `EnvolturaFila`, así que aplica a los cinco tipos de fila sin tocar su lógica: el
+detalle y las acciones se envuelven en `hidden sm:contents` hasta que se abre. En pantalla
+ancha no hay nada que plegar: el botón no existe y las cuatro columnas se ven igual que
+antes. Verificado con Playwright a 390 px (plegado y abierto) y a 1280 px. `tsc`, ESLint
+y `npm run build`, en verde.

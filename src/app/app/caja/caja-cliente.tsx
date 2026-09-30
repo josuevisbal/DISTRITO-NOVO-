@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type CSSProperties } from 'react'
+import { Children, useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 
 import {
@@ -13,6 +13,7 @@ import {
   IconoImprimir,
   IconoIntercambio,
   IconoMas,
+  IconoMenos,
   IconoMoto,
   IconoReloj,
   IconoTarjeta,
@@ -698,18 +699,54 @@ const BORDE = {
 function EnvolturaFila({
   borde,
   indice,
+  resumen,
   children,
 }: {
   borde: string
   indice: number
+  /** Una línea que resume la tarjeta cuando está plegada en el celular. */
+  resumen?: string | null
   children: React.ReactNode
 }) {
+  // En el celular la tarjeta arranca PLEGADA: número, estado, plata y una línea de
+  // resumen. Con muchos pedidos, ver todas abiertas era bajar y bajar. El "+" la abre;
+  // en pantalla ancha no hay nada que plegar y se ve completa siempre.
+  const [abierta, setAbierta] = useState(false)
+  const [pedido, detalle, pago, acciones, ...resto] = Children.toArray(children)
+
   return (
     <li
       className="fila-pedido tarjeta tarjeta-hover entra grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 overflow-hidden p-3 pl-4 sm:grid-cols-[1.1fr_1.3fr_0.9fr_auto] sm:items-center sm:gap-3"
       style={{ '--i': indice, borderLeft: `4px solid ${borde}` } as CSSProperties}
     >
-      {children}
+      {pedido}
+
+      {/* Detalle y acciones: en el celular solo cuando está abierta; en ancho, siempre.
+          El detalle va antes de la plata para conservar el orden de columnas en ancho. */}
+      <div className={abierta ? 'contents' : 'hidden sm:contents'}>{detalle}</div>
+
+      {/* La plata y, solo en el celular, el botón de abrir/cerrar a su derecha. */}
+      <div className="col-start-2 row-start-1 flex items-start gap-1.5 sm:contents">
+        {pago}
+        <button
+          type="button"
+          onClick={() => setAbierta((v) => !v)}
+          aria-expanded={abierta}
+          aria-label={abierta ? 'Ocultar detalle' : 'Ver detalle'}
+          className="-mr-1 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-marca-texto-suave hover:bg-marca-superficie-tenue sm:hidden"
+        >
+          {abierta ? <IconoMenos className="size-5" /> : <IconoMas className="size-5" />}
+        </button>
+      </div>
+
+      {!abierta && resumen ? (
+        <p className="col-span-2 truncate text-sm text-marca-texto-suave sm:hidden">{resumen}</p>
+      ) : null}
+
+      <div className={abierta ? 'contents' : 'hidden sm:contents'}>
+        {acciones}
+        {resto}
+      </div>
     </li>
   )
 }
@@ -924,7 +961,11 @@ function FilaVerificar({
   }
 
   return (
-    <EnvolturaFila borde={BORDE.verificar} indice={indice}>
+    <EnvolturaFila
+      borde={BORDE.verificar}
+      indice={indice}
+      resumen={[t.cliente, t.zona].filter(Boolean).join(' · ') || null}
+    >
       <ColPedido
         titulo={`#${t.numero}`}
         pastilla={t.en_edicion ? 'Modificando' : 'Por verificar'}
@@ -1001,7 +1042,11 @@ function FilaConfirmar({
   }
 
   return (
-    <EnvolturaFila borde={BORDE.confirmar} indice={indice}>
+    <EnvolturaFila
+      borde={BORDE.confirmar}
+      indice={indice}
+      resumen={[c.cliente, c.zona ?? c.direccion].filter(Boolean).join(' · ') || null}
+    >
       <ColPedido
         titulo={`#${c.numero}`}
         pastilla="Contraentrega"
@@ -1109,7 +1154,11 @@ function FilaCobrar({
   const titulo = p.mesa ? `Mesa ${p.mesa}` : `#${p.numero}`
 
   return (
-    <EnvolturaFila borde={BORDE.cobrar} indice={indice}>
+    <EnvolturaFila
+      borde={BORDE.cobrar}
+      indice={indice}
+      resumen={[p.mesa ? 'Mesa de salón' : 'Para recoger', p.productos].filter(Boolean).join(' · ')}
+    >
       <ColPedido
         titulo={titulo}
         pastilla="Servido"
@@ -1362,7 +1411,15 @@ function FilaDespachar({
   }
 
   return (
-    <EnvolturaFila borde={BORDE.despachar} indice={indice}>
+    <EnvolturaFila
+      borde={BORDE.despachar}
+      indice={indice}
+      resumen={
+        [d.domiciliario_nombre ? `Lo lleva ${d.domiciliario_nombre}` : null, d.direccion]
+          .filter(Boolean)
+          .join(' · ') || null
+      }
+    >
       <ColPedido
         titulo={`#${d.numero}`}
         pastilla={
@@ -1492,7 +1549,11 @@ function FilaEntregado({
   }
 
   return (
-    <EnvolturaFila borde={BORDE.entregado} indice={indice}>
+    <EnvolturaFila
+      borde={BORDE.entregado}
+      indice={indice}
+      resumen={[e.cliente, e.zona].filter(Boolean).join(' · ') || null}
+    >
       <ColPedido
         titulo={`#${e.numero}`}
         pastilla={
