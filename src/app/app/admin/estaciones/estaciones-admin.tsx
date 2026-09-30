@@ -148,8 +148,7 @@ function FilaEstacion({ estacion, indice }: { estacion: EstacionAdmin; indice: n
             className="min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 font-medium text-marca-texto"
           />
           <p className="mt-1 text-xs text-marca-texto-suave">
-            {estacion.platos} {estacion.platos === 1 ? 'plato' : 'platos'} · pantalla{' '}
-            <code>/app/cocina/{estacion.slug}</code>
+            {estacion.platos} {estacion.platos === 1 ? 'plato' : 'platos'}
           </p>
         </div>
 

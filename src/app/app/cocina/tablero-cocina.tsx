@@ -14,39 +14,45 @@ import {
 import { obtenerTema, obtenerTemaOperacion, variablesTema } from '@/config/tema'
 import { calcularCronometro, formatearRestante, type Semaforo } from '@/lib/cronometro'
 import { crearClienteNavegador } from '@/lib/supabase/navegador'
-import { cambiarDisponibilidad, cambiarEstadoComanda } from '../../acciones'
+import { cambiarDisponibilidad, marcarRondaCocina } from '../acciones'
 
 export type ItemComanda = {
   producto_id: string
   nombre: string
   cantidad: number
   notas: string | null
+  /** De qué cocina sale: va como chip al lado del plato. */
+  estacion: { nombre: string; color: string }
 }
 
+/** Una tarjeta = un pedido completo (o una ronda de él), con los platos de todas las cocinas. */
 export type Ticket = {
-  comanda_id: string
+  pedido_id: string
+  /** 1 = el pedido original; 2, 3… lo que la mesa pidió después sin cerrar la cuenta. */
+  ronda: number
+  /** Cuántas estaciones tienen algo en esta ronda. */
+  comandas: number
   numero: number
   mesa: number | null
   canal: string
+  /** Lo que el cliente escribió para todo el pedido (además de la nota de cada plato). */
+  indicaciones: string | null
   estado: 'pendiente' | 'preparando' | 'listo' | 'cancelada'
-  /** 1 = el pedido original; 2, 3… lo que la mesa pidió después sin cerrar la cuenta. */
-  ronda: number
   disparo_en: string
   objetivo_en: string
   minutos: number
   items: ItemComanda[]
 }
 
+export type EstacionTablero = { id: string; nombre: string; color: string }
+
 type Props = {
   tickets: Ticket[]
-  nombreEstacion: string
-  color: string
+  estaciones: EstacionTablero[]
   /** Hora del servidor al armar la página, para corregir el desfase del reloj local. */
   servidorAhoraISO: string
   /** Barra de sesión (server component) que se pinta dentro del tema elegido. */
   barraStaff?: ReactNode
-  /** Pestañas para cambiar de estación, pintadas dentro del tema elegido. */
-  pestanas?: ReactNode
   /** Monitoreo del admin: espejo sin controles. Observa, no opera. */
   soloLectura?: boolean
 }
@@ -79,16 +85,16 @@ const SEMAFORO: Record<
   },
 }
 
+type Paleta = Record<Semaforo, { acento: string; chipFondo: string; chipTexto: string }>
+
 /** Preferencia de tema del cocinero. Es preferencia de interfaz, no dato del negocio. */
 const LLAVE_TEMA = 'kds-tema'
 
 export function TableroCocina({
   tickets,
-  nombreEstacion,
-  color,
+  estaciones,
   servidorAhoraISO,
   barraStaff,
-  pestanas,
   soloLectura = false,
 }: Props) {
   const router = useRouter()
@@ -120,7 +126,7 @@ export function TableroCocina({
 
   const [enLinea, setEnLinea] = useState(true)
 
-  // Realtime + reintento periódico: una comanda nueva aparece sola, sin recargar.
+  // Realtime + reintento periódico: un pedido nuevo aparece solo, sin recargar.
   // Si la conexión se cae, se avisa y se sigue reintentando.
   useEffect(() => {
     const supabase = crearClienteNavegador()
@@ -144,13 +150,14 @@ export function TableroCocina({
   // y el servidor confirma detrás. Si la acción falla, se revierte y se reintenta a mano.
   const [sombras, setSombras] = useState<Record<string, 'preparando' | 'listo'>>({})
 
-  async function marcar(comandaId: string, estado: 'preparando' | 'listo') {
+  async function marcar(ticket: Ticket, estado: 'preparando' | 'listo') {
+    const llave = `${ticket.pedido_id}·${ticket.ronda}`
     navigator.vibrate?.(15)
-    setSombras((s) => ({ ...s, [comandaId]: estado }))
-    const r = await cambiarEstadoComanda(comandaId, estado)
+    setSombras((s) => ({ ...s, [llave]: estado }))
+    const r = await marcarRondaCocina(ticket.pedido_id, ticket.ronda, estado)
     if (!r.ok) {
       setSombras((s) => {
-        const { [comandaId]: _, ...resto } = s
+        const { [llave]: _, ...resto } = s
         void _
         return resto
       })
@@ -167,13 +174,21 @@ export function TableroCocina({
     hour12: false,
   })
 
-  // Un ticket marcado listo sale de la pantalla al instante.
+  // Un pedido marcado listo sale de la pantalla al instante.
   const visibles = tickets
     .map((t) => ({
       ...t,
-      estado: (sombras[t.comanda_id] as Ticket['estado'] | undefined) ?? t.estado,
+      estado:
+        (sombras[`${t.pedido_id}·${t.ronda}`] as Ticket['estado'] | undefined) ?? t.estado,
     }))
     .filter((t) => t.estado === 'pendiente' || t.estado === 'preparando')
+
+  // Cuántos pedidos en cola tienen algo de cada cocina: se ve de un vistazo quién está
+  // más cargado.
+  const carga = estaciones.map((e) => ({
+    ...e,
+    pedidos: visibles.filter((t) => t.items.some((i) => i.estacion.nombre === e.nombre)).length,
+  }))
 
   return (
     <div
@@ -183,31 +198,37 @@ export function TableroCocina({
       }`}
     >
       {barraStaff}
-      {pestanas}
 
-      {/* Barra de la estación: identidad, cola y reloj. */}
+      {/* Barra de cocina: identidad, carga por estación, cola y reloj. */}
       <header
         className={`${soloLectura ? '' : 'sticky top-0'} z-20 border-b border-marca-borde bg-marca-superficie`}
       >
         <div className="flex items-center gap-3 px-4 py-3">
           <span
             aria-hidden
-            className="flex size-11 items-center justify-center rounded-xl text-white"
-            style={{ backgroundColor: color }}
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-marca-acento text-marca-acento-texto"
           >
             <IconoFuego className="size-6" />
           </span>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold leading-tight">{nombreEstacion}</h1>
-            <p className="text-xs text-marca-texto-suave">Estación de cocina</p>
+            <h1 className="text-xl font-bold leading-tight">Cocina</h1>
+            <ul className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-marca-texto-suave">
+              {carga.map((e) => (
+                <li key={e.id} className="flex items-center gap-1 whitespace-nowrap">
+                  <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: e.color }} />
+                  {e.nombre}{' '}
+                  <span className="font-bold tabular-nums text-marca-texto">{e.pedidos}</span>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex shrink-0 items-center gap-3 sm:gap-4">
             <p className="text-right">
               <span className="block text-[10px] uppercase tracking-wider text-marca-texto-suave">
                 En cola
               </span>
-              <span className="block text-xl font-bold leading-none" style={{ color }}>
+              <span className="block text-xl font-bold leading-none text-marca-acento-fuerte">
                 {visibles.length}
               </span>
             </p>
@@ -239,9 +260,8 @@ export function TableroCocina({
         <ul className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
           {visibles.map((ticket, i) => (
             <TicketKds
-              key={ticket.comanda_id}
+              key={`${ticket.pedido_id}·${ticket.ronda}`}
               ticket={ticket}
-              colorEstacion={color}
               paleta={paleta}
               ahora={ahora}
               indice={i}
@@ -253,7 +273,7 @@ export function TableroCocina({
       )}
 
       <p className="px-4 pb-6 pt-2 text-center text-xs text-marca-texto-suave">
-        El tiempo cuenta desde que la comanda entra a la estación ·{' '}
+        El tiempo cuenta desde que el pedido entra a cocina ·{' '}
         <span style={{ color: paleta.verde.acento }}>verde en tiempo</span> ·{' '}
         <span style={{ color: paleta.amarillo.acento }}>ámbar cerca del objetivo</span> ·{' '}
         <span style={{ color: paleta.rojo.acento }}>rojo pasado</span>
@@ -262,9 +282,21 @@ export function TableroCocina({
   )
 }
 
+/** Chip de estación al lado del plato: punto + nombre, nunca solo el color. */
+function ChipEstacion({ nombre, color }: { nombre: string; color: string }) {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 align-middle text-[11px] font-bold uppercase tracking-wide leading-none"
+      style={{ borderColor: color, color }}
+    >
+      <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
+      {nombre}
+    </span>
+  )
+}
+
 function TicketKds({
   ticket,
-  colorEstacion,
   paleta,
   ahora,
   indice,
@@ -272,11 +304,10 @@ function TicketKds({
   soloLectura,
 }: {
   ticket: Ticket
-  colorEstacion: string
-  paleta: Record<Semaforo, { acento: string; chipFondo: string; chipTexto: string }>
+  paleta: Paleta
   ahora: number
   indice: number
-  onMarcar: (comandaId: string, estado: 'preparando' | 'listo') => void
+  onMarcar: (ticket: Ticket, estado: 'preparando' | 'listo') => void
   soloLectura: boolean
 }) {
   const [ocupado, setOcupado] = useState(false)
@@ -307,13 +338,10 @@ function TicketKds({
           {ticket.mesa ? `Mesa ${ticket.mesa}` : (NOMBRE_CANAL[ticket.canal] ?? ticket.canal)}
         </span>
 
-        {/* Ronda 2 en adelante: la mesa pidió más sin cerrar la cuenta. Es comanda
-            aparte, así que en la tarjeta solo va lo NUEVO. */}
+        {/* Ronda 2 en adelante: la mesa pidió más sin cerrar la cuenta. Es tarjeta
+            aparte, así que aquí solo va lo NUEVO. */}
         {ticket.ronda > 1 ? (
-          <span
-            className="rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide"
-            style={{ backgroundColor: colorEstacion, color: '#fff' }}
-          >
+          <span className="rounded-full bg-marca-acento px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-marca-acento-texto">
             Ronda {ticket.ronda}
           </span>
         ) : null}
@@ -328,15 +356,20 @@ function TicketKds({
         </span>
       </div>
 
+      {/* El pedido completo: cada plato con el chip de su cocina y su nota debajo. */}
       <ul className="flex-1 space-y-2.5 px-4 py-3">
         {ticket.items.map((item) => (
-          <li key={item.producto_id}>
+          <li key={`${item.producto_id}·${item.estacion.nombre}`}>
             <div className="flex items-start justify-between gap-2">
-              <p className="text-lg font-semibold leading-snug">
-                <span className="mr-1.5 text-2xl font-bold" style={{ color: colorEstacion }}>
+              <p className="min-w-0 text-lg font-semibold leading-snug">
+                <span
+                  className="mr-1.5 text-2xl font-bold tabular-nums"
+                  style={{ color: item.estacion.color }}
+                >
                   {item.cantidad}
                 </span>
-                {item.nombre}
+                {item.nombre}{' '}
+                <ChipEstacion nombre={item.estacion.nombre} color={item.estacion.color} />
               </p>
               {soloLectura ? null : (
                 <button
@@ -351,7 +384,7 @@ function TicketKds({
             </div>
             {item.notas ? (
               <p
-                className="mt-1.5 flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium"
+                className="mt-1.5 flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold"
                 style={{
                   backgroundColor: paleta.amarillo.chipFondo,
                   color: paleta.amarillo.chipTexto,
@@ -364,6 +397,24 @@ function TicketKds({
           </li>
         ))}
       </ul>
+
+      {/* Indicaciones de todo el pedido, aparte de la nota de cada plato. */}
+      {ticket.indicaciones ? (
+        <p
+          className="mx-4 mb-3 flex items-start gap-1.5 rounded-lg border px-2.5 py-2 text-sm"
+          style={{ borderColor: paleta.amarillo.acento }}
+        >
+          <span className="mt-0.5 shrink-0" style={{ color: paleta.amarillo.acento }}>
+            <IconoNota className="size-4" />
+          </span>
+          <span>
+            <span className="mr-1 font-bold uppercase tracking-wide text-marca-texto-suave">
+              Indicaciones:
+            </span>
+            {ticket.indicaciones}
+          </span>
+        </p>
+      ) : null}
 
       {ticket.estado === 'preparando' ? (
         <div className="px-4 pb-2">
@@ -388,7 +439,7 @@ function TicketKds({
         ) : ticket.estado === 'pendiente' ? (
           <button
             type="button"
-            onClick={() => onMarcar(ticket.comanda_id, 'preparando')}
+            onClick={() => onMarcar(ticket, 'preparando')}
             className="min-h-14 w-full rounded-xl bg-marca-acento text-lg font-bold text-marca-acento-texto"
           >
             Empezar a preparar
@@ -396,12 +447,12 @@ function TicketKds({
         ) : (
           <button
             type="button"
-            onClick={() => onMarcar(ticket.comanda_id, 'listo')}
+            onClick={() => onMarcar(ticket, 'listo')}
             className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-bold text-white"
             style={{ backgroundColor: paleta.verde.acento }}
           >
             <IconoCheck className="size-6 shrink-0" />
-            Marcar listo
+            Pedido listo
           </button>
         )}
       </div>

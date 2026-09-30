@@ -946,6 +946,10 @@ export type Database = {
       quitar_domiciliario: { Args: { p_pedido: string }; Returns: undefined }
       despachar_domicilio: { Args: { p_pedido: string }; Returns: undefined }
       tomar_domicilio: { Args: { p_pedido: string }; Returns: undefined }
+      marcar_ronda_cocina: {
+        Args: { p_pedido: string; p_ronda: number; p_estado: string }
+        Returns: undefined
+      }
       repartir_pago_entrega: {
         Args: { p_efectivo: number; p_pedido: string }
         Returns: Json

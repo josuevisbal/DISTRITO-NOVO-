@@ -1,29 +1,29 @@
 import { BarraStaff } from '@/components/barra-staff'
+import { cargarEstaciones, cargarTicketsCocina } from '@/lib/datos/cocina'
 import { exigirRol } from '@/lib/sesion'
-import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { SelectorCocina } from './selector-cocina'
+import { TableroCocina } from './tablero-cocina'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Entrada de cocina: pantalla única con selector de estación. No hay estación amarrada
- * al usuario; el selector recuerda la última elegida en esta tablet y salta a ella.
+ * Cocina: una sola pantalla con el pedido completo en cada tarjeta. Cada plato lleva el
+ * chip de su estación (rápida, asados, bebidas) y un solo botón mueve el pedido entero.
  */
 export default async function PaginaCocina() {
   const staff = await exigirRol('cocina', 'admin')
-  const supabase = await crearClienteServidor()
 
-  const { data: estaciones } = await supabase
-    .from('estaciones')
-    .select('slug, nombre, color')
-    .eq('restaurante_id', staff.restaurante_id)
-    .eq('activa', true)
-    .order('orden')
+  const estaciones = await cargarEstaciones(staff.restaurante_id)
+  const ahora = new Date()
+  const tickets = await cargarTicketsCocina(estaciones, ahora)
 
+  // El tema (claro/oscuro) lo elige el cocinero dentro del tablero; la barra de sesión se
+  // pasa como slot para que se pinte con el tema elegido.
   return (
-    <>
-      <BarraStaff staff={staff} titulo="Cocina" />
-      <SelectorCocina estaciones={estaciones ?? []} />
-    </>
+    <TableroCocina
+      tickets={tickets}
+      estaciones={estaciones}
+      servidorAhoraISO={ahora.toISOString()}
+      barraStaff={<BarraStaff staff={staff} titulo="Cocina" />}
+    />
   )
 }

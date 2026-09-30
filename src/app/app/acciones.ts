@@ -144,15 +144,22 @@ export async function marcarServido(pedidoId: string): Promise<Resultado> {
   return { ok: true }
 }
 
-/** Cocina marca su comanda: pendiente → preparando → listo. Solo su estación (RLS). */
-export async function cambiarEstadoComanda(
-  comandaId: string,
+/** Cocina marca el pedido completo: pendiente → preparando → listo, todas las estaciones. */
+export async function marcarRondaCocina(
+  pedidoId: string,
+  ronda: number,
   estado: 'preparando' | 'listo',
 ): Promise<Resultado> {
   await exigirRol('cocina', 'admin')
   const supabase = await crearClienteServidor()
 
-  const { error } = await supabase.from('comandas').update({ estado }).eq('id', comandaId)
+  // Un solo toque mueve TODAS las comandas de la ronda (rápida, asados y bebidas): la
+  // tarjeta de cocina es el pedido completo, no una estación.
+  const { error } = await supabase.rpc('marcar_ronda_cocina', {
+    p_pedido: pedidoId,
+    p_ronda: ronda,
+    p_estado: estado,
+  })
   if (error) return { ok: false, error: error.message }
 
   // La respuesta de la acción ya trae la pantalla actualizada: el tablero no depende de

@@ -1255,3 +1255,42 @@ detalle y las acciones se envuelven en `hidden sm:contents` hasta que se abre. E
 ancha no hay nada que plegar: el botón no existe y las cuatro columnas se ven igual que
 antes. Verificado con Playwright a 390 px (plegado y abierto) y a 1280 px. `tsc`, ESLint
 y `npm run build`, en verde.
+
+
+## Domicilio en efectivo derecho a cocina, y cocina ve el pedido completo
+
+Dos cambios que pidió el restaurante, más uno que ya estaba.
+
+**El domicilio en efectivo ya no espera a caja.** No hay pago que verificar, así que
+`crear_pedido` lo manda derecho a cocina: crea las comandas y deja el pedido `en_cocina`.
+Caja lo ve cuando sale de cocina, en "Por despachar", para imprimir la cuenta y soltarlo al
+mostrador. Un pago repartido que al final quedó todo en efectivo sigue el mismo camino. El
+domicilio por transferencia, el pedido para recoger y la mesa siguen igual: los confirma
+quien siempre los confirmó. Para lograrlo, la confirmación se partió en dos: la función
+interna `_confirmar_comandas` (sin sesión, revocada para todos) y `confirmar_pedido`, que
+solo le pone el candado de restaurante y la llama. La regla 1 del CLAUDE.md quedó con la
+excepción escrita.
+
+**Cocina: una tarjeta por pedido.** Se acabaron las tres pestañas por estación. La pantalla
+`/app/cocina` muestra cada pedido (o cada ronda) en una sola tarjeta con TODOS sus platos,
+agrupados por estación en su orden, y cada plato lleva un chip pequeño con el nombre y el
+color de su cocina (Rápida · Asados · Bebidas): punto + texto, nunca solo color. La nota de
+cada plato sigue debajo en ámbar, y las indicaciones de todo el pedido van en un bloque
+aparte al final. Un solo botón mueve todo: "Empezar a preparar" y "Pedido listo" llaman a
+`marcar_ronda_cocina(pedido, ronda, estado)`, que pasa todas las comandas de la ronda de una
+y deja el pedido `listo` cuando no queda nada en cocina. La cabecera muestra cuántos pedidos
+en cola tienen algo de cada estación. El monitoreo del admin usa el mismo tablero, ya sin
+selector de estación. Se eliminaron el selector de estación, las pestañas y la ruta
+`/app/cocina/[estacion]`.
+
+**El domiciliario toma el pedido él mismo.** Esto ya funcionaba desde el cambio del
+mostrador: caja suelta el pedido, y en `/app/domicilios` cada domiciliario lo busca por el
+nombre del cliente y toca "Yo lo llevo". Nada nuevo aquí.
+
+Probado en Postgres local: domicilio en efectivo → `en_cocina` con sus comandas creadas;
+transferencia → sigue `esperando_pago`; recoger en efectivo → sigue `pendiente`; cocina
+marca preparando y listo y el pedido pasa a `listo`; anon no puede llamar lo interno y caja
+no puede marcar cocina. Playwright a 390 y 1024 px, claro y oscuro. `tsc`, ESLint y
+`npm run build`, en verde. La migración está en
+`supabase/historial/cocina-pedido-completo.sql` y **hay que correrla en producción antes
+de desplegar**, porque la pantalla de cocina llama a la función nueva.

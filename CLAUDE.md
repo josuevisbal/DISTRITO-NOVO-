@@ -17,7 +17,9 @@ pantallas vivas. Sin librerías de estado global.
 ## Reglas que no se rompen
 
 1. Nada entra a cocina sin confirmación: mesero (mesa), webhook (pasarela), o caja
-   (transferencia, contraentrega y lo que ella misma toma).
+   (transferencia y lo que ella misma toma). La única excepción es el **domicilio en
+   efectivo**: no hay pago que verificar, así que `crear_pedido` lo manda derecho a
+   cocina y caja lo ve cuando sale, para imprimir la cuenta y soltarlo al mostrador.
 2. Al confirmar, las tres estaciones reciben su comanda **al mismo tiempo**. Nadie
    espera turno. `confirmar_pedido()` las crea con `disparo_en = now()`.
 3. El cliente nunca envía precios. Todo pedido se crea con `crear_pedido(slug, payload)`,
@@ -57,8 +59,10 @@ por el pedido.
 El mesero también toma pedidos a mano (hay clientes sin datos) y le suma rondas a una
 cuenta abierta sin cerrarla: lo nuevo entra al mismo pedido y cocina recibe comanda aparte.
 
-**Domicilio.** Caja confirma el pedido, o lo toma ella misma cuando el cliente llama o
-llega al mostrador → cocina → caja le asigna el domiciliario y el pedido sale a la calle.
+**Domicilio.** En efectivo entra derecho a cocina; por transferencia lo confirma caja al
+verificar, o lo toma ella misma cuando el cliente llama o llega al mostrador → cocina
+(una tarjeta con el pedido completo y el chip de cada estación) → caja imprime la cuenta y
+lo suelta al mostrador → el domiciliario lo busca por el nombre del cliente y lo toma.
 Al entregar, la cuenta queda *entregada sin cobrar* hasta que la plata llegue: el efectivo
 se recibe al cierre y la transferencia la verifica caja. Si el cliente cambia de opinión en
 la puerta, el domiciliario lo marca y caja recibe la alerta.

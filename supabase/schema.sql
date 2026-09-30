@@ -657,6 +657,15 @@ begin
     values (v_pedido, v_medio, v_total, 'pendiente');
   end if;
 
+  -- Domicilio en efectivo: no hay pago que verificar, así que entra derecho a cocina
+  -- sin pasar por caja (decisión del restaurante). Caja lo ve cuando sale de cocina,
+  -- para imprimir la cuenta y soltarlo al mostrador. Un pago repartido que al final
+  -- quedó todo en efectivo sigue el mismo camino.
+  if v_canal = 'domicilio' and v_estado = 'pendiente' and v_medio in ('efectivo','mixto') then
+    perform _confirmar_comandas(v_pedido);
+    v_estado := 'en_cocina';
+  end if;
+
   return jsonb_build_object(
     'id', v_pedido, 'numero', v_num, 'token', v_token,
     'subtotal', v_sub, 'domicilio', v_dom, 'total', v_total,
@@ -751,16 +760,11 @@ end $$;
 -- `disparo_en` se queda en la tabla y vale la hora de confirmación: es cuando empieza
 -- a correr el cronómetro de cada estación.
 -- =====================================================================
-create or replace function confirmar_pedido(p_pedido uuid)
+create or replace function _confirmar_comandas(p_pedido uuid)
 returns void
 language plpgsql security definer set search_path = public as $$
-declare v_max int; v_conf timestamptz := now(); v_rest uuid; v_nuevas int;
+declare v_max int; v_conf timestamptz := now(); v_nuevas int;
 begin
-  select restaurante_id into v_rest from pedidos where id = p_pedido;
-  if v_rest is null or v_rest <> mi_restaurante() then
-    raise exception 'No autorizado';
-  end if;
-
   insert into comandas (pedido_id, estacion_id, minutos, disparo_en, estado, ronda)
   select p_pedido, pi.estacion_id, max(pi.minutos_snap), v_conf, 'pendiente', pi.ronda
   from pedido_items pi
@@ -784,6 +788,56 @@ begin
          ronda_pendiente_en = null,
          servido_en = null
    where id = p_pedido;
+end $$;
+
+-- La cara pública: exige que el pedido sea del restaurante de quien confirma. El cuerpo
+-- vive en `_confirmar_comandas` para que `crear_pedido` lo reutilice cuando el pedido
+-- entra derecho a cocina (domicilio en efectivo) sin nadie autenticado.
+create or replace function confirmar_pedido(p_pedido uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_rest uuid;
+begin
+  select restaurante_id into v_rest from pedidos where id = p_pedido;
+  if v_rest is null or v_rest <> mi_restaurante() then
+    raise exception 'No autorizado';
+  end if;
+  perform _confirmar_comandas(p_pedido);
+end $$;
+
+-- =====================================================================
+-- COCINA MARCA EL PEDIDO COMPLETO
+-- La pantalla de cocina muestra el pedido entero en una tarjeta (con el chip de la
+-- estación al lado de cada plato), y un solo botón mueve TODAS sus comandas de la
+-- ronda a la vez. El disparador `_comanda_listo` hace el resto: cuando la última queda
+-- lista, el pedido pasa a 'listo'.
+-- =====================================================================
+create or replace function marcar_ronda_cocina(p_pedido uuid, p_ronda int, p_estado text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_rest uuid;
+begin
+  if mi_rol() not in ('cocina','admin') then raise exception 'Solo cocina'; end if;
+  if p_estado not in ('preparando','listo') then raise exception 'Estado no válido'; end if;
+
+  select restaurante_id into v_rest from pedidos where id = p_pedido;
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+
+  if p_estado = 'preparando' then
+    update comandas set estado = 'preparando'
+     where pedido_id = p_pedido and ronda = p_ronda and estado = 'pendiente';
+  else
+    update comandas set estado = 'listo'
+     where pedido_id = p_pedido and ronda = p_ronda and estado in ('pendiente','preparando');
+  end if;
+
+  -- Por si el disparador fila a fila no alcanzó a ver la última: si ya no queda nada en
+  -- cocina, el pedido está listo para el pase.
+  if p_estado = 'listo' and not exists (
+    select 1 from comandas where pedido_id = p_pedido and estado <> 'listo'
+  ) then
+    update pedidos set estado = 'listo' where id = p_pedido and estado = 'en_cocina';
+  end if;
 end $$;
 
 -- Comandas que quedaron con hora futura cuando el disparo era escalonado: se traen
@@ -2005,6 +2059,7 @@ revoke all on function _comanda_listo() from public, anon, authenticated;
 revoke all on function _insertar_items_pedido(uuid, uuid, jsonb, int) from public, anon, authenticated;
 revoke all on function _recalcular_totales(uuid) from public, anon, authenticated;
 revoke all on function _repartir_pago(uuid, bigint) from public, anon, authenticated;
+revoke all on function _confirmar_comandas(uuid) from public, anon, authenticated;
 
 -- helpers de sesión: staff autenticado
 revoke all on function mi_restaurante() from public, anon;
@@ -2031,6 +2086,8 @@ grant execute on function estado_pedido_publico(text, bigint, text) to anon, aut
 revoke all on function confirmar_pedido(uuid) from public, anon;
 revoke all on function verificar_transferencia(uuid, boolean, text) from public, anon;
 grant execute on function confirmar_pedido(uuid) to authenticated;
+revoke all on function marcar_ronda_cocina(uuid, int, text) from public, anon;
+grant execute on function marcar_ronda_cocina(uuid, int, text) to authenticated;
 grant execute on function verificar_transferencia(uuid, boolean, text) to authenticated;
 
 -- el equipo toma pedidos y suma a cuentas abiertas: staff autenticado, nunca el comensal
