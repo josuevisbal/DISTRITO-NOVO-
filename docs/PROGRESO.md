@@ -1222,3 +1222,20 @@ Con la pantalla montada en el navegador y datos de prueba que cubren los cinco t
 fila: a 390 px sin scroll horizontal, la ventana de cobro en sus dos estados (un medio y
 repartido), la anulación con motivo dentro de la tarjeta, y el escritorio a 1280 px con
 las cuatro columnas intactas. `tsc`, ESLint y `npm run build`, en verde.
+
+
+## La nota para la cocina viaja en el WhatsApp
+
+El aviso que el cliente le manda al restaurante por WhatsApp traía los renglones del
+pedido pero no la nota que escribió en cada uno ("sin cebolla"), así que cocina la veía
+solo en la comanda. A pedido del cliente, ahora va debajo de su renglón, **en mayúscula y
+en negrilla**, para que no se pase en el chat:
+
+```
+▪️ 2× Hamburguesa doble — $48.000
+   📝 *SIN CEBOLLA Y SIN TOMATE*
+```
+
+Sale en los dos mensajes: el de contraentrega (desde la carta) y el de transferencia
+(desde la pantalla de la llave). Los combos no llevan nota. Sin nota, el renglón queda como
+antes.

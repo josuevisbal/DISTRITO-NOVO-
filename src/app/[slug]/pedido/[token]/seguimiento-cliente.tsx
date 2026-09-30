@@ -138,6 +138,7 @@ function PanelTransferencia({
                 nombre: i.nombre_snap,
                 cantidad: i.cantidad,
                 total: i.precio_snap * i.cantidad,
+                notas: i.notas,
               })),
               subtotal: pedido.subtotal,
               domicilio: pedido.domicilio,

@@ -1,6 +1,12 @@
 import { formatearPesos } from '@/lib/formato'
 
-export type LineaMensaje = { nombre: string; cantidad: number; total: number }
+export type LineaMensaje = {
+  nombre: string
+  cantidad: number
+  total: number
+  /** La nota para la cocina ("sin cebolla"). Va debajo del renglón, en mayúscula y negrilla. */
+  notas?: string | null
+}
 
 export type DatosMensaje = {
   restaurante: string
@@ -69,6 +75,10 @@ export function armarMensajePedido(d: DatosMensaje): string {
   l.push('━━━━━━━━━━━━━━━')
   for (const i of d.items) {
     l.push(`▪️ ${i.cantidad}× ${i.nombre} — ${formatearPesos(i.total)}`)
+    // La observación del cliente es lo que cocina NO puede pasar por alto: va en su
+    // propio renglón, en mayúscula y en negrilla, para que salte a la vista en el chat.
+    const nota = i.notas?.trim()
+    if (nota) l.push(`   📝 *${nota.toUpperCase()}*`)
   }
   l.push('━━━━━━━━━━━━━━━')
 

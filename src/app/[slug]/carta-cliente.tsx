@@ -222,6 +222,7 @@ export function CartaCliente({ carta, mesa }: Props) {
             nombre: l.producto.nombre,
             cantidad: l.cantidad,
             total: l.producto.precio * l.cantidad,
+            notas: l.notas,
           })),
         ],
         subtotal: resultado.subtotal,
