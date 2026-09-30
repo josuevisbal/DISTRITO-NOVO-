@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { IconoCerrar } from '@/components/iconos'
 
@@ -8,6 +9,12 @@ import { IconoCerrar } from '@/components/iconos'
  * Modal centrado que aparece escalando + fundido, con el fondo oscurecido suave. El punto
  * de origen (`origen`, en coordenadas de viewport) hace que escale "desde" el botón que lo
  * disparó. Usa los tokens del sistema central y respeta reduced-motion.
+ *
+ * Se pinta por portal en el contenedor del tema (el `div` que carga las variables
+ * `--marca-*`), no en su sitio: si se abre desde una tarjeta que tiene `transform` —las
+ * que entran animadas lo conservan—, un `position: fixed` quedaría atrapado dentro de
+ * esa tarjeta en vez de cubrir la pantalla. Y no en `document.body`, porque ahí no
+ * existen los colores de la marca y saldría transparente.
  */
 export function Modal({
   titulo,
@@ -29,12 +36,22 @@ export function Modal({
     return () => window.removeEventListener('keydown', al)
   }, [onCerrar])
 
+  // El ancla sirve para encontrar, ya montado, el contenedor del tema más cercano.
+  const ancla = useRef<HTMLSpanElement>(null)
+  const [destino, setDestino] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    const contenedor = ancla.current?.closest<HTMLElement>('[style*="--marca-fondo"]')
+    setDestino(contenedor ?? document.body)
+  }, [])
+
   const origenCss =
     origen && typeof window !== 'undefined'
       ? `${(origen.x / window.innerWidth) * 100}% ${(origen.y / window.innerHeight) * 100}%`
       : 'center'
 
-  return (
+  if (!destino) return <span ref={ancla} hidden />
+
+  return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button
         type="button"
@@ -59,6 +76,7 @@ export function Modal({
         </header>
         <div className="max-h-[70vh] overflow-y-auto p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    destino,
   )
 }

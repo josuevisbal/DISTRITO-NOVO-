@@ -1183,3 +1183,42 @@ del bloque general: una sola fuente para los dos.
 De paso se corrigió un conteo: un pedido pagado a medias (efectivo + transferencia) deja
 **dos** movimientos y se contaba como dos pedidos. Ahora se cuentan pedidos distintos, en
 cada bloque y en cada medio.
+
+
+## Las tarjetas de pedido, para el pulgar
+
+**Lo que dijo el cliente:** la lista de pedidos de Caja se veía enredada en el celular,
+sobre todo cuando llegan pedidos por confirmar. Tenía razón: cada tarjeta apilaba cuatro
+bloques sueltos y remataba con tres botones iguales en una fila (Cuenta · Confirmar ·
+Anular), así que el ojo no sabía dónde estaba la plata ni el pulgar cuál tocar.
+
+Se rediseñó la anatomía de la tarjeta —una sola, para los cinco tipos— sin tocar una
+regla de negocio:
+
+- **Tres zonas en el celular.** Arriba, el número y su estado a la izquierda y **la plata
+  a la derecha**, en la misma línea, que es donde el ojo la busca. En medio, el detalle
+  (cliente, teléfono, dirección). Abajo, separada por una raya, la zona de acciones.
+- **Una sola acción principal**, a lo ancho y con su verbo completo: *Verifiqué en el
+  banco*, *Confirmar, a cocina*, *Cobrar $58.000*, *Listo, a la calle*. Lo secundario
+  —*Anular*, *No llegó*, *Quitar*— va debajo como texto (en rojo lo que destruye), y la
+  cuenta para imprimir a la izquierda. Nada de tres botones iguales compitiendo.
+- **El cobro de mesa sale de la tarjeta y pasa a una ventana**: medios como tres botones
+  grandes con ícono, la propina, el reparto entre medios con su "cuadra / faltan", y el
+  total a cobrar en grande. Desplegado dentro de la tarjeta no cabía en 390 px.
+- **En pantalla ancha** todo vuelve a las cuatro columnas de la tabla, como antes.
+
+Dos arreglos de paso, con causa:
+
+- **El modal se pinta por portal** en el contenedor del tema. Abierto desde una tarjeta
+  animada —que conserva un `transform`— quedaba atrapado dentro de ella (un `fixed` toma
+  como referencia al ancestro transformado). Y no va a `document.body`, porque ahí no
+  existen las variables `--marca-*` y salía transparente: se ancla al `div` que las carga.
+- La tarjeta de *entregado con pago repartido* llevaba el desglose largo en la columna de
+  la plata y aplastaba el encabezado; el desglose bajó al detalle.
+
+### Verificado
+
+Con la pantalla montada en el navegador y datos de prueba que cubren los cinco tipos de
+fila: a 390 px sin scroll horizontal, la ventana de cobro en sus dos estados (un medio y
+repartido), la anulación con motivo dentro de la tarjeta, y el escritorio a 1280 px con
+las cuatro columnas intactas. `tsc`, ESLint y `npm run build`, en verde.

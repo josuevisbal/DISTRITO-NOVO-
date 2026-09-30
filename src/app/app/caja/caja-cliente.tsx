@@ -689,6 +689,12 @@ const BORDE = {
   entregado: '#7C3AED', // morado: en manos del cliente, la plata todavía no
 }
 
+/**
+ * La tarjeta de un pedido. Recibe SIEMPRE cuatro hijos en este orden: pedido, detalle,
+ * plata y acciones. En el celular se leen como tres zonas —arriba el pedido y la plata
+ * en la misma línea, luego el detalle, y abajo las acciones separadas por una raya—;
+ * en pantalla ancha vuelven a ser las cuatro columnas de la tabla.
+ */
 function EnvolturaFila({
   borde,
   indice,
@@ -700,11 +706,79 @@ function EnvolturaFila({
 }) {
   return (
     <li
-      className="tarjeta tarjeta-hover entra grid grid-cols-1 items-center gap-3 overflow-hidden p-3 pl-4 sm:grid-cols-[1.1fr_1.3fr_0.9fr_auto]"
+      className="fila-pedido tarjeta tarjeta-hover entra grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 overflow-hidden p-3 pl-4 sm:grid-cols-[1.1fr_1.3fr_0.9fr_auto] sm:items-center sm:gap-3"
       style={{ '--i': indice, borderLeft: `4px solid ${borde}` } as CSSProperties}
     >
       {children}
     </li>
+  )
+}
+
+/**
+ * La zona de acciones de la tarjeta. En el celular: UNA acción principal a lo ancho,
+ * y debajo lo secundario —imprimir la cuenta, anular, "no llegó"— como texto, para
+ * que el pulgar no tenga que escoger entre tres botones iguales. En pantalla ancha, la
+ * fila compacta de siempre.
+ */
+/** La franja de acciones: a lo ancho y separada por una raya en el celular. */
+function ZonaAcciones({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="col-span-2 mt-1 border-t border-marca-borde pt-3 sm:col-span-1 sm:mt-0 sm:border-0 sm:pt-0">
+      {children}
+    </div>
+  )
+}
+
+function Acciones({
+  principal,
+  secundaria,
+  cuentaDe,
+}: {
+  principal: React.ReactNode
+  secundaria?: React.ReactNode
+  /** Pedido cuya cuenta se puede imprimir desde aquí. */
+  cuentaDe?: string
+}) {
+  return (
+    <ZonaAcciones>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        {cuentaDe ? (
+          <div className="order-2 flex items-center justify-between sm:order-none sm:contents">
+            <BotonCuenta pedidoId={cuentaDe} />
+            {secundaria ? <div className="sm:order-last">{secundaria}</div> : null}
+          </div>
+        ) : secundaria ? (
+          <div className="order-2 flex justify-end sm:order-last">{secundaria}</div>
+        ) : null}
+        <div className="order-1 flex sm:order-none [&>*]:flex-1 sm:[&>*]:flex-none">{principal}</div>
+      </div>
+    </ZonaAcciones>
+  )
+}
+
+/** Acción secundaria en texto: no compite con la principal, pero sigue siendo táctil. */
+function BotonTexto({
+  children,
+  onClick,
+  disabled,
+  tono = 'suave',
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+  tono?: 'suave' | 'peligro'
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`min-h-11 rounded-lg px-3 text-sm font-medium disabled:opacity-50 sm:border sm:border-marca-borde ${
+        tono === 'peligro' ? 'text-[#9A3320]' : 'text-marca-texto-suave hover:text-marca-texto'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -720,24 +794,29 @@ function ColPedido({
   sub: string
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="flex flex-wrap items-center gap-2">
-        <span className="font-bold text-marca-texto">{titulo}</span>
+        <span className="text-lg font-bold text-marca-texto sm:text-base">{titulo}</span>
         <Pildora tono={tono}>{pastilla}</Pildora>
       </p>
       <p className="mt-0.5 flex items-center gap-1 text-xs text-marca-texto-suave">
-        <IconoReloj className="size-3.5" />
-        {sub}
+        <IconoReloj className="size-3.5 shrink-0" />
+        <span className="truncate">{sub}</span>
       </p>
     </div>
   )
 }
 
-/** Monto y su medio. En el celular van en la misma línea; en ancho, uno bajo el otro. */
+/**
+ * La plata del pedido. En el celular va arriba a la derecha, junto al número, que es
+ * donde el ojo la busca; en pantalla ancha, en su propia columna.
+ */
 function ColPago({ monto, medio }: { monto: number; medio: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 sm:block sm:text-left">
-      <p className="text-lg font-bold text-marca-texto">{formatearPesos(monto)}</p>
+    <div className="col-start-2 row-start-1 text-right sm:col-start-auto sm:row-start-auto sm:text-left">
+      <p className="whitespace-nowrap text-lg font-bold tabular-nums text-marca-texto">
+        {formatearPesos(monto)}
+      </p>
       <p className="text-xs text-marca-texto-suave">{NOMBRE_MEDIO[medio] ?? medio}</p>
     </div>
   )
@@ -805,7 +884,7 @@ function BotonCuenta({ pedidoId }: { pedidoId: string }) {
 /** En monitoreo, donde iría el botón va el estado en texto. */
 function EstadoSoloLectura({ texto }: { texto: string }) {
   return (
-    <div className="flex justify-end">
+    <div className="col-span-2 flex justify-end sm:col-span-1">
       <span className="min-h-11 rounded-lg px-4 text-sm font-semibold text-marca-texto-suave">
         {texto}
       </span>
@@ -857,20 +936,26 @@ function FilaVerificar({
       {soloLectura ? (
         <EstadoSoloLectura texto="Esperando verificación" />
       ) : (
-        <div className="flex items-center justify-end gap-2">
-          {/* También aquí: el cliente puede pedir su cuenta antes de que se verifique. */}
-          <BotonCuenta pedidoId={t.pedido_id} />
-          <Boton
-            variante="exito"
-            onClick={() => verificar(true)}
-            disabled={ocupado || t.en_edicion}
-          >
-            Verifiqué
-          </Boton>
-          <Boton variante="secundario" onClick={() => verificar(false)} disabled={ocupado}>
-            No llegó
-          </Boton>
-        </div>
+        <Acciones
+          /* También aquí: el cliente puede pedir su cuenta antes de que se verifique. */
+          cuentaDe={t.pedido_id}
+          principal={
+            <Boton
+              variante="exito"
+              className="min-h-12 sm:min-h-11"
+              onClick={() => verificar(true)}
+              disabled={ocupado || t.en_edicion}
+            >
+              <IconoCheck className="mr-1.5 inline size-4" />
+              {ocupado ? 'Verificando…' : 'Verifiqué en el banco'}
+            </Boton>
+          }
+          secundaria={
+            <BotonTexto tono="peligro" onClick={() => verificar(false)} disabled={ocupado}>
+              No llegó
+            </BotonTexto>
+          }
+        />
       )}
       {error ? <Error texto={error} /> : null}
     </EnvolturaFila>
@@ -927,28 +1012,36 @@ function FilaConfirmar({
       <ColPago monto={c.total} medio="efectivo" />
       {soloLectura ? (
         <EstadoSoloLectura texto="Por confirmar" />
+      ) : anulando ? (
+        <ZonaAcciones>
+          <MotivoInline
+            marcador="Motivo de la anulación"
+            disabled={ocupado}
+            onConfirmar={anular}
+            onCancelar={() => setAnulando(false)}
+          />
+        </ZonaAcciones>
       ) : (
-        <div className="flex flex-col items-stretch gap-2 sm:items-end">
-          {anulando ? (
-            <MotivoInline
-              marcador="Motivo de la anulación"
+        <Acciones
+          /* Contraentrega: el domiciliario se lleva la cuenta para cobrar al entregar. */
+          cuentaDe={c.pedido_id}
+          principal={
+            <Boton
+              variante="exito"
+              className="min-h-12 sm:min-h-11"
+              onClick={confirmar}
               disabled={ocupado}
-              onConfirmar={anular}
-              onCancelar={() => setAnulando(false)}
-            />
-          ) : (
-            <div className="flex items-center gap-2">
-              {/* Contraentrega: el domiciliario se lleva la cuenta para cobrar al entregar. */}
-              <BotonCuenta pedidoId={c.pedido_id} />
-              <Boton variante="exito" onClick={confirmar} disabled={ocupado}>
-                Confirmar
-              </Boton>
-              <Boton variante="secundario" onClick={() => setAnulando(true)} disabled={ocupado}>
-                Anular
-              </Boton>
-            </div>
-          )}
-        </div>
+            >
+              <IconoCheck className="mr-1.5 inline size-4" />
+              {ocupado ? 'Confirmando…' : 'Confirmar, a cocina'}
+            </Boton>
+          }
+          secundaria={
+            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
+              Anular
+            </BotonTexto>
+          }
+        />
       )}
       {error ? <Error texto={error} /> : null}
     </EnvolturaFila>
@@ -1013,134 +1106,176 @@ function FilaCobrar({
     setMontos({ ...montos, [m]: String(Math.max(0, aCobrar - otros)) })
   }
 
+  const titulo = p.mesa ? `Mesa ${p.mesa}` : `#${p.numero}`
+
   return (
     <EnvolturaFila borde={BORDE.cobrar} indice={indice}>
       <ColPedido
-        titulo={p.mesa ? `Mesa ${p.mesa}` : `#${p.numero}`}
+        titulo={titulo}
         pastilla="Servido"
         tono="verde"
         sub="listo para cobrar"
       />
-      <div className="min-w-0">
+      <div className="col-span-2 min-w-0 sm:col-span-1">
         <p className="truncate text-marca-texto">{p.mesa ? 'Mesa de salón' : 'Para recoger'}</p>
         {p.productos ? (
           <p className="truncate text-xs text-marca-texto-suave">{p.productos}</p>
         ) : null}
       </div>
-      <ColPago monto={aCobrar} medio={medio} />
+      <ColPago monto={p.total} medio={medio} />
       {soloLectura ? (
         <EstadoSoloLectura texto="Por cobrar" />
       ) : (
-      <div className="flex flex-col items-stretch gap-2 sm:items-end">
-        {abierto ? (
-          <div className="flex flex-col items-stretch gap-2 sm:items-end">
-            {repartido ? (
-              /* Una cuenta, varios medios. Cada renglón tiene un botón que le mete
-                 lo que falte, para no hacer restas de cabeza frente al cliente. */
-              <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
-                {MEDIOS.map((m) => (
-                  <div key={m.valor} className="flex items-center gap-1.5">
-                    <label
-                      className="w-24 text-right text-xs text-marca-texto-suave"
-                      htmlFor={`m-${m.valor}-${p.pedido_id}`}
-                    >
-                      {m.nombre}
-                    </label>
-                    <input
-                      id={`m-${m.valor}-${p.pedido_id}`}
-                      inputMode="numeric"
-                      value={montos[m.valor]}
-                      onChange={(e) =>
-                        setMontos({ ...montos, [m.valor]: e.target.value.replace(/\D/g, '') })
-                      }
-                      placeholder="0"
-                      className="min-h-9 w-28 rounded-lg border border-marca-borde bg-marca-fondo px-2 text-right text-sm tabular-nums text-marca-texto"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => completar(m.valor)}
-                      className="min-h-9 rounded-lg border border-marca-borde px-2 text-xs text-marca-texto-suave"
-                    >
-                      El resto
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {MEDIOS.map((m) => (
-                  <button
-                    key={m.valor}
-                    type="button"
-                    onClick={() => setMedio(m.valor)}
-                    aria-pressed={medio === m.valor}
-                    className={`min-h-9 rounded-lg border px-2 text-xs ${
-                      medio === m.valor
-                        ? 'border-marca-acento bg-marca-acento font-medium text-marca-acento-texto'
-                        : 'border-marca-borde text-marca-texto'
-                    }`}
-                  >
-                    {m.nombre}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
-              <button
-                type="button"
-                onClick={() => setRepartido(!repartido)}
-                className="min-h-9 rounded-lg border border-marca-borde px-2 text-xs text-marca-texto-suave"
-              >
-                {repartido ? 'Un solo medio' : 'Dividir el pago'}
-              </button>
-              <Propina
-                pedidoId={p.pedido_id}
-                valor={propina}
-                onCambiar={setPropina}
-                base={p.total}
-              />
-              <Boton
-                variante="negro"
-                className="px-4"
-                onClick={cobrar}
-                disabled={ocupado || (repartido && falta !== 0)}
-              >
-                Cobrar
-              </Boton>
-            </div>
-
-            {repartido ? (
-              <p
-                className={`text-xs font-semibold tabular-nums ${
-                  falta === 0 ? 'text-[#116B47]' : 'text-marca-acento-fuerte'
-                }`}
-              >
-                {falta === 0
-                  ? `Cuadra: ${formatearPesos(aCobrar)}`
-                  : falta > 0
-                    ? `Faltan ${formatearPesos(falta)}`
-                    : `Sobran ${formatearPesos(-falta)}`}
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            {/* "La cuenta, por favor": se imprime y el cliente la lleva a la caja. */}
-            <BotonCuenta pedidoId={p.pedido_id} />
+        <Acciones
+          /* "La cuenta, por favor": se imprime y el cliente la lleva a la caja. */
+          cuentaDe={p.pedido_id}
+          principal={
             <Boton
               variante="negro"
-              className="px-4"
+              className="min-h-12 sm:min-h-11"
               onClick={() => setAbierto(true)}
               disabled={ocupado}
             >
-              Cobrar
+              Cobrar {formatearPesos(p.total)}
             </Boton>
-          </div>
-        )}
-      </div>
+          }
+        />
       )}
       {error ? <Error texto={error} /> : null}
+
+      {/* El cobro se hace en una ventana y no desplegado dentro de la tarjeta: en el
+          celular, medios, propina y reparto no caben sin volverse un enredo. Aquí el
+          cajero tiene una sola cosa en pantalla: esta cuenta. */}
+      {abierto ? (
+        <Modal titulo={`Cobrar · ${titulo}`} onCerrar={() => (ocupado ? null : setAbierto(false))}>
+          <div className="space-y-4">
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-marca-texto-suave">Cuenta</span>
+              <span className="font-semibold tabular-nums text-marca-texto">
+                {formatearPesos(p.total)}
+              </span>
+            </div>
+
+            {/* ¿Cómo paga? Un solo medio, o repartido entre varios. */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-marca-texto">
+                  {repartido ? 'Repartido entre medios' : 'Medio de pago'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRepartido(!repartido)}
+                  className="min-h-9 rounded-lg px-2 text-xs font-medium text-marca-acento-fuerte"
+                >
+                  {repartido ? 'Un solo medio' : 'Dividir el pago'}
+                </button>
+              </div>
+
+              {repartido ? (
+                /* Una cuenta, varios medios. Cada renglón tiene un botón que le mete
+                   lo que falte, para no hacer restas de cabeza frente al cliente. */
+                <div className="space-y-2">
+                  {MEDIOS.map((m) => (
+                    <div key={m.valor} className="flex items-center gap-2">
+                      <label
+                        className="w-24 shrink-0 text-sm text-marca-texto"
+                        htmlFor={`m-${m.valor}-${p.pedido_id}`}
+                      >
+                        {m.nombre}
+                      </label>
+                      <input
+                        id={`m-${m.valor}-${p.pedido_id}`}
+                        inputMode="numeric"
+                        value={montos[m.valor]}
+                        onChange={(e) =>
+                          setMontos({ ...montos, [m.valor]: e.target.value.replace(/\D/g, '') })
+                        }
+                        placeholder="0"
+                        className="min-h-11 min-w-0 flex-1 rounded-lg border border-marca-borde bg-marca-fondo px-3 text-right tabular-nums text-marca-texto"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => completar(m.valor)}
+                        className="min-h-11 shrink-0 rounded-lg border border-marca-borde px-3 text-xs font-medium text-marca-texto-suave"
+                      >
+                        El resto
+                      </button>
+                    </div>
+                  ))}
+                  <p
+                    className={`text-right text-sm font-semibold tabular-nums ${
+                      falta === 0 ? 'text-[#116B47]' : 'text-marca-acento-fuerte'
+                    }`}
+                  >
+                    {falta === 0
+                      ? `Cuadra: ${formatearPesos(aCobrar)}`
+                      : falta > 0
+                        ? `Faltan ${formatearPesos(falta)}`
+                        : `Sobran ${formatearPesos(-falta)}`}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {MEDIOS.map((m) => {
+                    const info = MEDIO_INFO[m.valor]
+                    const activo = medio === m.valor
+                    return (
+                      <button
+                        key={m.valor}
+                        type="button"
+                        onClick={() => setMedio(m.valor)}
+                        aria-pressed={activo}
+                        className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border text-xs font-medium ${
+                          activo
+                            ? 'border-marca-acento bg-marca-acento/10 text-marca-texto'
+                            : 'border-marca-borde text-marca-texto-suave'
+                        }`}
+                      >
+                        <info.Icono className="size-5" />
+                        {m.nombre}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* La propina, aparte de la cuenta. Nunca se cobra sola. */}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-marca-texto">Propina</span>
+              <Propina pedidoId={p.pedido_id} valor={propina} onCambiar={setPropina} base={p.total} />
+            </div>
+
+            <div className="flex items-baseline justify-between border-t border-marca-borde pt-3">
+              <span className="text-sm text-marca-texto-suave">Total a cobrar</span>
+              <span className="font-titulo text-2xl font-bold tabular-nums text-marca-texto">
+                {formatearPesos(aCobrar)}
+              </span>
+            </div>
+
+            {error ? <Error texto={error} /> : null}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAbierto(false)}
+                disabled={ocupado}
+                className="min-h-12 flex-1 rounded-lg border border-marca-borde text-sm font-medium text-marca-texto-suave disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <Boton
+                variante="negro"
+                className="min-h-12 flex-[2]"
+                onClick={cobrar}
+                disabled={ocupado || (repartido && falta !== 0)}
+              >
+                {ocupado ? 'Cobrando…' : `Cobrar ${formatearPesos(aCobrar)}`}
+              </Boton>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
     </EnvolturaFila>
   )
 }
@@ -1175,14 +1310,14 @@ function Propina({
         value={valor}
         onChange={(e) => onCambiar(e.target.value.replace(/\D/g, ''))}
         placeholder="Propina"
-        className="min-h-9 w-24 rounded-lg border border-marca-borde bg-marca-fondo px-2 text-xs tabular-nums text-marca-texto"
+        className="min-h-11 w-28 rounded-lg border border-marca-borde bg-marca-fondo px-3 text-right text-sm tabular-nums text-marca-texto"
       />
       {sugerida > 0 ? (
         <button
           type="button"
           onClick={() => onCambiar(puesta ? '' : String(sugerida))}
           aria-pressed={puesta}
-          className={`min-h-9 rounded-lg border px-2 text-xs font-medium ${
+          className={`min-h-11 rounded-lg border px-3 text-xs font-medium ${
             puesta
               ? 'border-marca-acento bg-marca-acento text-marca-acento-texto'
               : 'border-marca-borde text-marca-texto-suave'
@@ -1237,7 +1372,7 @@ function FilaDespachar({
         sub={d.zona ? `Domicilio · ${d.zona}` : 'Domicilio'}
       />
 
-      <div className="min-w-0">
+      <div className="col-span-2 min-w-0 sm:col-span-1">
         {/* El barrio ya lo dice el subtítulo de arriba: aquí solo la calle. */}
         <FichaDireccion direccion={d.direccion} zona={null} />
         {d.nota_entrega ? (
@@ -1247,8 +1382,10 @@ function FilaDespachar({
         ) : null}
       </div>
 
-      <div className="flex items-baseline justify-between gap-2 sm:block sm:text-left">
-        <p className="text-lg font-bold text-marca-texto">{formatearPesos(d.total)}</p>
+      <div className="col-start-2 row-start-1 text-right sm:col-start-auto sm:row-start-auto sm:text-left">
+        <p className="whitespace-nowrap text-lg font-bold tabular-nums text-marca-texto">
+          {formatearPesos(d.total)}
+        </p>
         <p className="text-xs text-marca-texto-suave">
           {d.contraentrega ? 'Cobra el domiciliario' : 'Ya está pago'}
         </p>
@@ -1258,53 +1395,59 @@ function FilaDespachar({
         <EstadoSoloLectura
           texto={d.domiciliario_nombre ?? (enMostrador ? 'En el mostrador' : 'Sin despachar')}
         />
+      ) : d.estado === 'listo' ? (
+        /* Caja no reparte los domicilios: los suelta al mostrador y los domiciliarios se
+           organizan entre ellos con la cuenta pegada. La cuenta se imprime desde aquí. */
+        <Acciones
+          cuentaDe={d.pedido_id}
+          principal={
+            <Boton
+              variante="negro"
+              className="min-h-12 sm:min-h-11"
+              onClick={() =>
+                correr(() => despacharDomicilio(d.pedido_id), `Pedido #${d.numero} al mostrador`)
+              }
+              disabled={ocupado}
+            >
+              <IconoMoto className="mr-1.5 inline size-4" />
+              {ocupado ? 'Soltando…' : 'Listo, a la calle'}
+            </Boton>
+          }
+        />
+      ) : enMostrador ? (
+        <Acciones
+          cuentaDe={d.pedido_id}
+          principal={
+            <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm text-marca-texto-suave sm:bg-transparent">
+              Esperando domiciliario
+            </span>
+          }
+        />
       ) : (
-        <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
-          <div className="flex items-center gap-1.5">
-            {/* La cuenta se imprime y se pega al pedido: es la guía del domiciliario. */}
-            <BotonCuenta pedidoId={d.pedido_id} />
-
-            {d.estado === 'listo' ? (
-              /* Caja no reparte los domicilios: los suelta al mostrador y los
-                 domiciliarios se organizan entre ellos con la cuenta pegada. */
-              <Boton
-                variante="negro"
-                className="px-3"
-                onClick={() =>
-                  correr(() => despacharDomicilio(d.pedido_id), `Pedido #${d.numero} al mostrador`)
-                }
-                disabled={ocupado}
-              >
-                <IconoMoto className="mr-1 inline size-4" />
-                Listo, a la calle
-              </Boton>
-            ) : enMostrador ? (
-              <span className="text-sm text-marca-texto-suave">Esperando domiciliario</span>
-            ) : (
-              <>
-                <span className="text-sm text-marca-texto">
-                  Lo lleva <span className="font-medium">{d.domiciliario_nombre}</span>
-                </span>
-                {/* Tomó el que no era: vuelve al mostrador para que lo tome otro. */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    correr(
-                      () => quitarDomiciliario(d.pedido_id),
-                      `Pedido #${d.numero} de vuelta al mostrador`,
-                    )
-                  }
-                  disabled={ocupado}
-                  className="min-h-11 rounded-lg border border-marca-borde px-3 text-sm text-marca-texto-suave disabled:opacity-50"
-                >
-                  Quitar
-                </button>
-              </>
-            )}
-          </div>
-          {error ? <Error texto={error} /> : null}
-        </div>
+        <Acciones
+          cuentaDe={d.pedido_id}
+          principal={
+            <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm text-marca-texto sm:bg-transparent">
+              Lo lleva&nbsp;<span className="font-semibold">{d.domiciliario_nombre}</span>
+            </span>
+          }
+          /* Tomó el que no era: vuelve al mostrador para que lo tome otro. */
+          secundaria={
+            <BotonTexto
+              onClick={() =>
+                correr(
+                  () => quitarDomiciliario(d.pedido_id),
+                  `Pedido #${d.numero} de vuelta al mostrador`,
+                )
+              }
+              disabled={ocupado}
+            >
+              Quitar
+            </BotonTexto>
+          }
+        />
       )}
+      {error ? <Error texto={error} /> : null}
     </EnvolturaFila>
   )
 }
@@ -1359,8 +1502,16 @@ function FilaEntregado({
         sub={e.domiciliario_nombre ? `Lo llevó ${e.domiciliario_nombre}` : 'Entregado'}
       />
 
-      <div className="min-w-0">
+      <div className="col-span-2 min-w-0 sm:col-span-1">
         <ColCliente nombre={e.cliente} telefono={null} extra={e.zona} />
+        {repartido ? (
+          /* Pago repartido: se dice pieza por pieza para que caja no cobre de más ni
+             espere plata que no viene. */
+          <p className="mt-1 text-xs text-marca-texto-suave">
+            {formatearPesos(e.efectivo)} con el domiciliario ·{' '}
+            {formatearPesos(e.transferencia)} por transferencia
+          </p>
+        ) : null}
         {e.cambio_reportado ? (
           <p className="mt-1 flex items-center gap-1 text-xs text-marca-acento-fuerte">
             <IconoAlerta className="size-3.5" />
@@ -1369,40 +1520,41 @@ function FilaEntregado({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-baseline justify-between gap-x-2 sm:block sm:text-left">
-        <p className="text-lg font-bold text-marca-texto">{formatearPesos(falta)}</p>
-        {repartido ? (
-          /* Pago repartido: se dice pieza por pieza para que caja no cobre de más ni
-             espere plata que no viene. */
-          <p className="text-xs text-marca-texto-suave">
-            {formatearPesos(e.efectivo)} con el domiciliario ·{' '}
-            {formatearPesos(e.transferencia)} por transferencia
-          </p>
-        ) : (
-          <p className="text-xs text-marca-texto-suave">
-            {e.transferencia > 0 ? 'Lo cobra caja' : 'Lo trae el domiciliario'}
-          </p>
-        )}
+      <div className="col-start-2 row-start-1 text-right sm:col-start-auto sm:row-start-auto sm:text-left">
+        <p className="whitespace-nowrap text-lg font-bold tabular-nums text-marca-texto">
+          {formatearPesos(falta)}
+        </p>
+        <p className="text-xs text-marca-texto-suave">
+          {repartido ? 'Falta por entrar' : e.transferencia > 0 ? 'Lo cobra caja' : 'Lo trae el domiciliario'}
+        </p>
       </div>
 
       {soloLectura ? (
         <EstadoSoloLectura texto={e.transferencia > 0 ? 'Por verificar' : 'Por recibir'} />
       ) : e.transferencia > 0 ? (
-        <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
-          <Boton variante="exito" className="px-4" onClick={verificar} disabled={ocupado}>
-            {ocupado
-              ? 'Verificando…'
-              : repartido
-                ? `Llegaron ${formatearPesos(e.transferencia)}`
-                : 'Ya llegó la transferencia'}
-          </Boton>
-          {repartido ? (
-            <p className="text-xs text-marca-texto-suave">
-              Los {formatearPesos(e.efectivo)} en efectivo se reciben al cierre.
-            </p>
-          ) : null}
-          {error ? <Error texto={error} /> : null}
-        </div>
+        <ZonaAcciones>
+          <div className="flex flex-col gap-1.5 sm:items-end">
+            <Boton
+              variante="exito"
+              className="min-h-12 w-full sm:min-h-11 sm:w-auto sm:px-4"
+              onClick={verificar}
+              disabled={ocupado}
+            >
+              <IconoCheck className="mr-1.5 inline size-4" />
+              {ocupado
+                ? 'Verificando…'
+                : repartido
+                  ? `Llegaron ${formatearPesos(e.transferencia)}`
+                  : 'Ya llegó la transferencia'}
+            </Boton>
+            {repartido ? (
+              <p className="text-xs text-marca-texto-suave">
+                Los {formatearPesos(e.efectivo)} en efectivo se reciben al cierre.
+              </p>
+            ) : null}
+            {error ? <Error texto={error} /> : null}
+          </div>
+        </ZonaAcciones>
       ) : (
         <EstadoSoloLectura texto="Se recibe al cierre" />
       )}
@@ -1626,10 +1778,10 @@ function ColCliente({
   extra: string | null
 }) {
   if (!nombre && !telefono) {
-    return <p className="text-sm text-marca-texto-suave">Sin datos del cliente</p>
+    return <p className="col-span-2 text-sm text-marca-texto-suave sm:col-span-1">Sin datos del cliente</p>
   }
   return (
-    <div className="min-w-0 space-y-1">
+    <div className="col-span-2 min-w-0 space-y-1 sm:col-span-1">
       <FichaCliente nombre={nombre} telefono={telefono} />
       {extra ? <p className="truncate text-xs text-marca-texto-suave">{extra}</p> : null}
     </div>
@@ -1649,7 +1801,7 @@ function MotivoInline({
 }) {
   const [motivo, setMotivo] = useState('')
   return (
-    <div className="flex w-full max-w-xs items-center gap-1.5">
+    <div className="flex w-full items-center gap-1.5 sm:max-w-xs">
       <input
         autoFocus
         value={motivo}
@@ -2255,7 +2407,7 @@ function ResumenCierre({
 
 function Error({ texto }: { texto: string }) {
   return (
-    <p role="alert" className="mt-2 flex gap-2 text-sm text-marca-acento-fuerte">
+    <p role="alert" className="col-span-2 mt-2 flex gap-2 text-sm text-marca-acento-fuerte sm:col-span-4">
       <IconoAlerta className="size-5 shrink-0" />
       {texto}
     </p>
