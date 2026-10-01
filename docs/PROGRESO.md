@@ -1357,3 +1357,25 @@ empujaba la etiqueta de estado a otra línea.
 
 Verificado con Playwright a 360, 390 y 1280 px. `tsc`, ESLint y `npm run build`, en verde.
 No requiere cambios en la base.
+
+
+## Tarjetas de caja pintadas por destino
+
+Cada tarjeta de caja se pinta completa según adónde va el pedido: **azul suave** si es del
+local (mesa, recoger, mostrador) y **rosa** si va a domicilio. La lista sigue en orden de
+número de pedido, y arriba hay una leyenda con ícono y texto ("En el local" y
+"Domicilio"), para que el color nunca vaya solo. El borde izquierdo sigue diciendo el
+estado.
+
+Los colores son tokens del tema (`tinteLocal`, `tinteDomicilio` y sus bordes en
+`src/config/tema.ts`, expuestos como `--marca-tinte-*` y como utilidades `bg-tinte-*`),
+con variante oscura para el tema de operación. Las transferencias ahora traen su canal
+para saber de qué color van.
+
+De paso se arreglaron etiquetas que se partían en el celular: "Efectivo en la calle" pasa
+a "Por recibir", "Contraentrega" a "Nuevo", bajo la plata dice "Efectivo" en vez de "Lo
+trae el domiciliario", y las etiquetas de estado ya no se parten por dentro. El estado de
+solo lectura ("Se recibe al cierre") tiene ahora el mismo recuadro que los demás estados.
+
+Verificado con Playwright a 360 px (plegado y abierto) y a 1280 px. `tsc`, ESLint y
+`npm run build`, en verde. No requiere cambios en la base.

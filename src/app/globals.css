@@ -14,6 +14,10 @@
   --color-panel-lateral-texto: var(--panel-lateral-texto);
   --color-panel-lateral-texto-suave: var(--panel-lateral-texto-suave);
   --color-panel-lateral-borde: var(--panel-lateral-borde);
+  --color-tinte-local: var(--marca-tinte-local);
+  --color-tinte-local-borde: var(--marca-tinte-local-borde);
+  --color-tinte-domicilio: var(--marca-tinte-domicilio);
+  --color-tinte-domicilio-borde: var(--marca-tinte-domicilio-borde);
   --font-titulo: var(--marca-fuente-titulo);
   --font-texto: var(--marca-fuente-texto);
 

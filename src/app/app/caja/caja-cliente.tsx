@@ -58,6 +58,7 @@ export type Turno = { id: string; base_inicial: number; abierto_en: string } | n
 export type Transferencia = {
   pedido_id: string
   numero: number
+  canal: string
   cliente: string | null
   telefono: string | null
   zona: string | null
@@ -313,6 +314,19 @@ export function CajaCliente(props: Props) {
           verCobrados={verCobrados}
           onVerCobrados={() => setVerCobrados((v) => !v)}
         />
+
+        {/* Leyenda de colores: la tarjeta completa dice si el pedido es del local o va a
+            domicilio. El texto acompaña al color, nunca solo el color. */}
+        {visibles.length > 0 ? (
+          <ul aria-label="Colores de las tarjetas" className="mt-3 flex flex-wrap gap-2">
+            <li className="flex items-center gap-2 rounded-full border border-tinte-local-borde bg-tinte-local px-3 py-1 text-sm text-marca-texto">
+              <IconoTienda className="size-4" /> En el local
+            </li>
+            <li className="flex items-center gap-2 rounded-full border border-tinte-domicilio-borde bg-tinte-domicilio px-3 py-1 text-sm text-marca-texto">
+              <IconoMoto className="size-4" /> Domicilio
+            </li>
+          </ul>
+        ) : null}
 
         {/* Encabezado de columnas: solo cabe en pantalla ancha. */}
         {visibles.length > 0 ? (
@@ -722,14 +736,35 @@ const BORDE = {
  * en la misma línea, luego el detalle, y abajo las acciones separadas por una raya—;
  * en pantalla ancha vuelven a ser las cuatro columnas de la tabla.
  */
+/** Dónde termina el pedido: en el local (mesa, recoger, mostrador) o a domicilio. */
+type Destino = 'local' | 'domicilio'
+
+function destinoDe(canal: string): Destino {
+  return canal === 'domicilio' || canal === 'whatsapp' ? 'domicilio' : 'local'
+}
+
+/** Toda la tarjeta se pinta según el destino: se distinguen de un vistazo en la lista. */
+const TINTE: Record<Destino, CSSProperties> = {
+  local: {
+    backgroundColor: 'var(--marca-tinte-local)',
+    borderColor: 'var(--marca-tinte-local-borde)',
+  },
+  domicilio: {
+    backgroundColor: 'var(--marca-tinte-domicilio)',
+    borderColor: 'var(--marca-tinte-domicilio-borde)',
+  },
+}
+
 function EnvolturaFila({
   borde,
   indice,
+  destino,
   resumen,
   children,
 }: {
   borde: string
   indice: number
+  destino: Destino
   /** Una línea que resume la tarjeta cuando está plegada en el celular. */
   resumen?: string | null
   children: React.ReactNode
@@ -743,7 +778,9 @@ function EnvolturaFila({
   return (
     <li
       className="fila-pedido tarjeta tarjeta-hover entra grid grid-cols-[1fr_auto] gap-x-3 gap-y-2 overflow-hidden p-3 pl-4 sm:grid-cols-[1.1fr_1.3fr_0.9fr_auto] sm:items-center sm:gap-3"
-      style={{ '--i': indice, borderLeft: `4px solid ${borde}` } as CSSProperties}
+      style={
+        { '--i': indice, ...TINTE[destino], borderLeft: `4px solid ${borde}` } as CSSProperties
+      }
     >
       {pedido}
 
@@ -860,7 +897,9 @@ function ColPedido({
     <div className="min-w-0">
       <p className="flex flex-wrap items-center gap-2">
         <span className="text-lg font-bold text-marca-texto sm:text-base">{titulo}</span>
-        <Pildora tono={tono}>{pastilla}</Pildora>
+        <Pildora tono={tono} className="whitespace-nowrap">
+          {pastilla}
+        </Pildora>
       </p>
       <p className="mt-0.5 flex items-center gap-1 text-xs text-marca-texto-suave">
         <IconoReloj className="size-3.5 shrink-0" />
@@ -947,11 +986,11 @@ function BotonCuenta({ pedidoId }: { pedidoId: string }) {
 /** En monitoreo, donde iría el botón va el estado en texto. */
 function EstadoSoloLectura({ texto }: { texto: string }) {
   return (
-    <div className="col-span-2 flex justify-end sm:col-span-1">
-      <span className="min-h-11 rounded-lg px-4 text-sm font-semibold text-marca-texto-suave">
+    <ZonaAcciones>
+      <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm font-semibold text-marca-texto-suave sm:justify-end sm:bg-transparent">
         {texto}
       </span>
-    </div>
+    </ZonaAcciones>
   )
 }
 
@@ -989,6 +1028,7 @@ function FilaVerificar({
   return (
     <EnvolturaFila
       borde={BORDE.verificar}
+      destino={destinoDe(t.canal)}
       indice={indice}
       resumen={[t.cliente, t.zona].filter(Boolean).join(' · ') || null}
     >
@@ -1070,12 +1110,13 @@ function FilaConfirmar({
   return (
     <EnvolturaFila
       borde={BORDE.confirmar}
+      destino={destinoDe(c.canal)}
       indice={indice}
       resumen={[c.cliente, c.zona ?? c.direccion].filter(Boolean).join(' · ') || null}
     >
       <ColPedido
         titulo={`#${c.numero}`}
-        pastilla="Contraentrega"
+        pastilla="Nuevo"
         tono="ambar"
         sub={`${haceCuanto(new Date(c.creado_en).getTime(), ahora)} · ${c.canal}`}
       />
@@ -1182,6 +1223,7 @@ function FilaCobrar({
   return (
     <EnvolturaFila
       borde={BORDE.cobrar}
+      destino="local"
       indice={indice}
       resumen={[p.mesa ? 'Mesa de salón' : 'Para recoger', p.productos].filter(Boolean).join(' · ')}
     >
@@ -1439,6 +1481,7 @@ function FilaDespachar({
   return (
     <EnvolturaFila
       borde={BORDE.despachar}
+      destino="domicilio"
       indice={indice}
       resumen={
         [d.domiciliario_nombre ? `Lo lleva ${d.domiciliario_nombre}` : null, d.direccion]
@@ -1627,13 +1670,14 @@ function FilaEntregado({
   return (
     <EnvolturaFila
       borde={BORDE.entregado}
+      destino="domicilio"
       indice={indice}
       resumen={[e.cliente, e.zona].filter(Boolean).join(' · ') || null}
     >
       <ColPedido
         titulo={`#${e.numero}`}
         pastilla={
-          repartido ? 'Pago repartido' : e.transferencia > 0 ? 'Va a transferir' : 'Efectivo en la calle'
+          repartido ? 'Pago repartido' : e.transferencia > 0 ? 'Va a transferir' : 'Por recibir'
         }
         tono={e.transferencia > 0 ? 'ambar' : 'azul'}
         sub={e.domiciliario_nombre ? `Lo llevó ${e.domiciliario_nombre}` : 'Entregado'}
@@ -1662,7 +1706,17 @@ function FilaEntregado({
           {formatearPesos(falta)}
         </p>
         <p className="text-xs text-marca-texto-suave">
-          {repartido ? 'Falta por entrar' : e.transferencia > 0 ? 'Lo cobra caja' : 'Lo trae el domiciliario'}
+          {repartido ? (
+            'Falta por entrar'
+          ) : e.transferencia > 0 ? (
+            'Lo cobra caja'
+          ) : (
+            /* Corto en el celular, para que la etiqueta de la izquierda quede entera. */
+            <>
+              <span className="sm:hidden">Efectivo</span>
+              <span className="hidden sm:inline">Lo trae el domiciliario</span>
+            </>
+          )}
         </p>
       </div>
 

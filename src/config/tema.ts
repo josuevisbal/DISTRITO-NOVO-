@@ -25,6 +25,15 @@ export type Tema = {
   panelLateralTexto: string
   panelLateralTextoSuave: string
   panelLateralBorde: string
+  /**
+   * Tintes de tarjeta por canal en caja: lo que se vende en el local (mesa, recoger,
+   * mostrador) y lo que va a domicilio. Toda la tarjeta se pinta para distinguirlos de
+   * un vistazo; el texto encima sigue siendo `texto` y `textoSuave`.
+   */
+  tinteLocal: string
+  tinteLocalBorde: string
+  tinteDomicilio: string
+  tinteDomicilioBorde: string
 }
 
 /**
@@ -50,6 +59,10 @@ const TEMA_BASE: Tema = {
   panelLateralTexto: '#F1EDE3',
   panelLateralTextoSuave: '#A39C8D',
   panelLateralBorde: '#26242B',
+  tinteLocal: '#EDF3FC', // azul muy suave
+  tinteLocalBorde: '#C7D8F3',
+  tinteDomicilio: '#FCEDF3', // rosa suave
+  tinteDomicilioBorde: '#F2C3D5',
 }
 
 /**
@@ -74,6 +87,10 @@ export const TEMA_CARTA: Tema = {
   panelLateralTexto: '#F1EDE3',
   panelLateralTextoSuave: '#A39C8D',
   panelLateralBorde: '#26242B',
+  tinteLocal: '#18202C',
+  tinteLocalBorde: '#2C3B52',
+  tinteDomicilio: '#2A1820',
+  tinteDomicilioBorde: '#523042',
 }
 
 /**
@@ -177,5 +194,9 @@ export function variablesTema(tema: Tema): CSSProperties {
     '--panel-lateral-texto': tema.panelLateralTexto,
     '--panel-lateral-texto-suave': tema.panelLateralTextoSuave,
     '--panel-lateral-borde': tema.panelLateralBorde,
+    '--marca-tinte-local': tema.tinteLocal,
+    '--marca-tinte-local-borde': tema.tinteLocalBorde,
+    '--marca-tinte-domicilio': tema.tinteDomicilio,
+    '--marca-tinte-domicilio-borde': tema.tinteDomicilioBorde,
   } as CSSProperties
 }

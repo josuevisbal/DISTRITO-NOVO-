@@ -179,7 +179,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     // Transferencias por verificar: alerta persistente hasta que caja actúe.
     supabase
       .from('pedidos')
-      .select('id, numero, cliente_nombre, cliente_tel, monto_exacto, total, creado_en, en_edicion, zonas_domicilio(nombre)')
+      .select('id, numero, canal, cliente_nombre, cliente_tel, monto_exacto, total, creado_en, en_edicion, zonas_domicilio(nombre)')
       .eq('restaurante_id', restauranteId)
       .eq('estado', 'esperando_pago')
       .order('creado_en'),
@@ -244,6 +244,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   const transferencias: Transferencia[] = (transfRes.data ?? []).map((p) => ({
     pedido_id: p.id,
     numero: p.numero,
+    canal: p.canal,
     cliente: p.cliente_nombre,
     telefono: p.cliente_tel,
     zona: p.zonas_domicilio?.nombre ?? null,
