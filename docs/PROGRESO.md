@@ -1333,3 +1333,27 @@ pedido trae mesa y ronda, las etiquetas bajan de línea y el tiempo se queda fij
 la derecha, entero. Verificado con Playwright a 320 px (oscuro), 360 px dentro del panel y
 1024 px, sin desbordes horizontales. También se revisó domicilios en vista de admin a
 360 px.
+
+
+## Caja ve todos los domicilios y la lista va en orden
+
+**El problema.** Desde que el domicilio en efectivo entra derecho a cocina, caja no lo
+veía hasta que cocina lo terminaba: la consulta de domicilios solo traía `listo` y
+`en_despacho`. Tampoco veía los que ya iban `en_camino`. Por eso el pedido 1105 no
+aparecía en caja.
+
+**El arreglo.** Caja carga ahora todo domicilio en marcha: `en_cocina`, `listo`,
+`en_despacho` y `en_camino`. En cocina sale con la etiqueta gris "En cocina", el texto
+"Preparándose en cocina" y el botón para imprimir la cuenta antes de que salga. En camino
+sale "En camino con <domiciliario>", sin botón de quitar (ya salió). La etiqueta del que
+cocina terminó pasa de "Por despachar" a "Listo", que coincide con el botón "Listo, a la
+calle" y cabe en el celular. El aviso sonoro suena cuando entra un domicilio y otra vez
+cuando sale de cocina.
+
+**El orden.** La lista de caja va por número de pedido, de menor a mayor, sin importar el
+tipo de fila. La fila de mesa muestra su número en el subtítulo para que el orden se lea.
+En el celular, bajo la plata dice "Efectivo" en vez de "Cobra el domiciliario", que
+empujaba la etiqueta de estado a otra línea.
+
+Verificado con Playwright a 360, 390 y 1280 px. `tsc`, ESLint y `npm run build`, en verde.
+No requiere cambios en la base.

@@ -114,8 +114,11 @@ export type Entregado = {
 export type Despacho = {
   pedido_id: string
   numero: number
-  /** 'listo' = cocina terminó y espera domiciliario; 'en_despacho' = ya tiene quién lo lleva. */
-  estado: 'listo' | 'en_despacho'
+  /**
+   * 'en_cocina' = se está preparando; 'listo' = cocina terminó y caja lo suelta;
+   * 'en_despacho' = en el mostrador o ya tomado; 'en_camino' = va en la moto.
+   */
+  estado: 'en_cocina' | 'listo' | 'en_despacho' | 'en_camino'
   direccion: string | null
   zona: string | null
   nota_entrega: string | null
@@ -216,7 +219,7 @@ export function CajaCliente(props: Props) {
     ...porCobrar.map((p) => ({ tipo: 'cobrar' as const, key: p.pedido_id, cobro: p })),
     ...despachos.map((d) => ({ tipo: 'despachar' as const, key: d.pedido_id, despacho: d })),
     ...entregados.map((e) => ({ tipo: 'entregado' as const, key: e.pedido_id, entregado: e })),
-  ]
+  ].sort((a, b) => numeroDe(a) - numeroDe(b))
 
   const conteos = {
     todos: filas.length,
@@ -235,7 +238,14 @@ export function CajaCliente(props: Props) {
   // y cuando el domiciliario entrega: las tres cosas que caja tiene que atender sin que
   // nadie le avise de viva voz.
   const aviso = useAviso(
-    soloLectura ? 0 : contraentregas.length + despachos.length + entregados.length,
+    soloLectura
+      ? 0
+      : contraentregas.length +
+          despachos.length +
+          // Suma otra vez los que cocina ya terminó: así suena al entrar el domicilio
+          // y vuelve a sonar cuando sale de cocina y hay que soltarlo.
+          despachos.filter((d) => d.estado === 'listo').length +
+          entregados.length,
   )
 
   // La trazabilidad del turno se puede plegar, pero por defecto acompaña a la caja.
@@ -680,6 +690,22 @@ type FilaCaja =
   | { tipo: 'cobrar'; key: string; cobro: PorCobrar }
   | { tipo: 'despachar'; key: string; despacho: Despacho }
   | { tipo: 'entregado'; key: string; entregado: Entregado }
+
+/** Número del pedido de la fila: la lista de caja va en el orden en que llegaron. */
+function numeroDe(f: FilaCaja): number {
+  switch (f.tipo) {
+    case 'verificar':
+      return f.transferencia.numero
+    case 'confirmar':
+      return f.contraentrega.numero
+    case 'cobrar':
+      return f.cobro.numero
+    case 'despachar':
+      return f.despacho.numero
+    case 'entregado':
+      return f.entregado.numero
+  }
+}
 
 /** Colores del borde izquierdo por estado (código de un vistazo). */
 const BORDE = {
@@ -1163,7 +1189,7 @@ function FilaCobrar({
         titulo={titulo}
         pastilla="Servido"
         tono="verde"
-        sub="listo para cobrar"
+        sub={p.mesa ? `#${p.numero} · listo para cobrar` : 'listo para cobrar'}
       />
       <div className="col-span-2 min-w-0 sm:col-span-1">
         <p className="truncate text-marca-texto">{p.mesa ? 'Mesa de salón' : 'Para recoger'}</p>
@@ -1423,9 +1449,25 @@ function FilaDespachar({
       <ColPedido
         titulo={`#${d.numero}`}
         pastilla={
-          d.estado === 'listo' ? 'Por despachar' : enMostrador ? 'En el mostrador' : 'En la calle'
+          d.estado === 'en_cocina'
+            ? 'En cocina'
+            : d.estado === 'listo'
+              ? 'Listo'
+              : enMostrador
+                ? 'En el mostrador'
+                : d.estado === 'en_camino'
+                  ? 'En camino'
+                  : 'Tomado'
         }
-        tono={d.estado === 'listo' ? 'azul' : enMostrador ? 'ambar' : 'verde'}
+        tono={
+          d.estado === 'en_cocina'
+            ? 'gris'
+            : d.estado === 'listo'
+              ? 'azul'
+              : enMostrador
+                ? 'ambar'
+                : 'verde'
+        }
         sub={d.zona ? `Domicilio · ${d.zona}` : 'Domicilio'}
       />
 
@@ -1444,13 +1486,47 @@ function FilaDespachar({
           {formatearPesos(d.total)}
         </p>
         <p className="text-xs text-marca-texto-suave">
-          {d.contraentrega ? 'Cobra el domiciliario' : 'Ya está pago'}
+          {d.contraentrega ? (
+            /* En el celular la columna es angosta: la palabra corta deja entera la
+               etiqueta de estado de la izquierda. */
+            <>
+              <span className="sm:hidden">Efectivo</span>
+              <span className="hidden sm:inline">Cobra el domiciliario</span>
+            </>
+          ) : (
+            'Ya está pago'
+          )}
         </p>
       </div>
 
       {soloLectura ? (
         <EstadoSoloLectura
-          texto={d.domiciliario_nombre ?? (enMostrador ? 'En el mostrador' : 'Sin despachar')}
+          texto={
+            d.estado === 'en_cocina'
+              ? 'En cocina'
+              : (d.domiciliario_nombre ?? (enMostrador ? 'En el mostrador' : 'Sin despachar'))
+          }
+        />
+      ) : d.estado === 'en_cocina' ? (
+        /* Entró derecho a cocina (domicilio en efectivo). Caja ya puede imprimir la cuenta
+           para tenerla lista cuando salga. */
+        <Acciones
+          cuentaDe={d.pedido_id}
+          principal={
+            <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm text-marca-texto-suave sm:bg-transparent">
+              Preparándose en cocina
+            </span>
+          }
+        />
+      ) : d.estado === 'en_camino' ? (
+        /* Ya salió: no se le puede quitar. Si no pudo entregar, él lo reporta. */
+        <Acciones
+          cuentaDe={d.pedido_id}
+          principal={
+            <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm text-marca-texto sm:bg-transparent">
+              En camino con&nbsp;<span className="font-semibold">{d.domiciliario_nombre}</span>
+            </span>
+          }
         />
       ) : d.estado === 'listo' ? (
         /* Caja no reparte los domicilios: los suelta al mostrador y los domiciliarios se

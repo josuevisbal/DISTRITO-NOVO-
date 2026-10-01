@@ -209,8 +209,9 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       .eq('restaurante_id', restauranteId)
       .eq('estado', 'entregado')
       .order('entregado_en'),
-    // Domicilios que cocina terminó ('listo') y los que ya salieron a la calle
-    // ('en_despacho'), para asignar o reasignar quién los lleva.
+    // Todo domicilio en marcha, desde que entra a cocina hasta que se entrega: el que
+    // se paga en efectivo entra derecho a cocina sin pasar por caja, y caja tiene que
+    // verlo desde ese momento (para imprimir la cuenta y saber qué viene).
     supabase
       .from('pedidos')
       .select(
@@ -218,7 +219,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       )
       .eq('restaurante_id', restauranteId)
       .eq('canal', 'domicilio')
-      .in('estado', ['listo', 'en_despacho'])
+      .in('estado', ['en_cocina', 'listo', 'en_despacho', 'en_camino'])
       .order('creado_en'),
     supabase
       .from('categorias')
@@ -328,7 +329,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   const despachos: Despacho[] = (despachoRes.data ?? []).map((p) => ({
     pedido_id: p.id,
     numero: p.numero,
-    estado: p.estado as 'listo' | 'en_despacho',
+    estado: p.estado as Despacho['estado'],
     direccion: p.direccion,
     zona: p.zonas_domicilio?.nombre ?? null,
     nota_entrega: p.nota_entrega,
