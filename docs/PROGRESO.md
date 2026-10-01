@@ -1321,3 +1321,15 @@ lo recoge y entrega, y queda a nombre del domiciliario; el admin no puede recoge
 sin dueño y sí puede tomarlo. `tsc`, ESLint y `npm run build`, en verde. Migración en
 `supabase/historial/admin-opera-domicilios.sql`: caja, cocina y salón funcionan sin ella;
 las acciones del admin en domicilios necesitan que se corra.
+
+
+## Cabecera de cocina sin textos encimados
+
+En un celular, dentro del panel del admin, la cabecera de cocina se montaba: "En cola", el
+número y el nombre de la primera estación quedaban uno encima del otro. Ahora va en dos
+filas: arriba el ícono, "Cocina", "N en cola", el reloj y el botón de tema; abajo la carga
+de cada estación como píldoras que bajan de línea si no caben. En la tarjeta, cuando el
+pedido trae mesa y ronda, las etiquetas bajan de línea y el tiempo se queda fijo arriba a
+la derecha, entero. Verificado con Playwright a 320 px (oscuro), 360 px dentro del panel y
+1024 px, sin desbordes horizontales. También se revisó domicilios en vista de admin a
+360 px.

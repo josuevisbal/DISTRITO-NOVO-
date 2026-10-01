@@ -178,8 +178,7 @@ export function TableroCocina({
   const visibles = tickets
     .map((t) => ({
       ...t,
-      estado:
-        (sombras[`${t.pedido_id}·${t.ronda}`] as Ticket['estado'] | undefined) ?? t.estado,
+      estado: (sombras[`${t.pedido_id}·${t.ronda}`] as Ticket['estado'] | undefined) ?? t.estado,
     }))
     .filter((t) => t.estado === 'pendiente' || t.estado === 'preparando')
 
@@ -203,46 +202,50 @@ export function TableroCocina({
       <header
         className={`${enPanel ? '' : 'sticky top-0'} z-20 border-b border-marca-borde bg-marca-superficie`}
       >
-        <div className="flex items-center gap-3 px-4 py-3">
+        {/* Fila 1: identidad a la izquierda; reloj y tema a la derecha. Fila 2: la
+            carga de cada estación como píldoras que bajan de línea si no caben. Nada
+            se monta encima de nada, ni en un celular dentro del panel. */}
+        <div className="flex items-center gap-3 px-4 pt-3">
           <span
             aria-hidden
             className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-marca-acento text-marca-acento-texto"
           >
             <IconoFuego className="size-6" />
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold leading-tight">Cocina</h1>
-            <ul className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-marca-texto-suave">
-              {carga.map((e) => (
-                <li key={e.id} className="flex items-center gap-1 whitespace-nowrap">
-                  <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: e.color }} />
-                  {e.nombre}{' '}
-                  <span className="font-bold tabular-nums text-marca-texto">{e.pedidos}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="ml-auto flex shrink-0 items-center gap-3 sm:gap-4">
-            <p className="text-right">
-              <span className="block text-[10px] uppercase tracking-wider text-marca-texto-suave">
-                En cola
-              </span>
-              <span className="block text-xl font-bold leading-none text-marca-acento-fuerte">
-                {visibles.length}
-              </span>
+            <p className="text-sm text-marca-texto-suave">
+              <span className="font-bold tabular-nums text-marca-texto">{visibles.length}</span> en
+              cola
             </p>
-            <p className="text-2xl font-bold tabular-nums">{reloj}</p>
-            <button
-              type="button"
-              onClick={alternarTema}
-              aria-label={oscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-              className="flex size-12 items-center justify-center rounded-xl border border-marca-borde text-marca-texto"
-            >
-              {oscuro ? <IconoSol className="size-5" /> : <IconoLuna className="size-5" />}
-            </button>
           </div>
+          <p className="shrink-0 text-xl font-bold tabular-nums sm:text-2xl">{reloj}</p>
+          <button
+            type="button"
+            onClick={alternarTema}
+            aria-label={oscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-marca-borde text-marca-texto"
+          >
+            {oscuro ? <IconoSol className="size-5" /> : <IconoLuna className="size-5" />}
+          </button>
         </div>
+
+        <ul aria-label="Pedidos por estación" className="flex flex-wrap gap-2 px-4 pb-3 pt-2.5">
+          {carga.map((e) => (
+            <li
+              key={e.id}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-marca-borde px-2.5 py-1 text-sm text-marca-texto-suave"
+            >
+              <span
+                aria-hidden
+                className="size-2 rounded-full"
+                style={{ backgroundColor: e.color }}
+              />
+              {e.nombre}
+              <span className="font-bold tabular-nums text-marca-texto">{e.pedidos}</span>
+            </li>
+          ))}
+        </ul>
       </header>
 
       {!enLinea ? (
@@ -329,23 +332,26 @@ function TicketKds({
       className="entra flex flex-col overflow-hidden rounded-2xl bg-marca-superficie shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
       style={{ '--i': indice, borderTop: `4px solid ${c.acento}` } as CSSProperties}
     >
-      <div className="flex items-center gap-2 px-4 pt-3">
-        <p className="text-2xl font-bold tabular-nums">#{ticket.numero}</p>
-        <span className="rounded-full bg-marca-superficie-tenue px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-marca-texto-suave">
-          {ticket.mesa ? `Mesa ${ticket.mesa}` : (NOMBRE_CANAL[ticket.canal] ?? ticket.canal)}
-        </span>
-
-        {/* Ronda 2 en adelante: la mesa pidió más sin cerrar la cuenta. Es tarjeta
-            aparte, así que aquí solo va lo NUEVO. */}
-        {ticket.ronda > 1 ? (
-          <span className="rounded-full bg-marca-acento px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-marca-acento-texto">
-            Ronda {ticket.ronda}
+      {/* Número y etiquetas bajan de línea si no caben; el tiempo siempre queda entero. */}
+      <div className="flex items-start gap-2 px-4 pt-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <p className="text-2xl font-bold tabular-nums">#{ticket.numero}</p>
+          <span className="whitespace-nowrap rounded-full bg-marca-superficie-tenue px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-marca-texto-suave">
+            {ticket.mesa ? `Mesa ${ticket.mesa}` : (NOMBRE_CANAL[ticket.canal] ?? ticket.canal)}
           </span>
-        ) : null}
+
+          {/* Ronda 2 en adelante: la mesa pidió más sin cerrar la cuenta. Es tarjeta
+            aparte, así que aquí solo va lo NUEVO. */}
+          {ticket.ronda > 1 ? (
+            <span className="whitespace-nowrap rounded-full bg-marca-acento px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-marca-acento-texto">
+              Ronda {ticket.ronda}
+            </span>
+          ) : null}
+        </div>
 
         {/* Chip del tiempo: color + punto + cuenta. Nunca solo color. */}
         <span
-          className="ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-bold tabular-nums"
+          className="mt-0.5 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1 text-sm font-bold tabular-nums"
           style={{ backgroundColor: c.chipFondo, color: c.chipTexto }}
         >
           <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: c.acento }} />
