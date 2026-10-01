@@ -1379,3 +1379,29 @@ solo lectura ("Se recibe al cierre") tiene ahora el mismo recuadro que los demá
 
 Verificado con Playwright a 360 px (plegado y abierto) y a 1280 px. `tsc`, ESLint y
 `npm run build`, en verde. No requiere cambios en la base.
+
+
+## El cierre de turno dice qué pedido falta y caja lo muestra
+
+**El problema.** `cerrar_turno` revisa todo pedido del turno en marcha, pero caja no
+mostraba todos. El caso real: un pedido para recoger (o de mostrador) que se pagó por
+transferencia antes de cocinar queda `listo` con el pago verificado. Caja lo escondía de
+"Por cobrar" porque ya estaba pago, nadie tenía cómo cerrarlo y el turno no cerraba. Lo
+mismo pasaba con una mesa que nadie confirmó (`pendiente` sin medio de pago).
+
+**El arreglo.**
+- Caja trae los mismos pedidos que revisa el cierre. Lo que no cabe en ninguna otra lista
+  sale como "Otros sin cerrar", en gris, con lo que pasa y qué hacer: "Ya se lo llevó" si
+  estaba pago y listo, "Confirmar, a cocina" si nadie lo confirmó, o "Anular".
+- Nueva función `entregar_en_local(pedido)`: cierra un pedido del local que ya está pago y
+  listo. Solo caja o admin, solo de su restaurante, y solo si no queda plata pendiente.
+- La ventana "Cerrar turno" avisa antes de contar: "Todavía no se puede cerrar: faltan N
+  pedidos", con sus números y un botón "Ver esos pedidos" que filtra la lista a
+  exactamente esos. "Cerrar y cuadrar" queda deshabilitado mientras falte algo.
+- El error de `cerrar_turno` ahora nombra los pedidos (#1098, #1099…).
+
+Probado en Postgres local: un pedido para recoger pagado por transferencia bloquea el
+cierre con su número, `entregar_en_local` lo cierra y el turno cierra. Playwright a 360 y
+1280 px. `tsc`, ESLint y `npm run build`, en verde. Migración en
+`supabase/historial/cierre-dice-pendientes.sql`: la pantalla ya muestra los pedidos sin
+ella, pero el botón "Ya se lo llevó" la necesita.

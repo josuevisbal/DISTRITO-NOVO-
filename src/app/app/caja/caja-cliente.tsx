@@ -47,6 +47,7 @@ import {
   quitarDomiciliario,
   cerrarTurno,
   confirmarContraentrega,
+  entregarEnLocal,
   legalizarDomiciliario,
   registrarCobro,
   registrarCobroMixto,
@@ -129,6 +130,21 @@ export type Despacho = {
   domiciliario_id: string | null
   domiciliario_nombre: string | null
 }
+/**
+ * Un pedido del turno que impide cerrarlo y no cae en ninguna otra lista: el de recoger
+ * que ya se pagó y quedó listo, la mesa que espera al mesero, etc.
+ */
+export type SinCerrar = {
+  pedido_id: string
+  numero: number
+  canal: string
+  estado: string
+  mesa: number | null
+  cliente: string | null
+  total: number
+  /** Ya tiene toda su plata verificada: solo falta entregarlo. */
+  pagado: boolean
+}
 export type Domiciliario = { id: string; nombre: string }
 
 type MedioReal = 'efectivo' | 'transferencia' | 'datafono'
@@ -170,6 +186,8 @@ type Props = {
   porLegalizar: PorLegalizar[]
   entregados: Entregado[]
   despachos: Despacho[]
+  sinCerrar: SinCerrar[]
+  pendientesCierre: number[]
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
   zonas: ZonaCaja[]
@@ -190,6 +208,8 @@ export function CajaCliente(props: Props) {
     porLegalizar,
     entregados,
     despachos,
+    sinCerrar,
+    pendientesCierre,
     categorias,
     productos,
     zonas,
@@ -220,6 +240,7 @@ export function CajaCliente(props: Props) {
     ...porCobrar.map((p) => ({ tipo: 'cobrar' as const, key: p.pedido_id, cobro: p })),
     ...despachos.map((d) => ({ tipo: 'despachar' as const, key: d.pedido_id, despacho: d })),
     ...entregados.map((e) => ({ tipo: 'entregado' as const, key: e.pedido_id, entregado: e })),
+    ...sinCerrar.map((x) => ({ tipo: 'sinCerrar' as const, key: x.pedido_id, sinCerrar: x })),
   ].sort((a, b) => numeroDe(a) - numeroDe(b))
 
   const conteos = {
@@ -229,9 +250,16 @@ export function CajaCliente(props: Props) {
     cobrar: porCobrar.length,
     despachar: despachos.length,
     entregado: entregados.length,
+    sinCerrar: sinCerrar.length,
   }
   const [filtro, setFiltro] = useState<Filtro>('todos')
-  const visibles = filtro === 'todos' ? filas : filas.filter((f) => f.tipo === filtro)
+  // "Lo que falta para cerrar": exactamente los pedidos que hoy bloquean el cierre.
+  const visibles =
+    filtro === 'todos'
+      ? filas
+      : filtro === 'cierre'
+        ? filas.filter((f) => pendientesCierre.includes(numeroDe(f)))
+        : filas.filter((f) => f.tipo === filtro)
 
   // Suena cuando entra un domicilio por confirmar o cuando cocina deja uno por despachar:
   // las dos cosas que caja tiene que atender sin que nadie le avise de viva voz.
@@ -264,6 +292,7 @@ export function CajaCliente(props: Props) {
   const pestanasMas = [
     { valor: 'verificar', etiqueta: 'Por verificar', cuenta: conteos.verificar },
     { valor: 'entregado', etiqueta: 'Entregados sin cobrar', cuenta: conteos.entregado },
+    { valor: 'sinCerrar', etiqueta: 'Otros sin cerrar', cuenta: conteos.sinCerrar },
   ] as const
 
   return (
@@ -287,6 +316,11 @@ export function CajaCliente(props: Props) {
         arqueo={arqueo}
         onCerrado={setCierre}
         soloLectura={soloLectura}
+        pendientes={pendientesCierre}
+        onVerPendientes={() => {
+          setFiltro('cierre')
+          document.getElementById('lista-pedidos')?.scrollIntoView({ behavior: 'smooth' })
+        }}
       />
 
       <section>
@@ -315,6 +349,22 @@ export function CajaCliente(props: Props) {
           onVerCobrados={() => setVerCobrados((v) => !v)}
         />
 
+        {/* Vista "lo que falta para cerrar": se dice qué es y cómo volver. */}
+        {filtro === 'cierre' ? (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border-2 border-marca-acento bg-marca-superficie px-3 py-2">
+            <p className="text-sm text-marca-texto">
+              {pendientesCierre.length === 0
+                ? 'Ya no falta nada: puedes cerrar el turno.'
+                : `Falta resolver ${pendientesCierre.length} ${
+                    pendientesCierre.length === 1 ? 'pedido' : 'pedidos'
+                  } para cerrar el turno.`}
+            </p>
+            <span className="shrink-0 whitespace-nowrap">
+              <BotonTexto onClick={() => setFiltro('todos')}>Ver todos</BotonTexto>
+            </span>
+          </div>
+        ) : null}
+
         {/* Leyenda de colores: la tarjeta completa dice si el pedido es del local o va a
             domicilio. El texto acompaña al color, nunca solo el color. */}
         {visibles.length > 0 ? (
@@ -338,7 +388,7 @@ export function CajaCliente(props: Props) {
           </div>
         ) : null}
 
-        <ul className="mt-3 space-y-2.5">
+        <ul id="lista-pedidos" className="mt-3 scroll-mt-4 space-y-2.5">
           {visibles.length === 0 ? (
             <li>
               <Vacio texto="No hay pedidos en este filtro." Icono={IconoCheck} />
@@ -399,7 +449,15 @@ export function CajaCliente(props: Props) {
   )
 }
 
-type Filtro = 'todos' | 'verificar' | 'confirmar' | 'cobrar' | 'despachar' | 'entregado'
+type Filtro =
+  | 'todos'
+  | 'verificar'
+  | 'confirmar'
+  | 'cobrar'
+  | 'despachar'
+  | 'entregado'
+  | 'sinCerrar'
+  | 'cierre'
 type Pestana = { valor: Filtro; etiqueta: string; cuenta: number }
 
 /**
@@ -704,6 +762,7 @@ type FilaCaja =
   | { tipo: 'cobrar'; key: string; cobro: PorCobrar }
   | { tipo: 'despachar'; key: string; despacho: Despacho }
   | { tipo: 'entregado'; key: string; entregado: Entregado }
+  | { tipo: 'sinCerrar'; key: string; sinCerrar: SinCerrar }
 
 /** Número del pedido de la fila: la lista de caja va en el orden en que llegaron. */
 function numeroDe(f: FilaCaja): number {
@@ -718,6 +777,8 @@ function numeroDe(f: FilaCaja): number {
       return f.despacho.numero
     case 'entregado':
       return f.entregado.numero
+    case 'sinCerrar':
+      return f.sinCerrar.numero
   }
 }
 
@@ -728,6 +789,7 @@ const BORDE = {
   cobrar: '#1E9E6A', // verde
   despachar: '#2563EB', // azul: empacado, esperando quién lo lleve
   entregado: '#7C3AED', // morado: en manos del cliente, la plata todavía no
+  sinCerrar: '#6B7280', // gris: quedó suelto, hay que resolverlo para cerrar
 }
 
 /**
@@ -942,6 +1004,9 @@ function FilaPedido({
   }
   if (fila.tipo === 'entregado') {
     return <FilaEntregado e={fila.entregado} indice={indice} soloLectura={soloLectura} />
+  }
+  if (fila.tipo === 'sinCerrar') {
+    return <FilaSinCerrar x={fila.sinCerrar} indice={indice} soloLectura={soloLectura} />
   }
   if (fila.tipo === 'verificar') {
     return (
@@ -1629,6 +1694,167 @@ function FilaDespachar({
 }
 
 
+const ESTADO_SIN_CERRAR: Record<string, string> = {
+  esperando_pago: 'Por pagar',
+  pendiente: 'Nuevo',
+  en_cocina: 'En cocina',
+  listo: 'Listo',
+  en_despacho: 'Despacho',
+  en_camino: 'En camino',
+}
+const CANAL_SIN_CERRAR: Record<string, string> = {
+  mesa: 'Mesa',
+  recoger: 'Para recoger',
+  mostrador: 'Mostrador',
+  domicilio: 'Domicilio',
+  whatsapp: 'Domicilio',
+}
+
+/**
+ * Un pedido que quedó suelto y no deja cerrar el turno. Caja lo ve aquí y lo resuelve:
+ * lo entrega si ya estaba pago y listo, lo confirma si nadie lo confirmó, o lo anula.
+ */
+function FilaSinCerrar({
+  x,
+  indice,
+  soloLectura,
+}: {
+  x: SinCerrar
+  indice: number
+  soloLectura: boolean
+}) {
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [anulando, setAnulando] = useState(false)
+  const { mostrar } = useToast()
+
+  async function correr(fn: () => Promise<{ ok: boolean; error?: string }>, aviso: string) {
+    setOcupado(true)
+    setError(null)
+    const r = await fn()
+    if (!r.ok) {
+      setError(r.error ?? 'No se pudo')
+      setOcupado(false)
+      return
+    }
+    mostrar(aviso)
+  }
+
+  const canal = CANAL_SIN_CERRAR[x.canal] ?? x.canal
+  const titulo = x.mesa ? `Mesa ${x.mesa}` : `#${x.numero}`
+  const sub = [x.mesa ? `#${x.numero}` : null, canal, x.pagado ? 'pagado' : null]
+    .filter(Boolean)
+    .join(' · ')
+  const motivo =
+    x.pagado && x.estado === 'listo'
+      ? 'Ya está pago: falta entregarlo'
+      : x.pagado
+        ? 'Ya está pago: se está preparando'
+        : x.estado === 'pendiente'
+          ? 'Nadie lo ha confirmado'
+          : 'Quedó sin cerrar'
+
+  return (
+    <EnvolturaFila
+      borde={BORDE.sinCerrar}
+      destino={destinoDe(x.canal)}
+      indice={indice}
+      resumen={[x.cliente, motivo].filter(Boolean).join(' · ')}
+    >
+      <ColPedido
+        titulo={titulo}
+        pastilla={ESTADO_SIN_CERRAR[x.estado] ?? x.estado}
+        tono="gris"
+        sub={sub}
+      />
+      <div className="col-span-2 min-w-0 sm:col-span-1">
+        {x.cliente ? <p className="font-medium text-marca-texto">{x.cliente}</p> : null}
+        <p className="text-sm text-marca-texto-suave">{motivo}</p>
+      </div>
+      <div className="col-start-2 row-start-1 text-right sm:col-start-auto sm:row-start-auto sm:text-left">
+        <p className="whitespace-nowrap text-lg font-bold tabular-nums text-marca-texto">
+          {formatearPesos(x.total)}
+        </p>
+        <p className="text-xs text-marca-texto-suave">{x.pagado ? 'Pagado' : 'Sin pagar'}</p>
+      </div>
+
+      {soloLectura ? (
+        <EstadoSoloLectura texto={motivo} />
+      ) : anulando ? (
+        <ZonaAcciones>
+          <MotivoInline
+            marcador="Motivo de la anulación"
+            disabled={ocupado}
+            onConfirmar={(m) => correr(() => anularPedido(x.pedido_id, m), `Pedido #${x.numero} anulado`)}
+            onCancelar={() => setAnulando(false)}
+          />
+        </ZonaAcciones>
+      ) : x.pagado && x.estado === 'listo' ? (
+        <Acciones
+          cuentaDe={x.pedido_id}
+          principal={
+            <Boton
+              variante="exito"
+              className="min-h-12 sm:min-h-11"
+              onClick={() =>
+                correr(() => entregarEnLocal(x.pedido_id), `Pedido #${x.numero} entregado`)
+              }
+              disabled={ocupado}
+            >
+              <IconoCheck className="mr-1.5 inline size-4" />
+              {ocupado ? 'Cerrando…' : 'Ya se lo llevó'}
+            </Boton>
+          }
+        />
+      ) : x.pagado ? (
+        <Acciones
+          cuentaDe={x.pedido_id}
+          principal={
+            <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm text-marca-texto-suave sm:bg-transparent">
+              Preparándose en cocina
+            </span>
+          }
+        />
+      ) : x.estado === 'pendiente' ? (
+        <Acciones
+          cuentaDe={x.pedido_id}
+          principal={
+            <Boton
+              variante="exito"
+              className="min-h-12 sm:min-h-11"
+              onClick={() =>
+                correr(
+                  () => confirmarContraentrega(x.pedido_id),
+                  `Pedido #${x.numero} confirmado, a cocina`,
+                )
+              }
+              disabled={ocupado}
+            >
+              <IconoCheck className="mr-1.5 inline size-4" />
+              {ocupado ? 'Confirmando…' : 'Confirmar, a cocina'}
+            </Boton>
+          }
+          secundaria={
+            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
+              Anular
+            </BotonTexto>
+          }
+        />
+      ) : (
+        <Acciones
+          cuentaDe={x.pedido_id}
+          principal={
+            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
+              Anular
+            </BotonTexto>
+          }
+        />
+      )}
+      {error ? <Error texto={error} /> : null}
+    </EnvolturaFila>
+  )
+}
+
 /**
  * Una entrega que el cliente ya tiene en la mano y cuya plata todavía no está en caja.
  *
@@ -2100,11 +2326,16 @@ function SeccionTurno({
   arqueo,
   onCerrado,
   soloLectura = false,
+  pendientes,
+  onVerPendientes,
 }: {
   turno: Turno
   arqueo: Record<string, ArqueoMedio>
   onCerrado: (arqueo: ArqueoCierre) => void
   soloLectura?: boolean
+  /** Números de lo que hoy impide cerrar. */
+  pendientes: number[]
+  onVerPendientes: () => void
 }) {
   if (!turno) {
     return soloLectura ? (
@@ -2153,7 +2384,12 @@ function SeccionTurno({
       </div>
 
       {soloLectura ? null : (
-        <CerrarTurno esperado={enCaja} onCerrado={onCerrado} />
+        <CerrarTurno
+          esperado={enCaja}
+          onCerrado={onCerrado}
+          pendientes={pendientes}
+          onVerPendientes={onVerPendientes}
+        />
       )}
     </section>
   )
@@ -2445,10 +2681,14 @@ function AbrirTurno() {
 function CerrarTurno({
   esperado,
   onCerrado,
+  pendientes,
+  onVerPendientes,
 }: {
   /** Base + efectivo cobrado: contra esto se compara lo que el cajero cuente. */
   esperado: number
   onCerrado: (arqueo: ArqueoCierre) => void
+  pendientes: number[]
+  onVerPendientes: () => void
 }) {
   const [abierto, setAbierto] = useState(false)
   const [contado, setContado] = useState('')
@@ -2485,6 +2725,30 @@ function CerrarTurno({
 
       {abierto ? (
         <Modal titulo="Cerrar turno" onCerrar={() => setAbierto(false)}>
+          {/* Antes de contar plata: si algo impide cerrar, se dice cuál y se lleva a él. */}
+          {pendientes.length > 0 ? (
+            <div role="alert" className="mb-4 rounded-lg border-2 border-marca-acento p-3">
+              <p className="flex items-start gap-2 text-sm font-semibold text-marca-texto">
+                <IconoAlerta className="mt-0.5 size-4 shrink-0 text-marca-acento-fuerte" />
+                Todavía no se puede cerrar: {pendientes.length === 1 ? 'falta' : 'faltan'}{' '}
+                {pendientes.length} {pendientes.length === 1 ? 'pedido' : 'pedidos'}.
+              </p>
+              <p className="mt-1 text-sm tabular-nums text-marca-texto-suave">
+                {pendientes.map((n) => `#${n}`).join(', ')}
+              </p>
+              <Boton
+                variante="secundario"
+                className="mt-3 w-full justify-center"
+                onClick={() => {
+                  setAbierto(false)
+                  onVerPendientes()
+                }}
+              >
+                Ver esos pedidos
+              </Boton>
+            </div>
+          ) : null}
+
           <dl className="space-y-2 text-sm">
             <div className="flex items-baseline justify-between gap-3">
               <dt className="text-marca-texto-suave">Efectivo esperado</dt>
@@ -2531,7 +2795,7 @@ function CerrarTurno({
             <button
               type="button"
               onClick={cerrar}
-              disabled={enviando}
+              disabled={enviando || pendientes.length > 0}
               className="min-h-12 flex-[2] rounded-lg bg-marca-acento text-sm font-semibold text-marca-acento-texto disabled:opacity-60"
             >
               {enviando ? 'Cerrando…' : 'Cerrar y cuadrar'}

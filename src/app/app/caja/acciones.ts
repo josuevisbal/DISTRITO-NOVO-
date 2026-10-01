@@ -132,6 +132,17 @@ export async function confirmarContraentrega(pedidoId: string): Promise<Resultad
   return { ok: true }
 }
 
+/** El cliente se lleva en la mano un pedido del local que ya estaba pago: queda cerrado. */
+export async function entregarEnLocal(pedidoId: string): Promise<Resultado> {
+  await exigirRol('cajero', 'admin')
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('entregar_en_local', { p_pedido: pedidoId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/caja')
+  revalidatePath('/app/admin/caja')
+  return { ok: true }
+}
+
 export async function anularPedido(pedidoId: string, motivo: string): Promise<Resultado> {
   await exigirRol('cajero', 'admin')
   const supabase = await crearClienteServidor()

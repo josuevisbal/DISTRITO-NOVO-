@@ -4,6 +4,7 @@ import type {
   Entregado,
   PorCobrar,
   PorLegalizar,
+  SinCerrar,
   Transferencia,
   Turno,
 } from '@/app/app/caja/caja-cliente'
@@ -68,6 +69,14 @@ export type DatosCaja = {
   entregados: Entregado[]
   /** Domicilios que cocina ya terminó: caja escoge quién los lleva. */
   despachos: Despacho[]
+  /**
+   * Pedidos del turno que impiden cerrarlo y no caben en ninguna lista de arriba (por
+   * ejemplo, uno para recoger que ya se pagó y quedó "listo"). Sin esto, el cierre dice
+   * que falta algo y el cajero no tiene dónde verlo.
+   */
+  sinCerrar: SinCerrar[]
+  /** Números de TODO lo que hoy impide cerrar el turno, para decirlo antes de intentar. */
+  pendientesCierre: number[]
   /** La carta, para que caja tome pedidos de quien llama o llega al mostrador. */
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
@@ -340,6 +349,42 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     domiciliario_nombre: p.usuarios?.nombre ?? null,
   }))
 
+  // Lo mismo que revisa `cerrar_turno`: pedidos creados en el turno que siguen en marcha.
+  // Si alguno no está en ninguna lista de caja, sale como "sin cerrar" para resolverlo.
+  const { data: bloqueantes } = turno
+    ? await supabase
+        .from('pedidos')
+        .select('id, numero, canal, estado, total, cliente_nombre, mesas(numero), pagos(estado)')
+        .eq('restaurante_id', restauranteId)
+        .gte('creado_en', turno.abierto_en)
+        .in('estado', ['esperando_pago', 'pendiente', 'en_cocina', 'listo', 'en_despacho', 'en_camino'])
+        .order('numero')
+    : { data: [] }
+
+  const yaVisibles = new Set<string>([
+    ...transferencias.map((x) => x.pedido_id),
+    ...contraentregas.map((x) => x.pedido_id),
+    ...porCobrar.map((x) => x.pedido_id),
+    ...despachos.map((x) => x.pedido_id),
+  ])
+  const sinCerrar: SinCerrar[] = (bloqueantes ?? [])
+    .filter((p) => !yaVisibles.has(p.id))
+    .map((p) => ({
+      pedido_id: p.id,
+      numero: p.numero,
+      canal: p.canal,
+      estado: p.estado,
+      mesa: p.mesas?.numero ?? null,
+      cliente: p.cliente_nombre,
+      total: p.total,
+      pagado:
+        (p.pagos ?? []).some((g) => g.estado === 'verificado') &&
+        !(p.pagos ?? []).some((g) => g.estado === 'pendiente'),
+    }))
+  const pendientesCierre = Array.from(
+    new Set([...(bloqueantes ?? []).map((p) => p.numero), ...entregados.map((e) => e.numero)]),
+  ).sort((a, b) => a - b)
+
   return {
     turno,
     // El arqueo por medio del turno es, exactamente, el desglose del bloque general.
@@ -352,6 +397,8 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     porLegalizar: [...porLegalizarMapa.values()],
     entregados,
     despachos,
+    sinCerrar,
+    pendientesCierre,
     categorias: categoriaRes.data ?? [],
     productos: productoRes.data ?? [],
     zonas: zonaRes.data ?? [],

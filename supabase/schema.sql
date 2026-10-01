@@ -1245,6 +1245,27 @@ begin
 end $$;
 
 -- anular con motivo y responsable, desde cualquier estado menos cerrado
+-- Un pedido del local (mesa, recoger, mostrador) que se pagó ANTES de salir de cocina
+-- —por ejemplo, para recoger con transferencia— no pasa por "cobrar": cuando el cliente
+-- se lo lleva, caja lo marca y queda cerrado. Sin esto se queda "listo" para siempre y
+-- no deja cerrar el turno.
+create or replace function entregar_en_local(p_pedido uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_rest uuid; v_estado estado_pedido; v_canal canal_pedido;
+begin
+  if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  select restaurante_id, estado, canal into v_rest, v_estado, v_canal from pedidos where id = p_pedido;
+  if v_rest is null or v_rest <> mi_restaurante() then raise exception 'Pedido no encontrado'; end if;
+  if v_canal not in ('mesa','recoger','mostrador') then raise exception 'Ese pedido no es del local'; end if;
+  if v_estado <> 'listo' then raise exception 'Ese pedido todavía no está listo'; end if;
+  if exists (select 1 from pagos where pedido_id = p_pedido and estado = 'pendiente')
+     or not exists (select 1 from pagos where pedido_id = p_pedido and estado = 'verificado') then
+    raise exception 'Ese pedido no está pago: cóbralo primero';
+  end if;
+
+  update pedidos set estado = 'cerrado' where id = p_pedido;
+end $$;
+
 create or replace function anular_pedido(p_pedido uuid, p_motivo text) returns void
 language plpgsql security definer set search_path = public as $$
 declare v_rest uuid; v_estado estado_pedido;
@@ -1271,7 +1292,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   v_turno uuid; v_base bigint; v_efectivo bigint; v_egreso bigint; v_propinas bigint;
   v_esperado bigint; v_dif bigint; v_arqueo jsonb;
-  v_abiertos int; v_por_legalizar int; v_desde timestamptz;
+  v_abiertos int; v_por_legalizar int; v_desde timestamptz; v_lista text;
 begin
   if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
   v_turno := turno_abierto();
@@ -1280,27 +1301,27 @@ begin
   select base_inicial, abierto_en into v_base, v_desde from caja_turnos where id = v_turno;
 
   -- Nada puede quedar en el aire: pedidos en marcha o por cobrar del turno.
-  select count(*) into v_abiertos
+  select count(*), string_agg('#' || numero, ', ' order by numero) into v_abiertos, v_lista
   from pedidos
   where restaurante_id = mi_restaurante()
     and creado_en >= v_desde
     and estado in ('esperando_pago','pendiente','en_cocina','listo','en_despacho','en_camino');
 
   if v_abiertos > 0 then
-    raise exception 'Quedan % pedido(s) sin cerrar (en cocina, por despachar o por cobrar). Ciérralos o anúlalos antes de cerrar la caja.', v_abiertos;
+    raise exception 'Quedan % pedido(s) sin cerrar: %. Ciérralos o anúlalos antes de cerrar la caja.', v_abiertos, v_lista;
   end if;
 
   -- Entregas ya hechas que todavía no tienen la plata en caja: el efectivo que trae
   -- el domiciliario y las transferencias que reportó en la puerta. Cerrar el turno con
   -- alguna de estas pendiente sería dar el día por cuadrado debiendo plata.
-  select count(*) into v_por_legalizar
+  select count(*), string_agg('#' || p.numero, ', ' order by p.numero) into v_por_legalizar, v_lista
   from pedidos p
   where p.restaurante_id = mi_restaurante()
     and p.estado = 'entregado'
     and exists (select 1 from pagos g where g.pedido_id = p.id and g.estado = 'pendiente');
 
   if v_por_legalizar > 0 then
-    raise exception 'Hay % entrega(s) sin cobrar. Recibe el efectivo y verifica las transferencias antes de cerrar la caja.', v_por_legalizar;
+    raise exception 'Hay % entrega(s) sin cobrar: %. Recibe el efectivo y verifica las transferencias antes de cerrar la caja.', v_por_legalizar, v_lista;
   end if;
 
   select coalesce(sum(monto) filter (where tipo in ('ingreso','legalizacion') and medio = 'efectivo'),0),
@@ -2129,6 +2150,8 @@ revoke all on function registrar_cobro(uuid, medio_pago, bigint, bigint) from pu
 revoke all on function registrar_cobro_mixto(uuid, jsonb, bigint) from public, anon;
 revoke all on function confirmar_contraentrega(uuid) from public, anon;
 revoke all on function anular_pedido(uuid, text) from public, anon;
+revoke all on function entregar_en_local(uuid) from public, anon;
+grant execute on function entregar_en_local(uuid) to authenticated;
 revoke all on function cerrar_turno(bigint, text) from public, anon;
 grant execute on function turno_abierto() to authenticated;
 grant execute on function abrir_turno(bigint) to authenticated;
