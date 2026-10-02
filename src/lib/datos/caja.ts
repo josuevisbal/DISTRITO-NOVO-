@@ -4,6 +4,7 @@ import type {
   Entregado,
   PorCobrar,
   PorLegalizar,
+  ProductoCaja,
   SinCerrar,
   Transferencia,
   Turno,
@@ -77,6 +78,8 @@ export type DatosCaja = {
   sinCerrar: SinCerrar[]
   /** Números de TODO lo que hoy impide cerrar el turno, para decirlo antes de intentar. */
   pendientesCierre: number[]
+  /** Qué lleva cada pedido de la lista, para verlo dentro de su tarjeta. */
+  productosPorPedido: Record<string, ProductoCaja[]>
   /** La carta, para que caja tome pedidos de quien llama o llega al mostrador. */
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
@@ -385,6 +388,45 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     new Set([...(bloqueantes ?? []).map((p) => p.numero), ...entregados.map((e) => e.numero)]),
   ).sort((a, b) => a - b)
 
+  // Lo que lleva cada pedido de la lista, en una sola consulta. Se junta por producto y
+  // nota: a caja le importa qué hay que cobrar o empacar, no en qué ronda entró.
+  const idsLista = Array.from(
+    new Set([
+      ...transferencias.map((x) => x.pedido_id),
+      ...contraentregas.map((x) => x.pedido_id),
+      ...porCobrar.map((x) => x.pedido_id),
+      ...despachos.map((x) => x.pedido_id),
+      ...entregados.map((x) => x.pedido_id),
+      ...sinCerrar.map((x) => x.pedido_id),
+    ]),
+  )
+  const { data: renglones } = idsLista.length
+    ? await supabase
+        .from('pedido_items')
+        .select('pedido_id, nombre_snap, cantidad, notas, ronda, estaciones(nombre, color, orden)')
+        .in('pedido_id', idsLista)
+        .order('ronda')
+    : { data: [] }
+  const productosPorPedido: Record<string, ProductoCaja[]> = {}
+  for (const r of renglones ?? []) {
+    const lista = (productosPorPedido[r.pedido_id] ??= [])
+    const notas = r.notas?.trim() || null
+    const igual = lista.find((x) => x.nombre === r.nombre_snap && x.notas === notas)
+    if (igual) {
+      igual.cantidad += r.cantidad
+    } else {
+      lista.push({
+        nombre: r.nombre_snap,
+        cantidad: r.cantidad,
+        notas,
+        estacion: r.estaciones?.nombre ?? '',
+        color: r.estaciones?.color ?? 'var(--marca-borde)',
+        orden: r.estaciones?.orden ?? 0,
+      })
+    }
+  }
+  for (const lista of Object.values(productosPorPedido)) lista.sort((a, b) => a.orden - b.orden)
+
   return {
     turno,
     // El arqueo por medio del turno es, exactamente, el desglose del bloque general.
@@ -399,6 +441,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     despachos,
     sinCerrar,
     pendientesCierre,
+    productosPorPedido,
     categorias: categoriaRes.data ?? [],
     productos: productoRes.data ?? [],
     zonas: zonaRes.data ?? [],

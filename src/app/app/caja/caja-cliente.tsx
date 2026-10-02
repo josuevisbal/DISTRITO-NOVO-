@@ -146,6 +146,15 @@ export type SinCerrar = {
   /** Ya tiene toda su plata verificada: solo falta entregarlo. */
   pagado: boolean
 }
+/** Un producto del pedido, ya juntado por nombre y nota, con el color de su estación. */
+export type ProductoCaja = {
+  nombre: string
+  cantidad: number
+  notas: string | null
+  estacion: string
+  color: string
+  orden: number
+}
 export type Domiciliario = { id: string; nombre: string }
 
 type MedioReal = 'efectivo' | 'transferencia' | 'datafono'
@@ -189,6 +198,7 @@ type Props = {
   despachos: Despacho[]
   sinCerrar: SinCerrar[]
   pendientesCierre: number[]
+  productosPorPedido: Record<string, ProductoCaja[]>
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
   zonas: ZonaCaja[]
@@ -196,6 +206,9 @@ type Props = {
   /** Monitoreo del admin: espejo sin controles. Observa, no cobra. */
   soloLectura?: boolean
 }
+
+/** Qué lleva cada pedido: la tarjeta lo busca por su id, sin pasarlo fila por fila. */
+const ProductosDe = createContext<Record<string, ProductoCaja[]>>({})
 
 /** Abrir el editor de un pedido desde cualquier tarjeta, sin pasar la carta fila por fila. */
 const AbrirEditor = createContext<(p: { id: string; numero: number }) => void>(() => {})
@@ -242,6 +255,7 @@ export function CajaCliente(props: Props) {
     despachos,
     sinCerrar,
     pendientesCierre,
+    productosPorPedido,
     categorias,
     productos,
     zonas,
@@ -427,6 +441,7 @@ export function CajaCliente(props: Props) {
               <Vacio texto="No hay pedidos en este filtro." Icono={IconoCheck} />
             </li>
           ) : (
+            <ProductosDe.Provider value={productosPorPedido}>
             <AbrirEditor.Provider value={setEditando}>
               {visibles.map((f, i) => (
                 <FilaPedido
@@ -438,6 +453,7 @@ export function CajaCliente(props: Props) {
                 />
               ))}
             </AbrirEditor.Provider>
+            </ProductosDe.Provider>
           )}
         </ul>
       </section>
@@ -866,12 +882,14 @@ const TINTE: Record<Destino, CSSProperties> = {
 
 function EnvolturaFila({
   borde,
+  pedidoId,
   indice,
   destino,
   resumen,
   children,
 }: {
   borde: string
+  pedidoId: string
   indice: number
   destino: Destino
   /** Una línea que resume la tarjeta cuando está plegada en el celular. */
@@ -883,6 +901,7 @@ function EnvolturaFila({
   // en pantalla ancha no hay nada que plegar y se ve completa siempre.
   const [abierta, setAbierta] = useState(false)
   const [pedido, detalle, pago, acciones, ...resto] = Children.toArray(children)
+  const productos = useContext(ProductosDe)[pedidoId] ?? []
 
   return (
     <li
@@ -916,6 +935,9 @@ function EnvolturaFila({
       ) : null}
 
       <div className={abierta ? 'contents' : 'hidden sm:contents'}>
+        {/* Qué lleva el pedido. En pantalla ancha va en su propia fila, debajo de las
+            cuatro columnas; en el celular, entre el detalle y los botones. */}
+        {productos.length > 0 ? <ListaProductos productos={productos} /> : null}
         {acciones}
         {resto}
       </div>
@@ -930,9 +952,50 @@ function EnvolturaFila({
  * fila compacta de siempre.
  */
 /** La franja de acciones: a lo ancho y separada por una raya en el celular. */
+/**
+ * Los productos del pedido dentro de la tarjeta: cantidad grande, nombre, punto con el
+ * color de la estación (como en cocina) y la nota debajo, en mayúscula para que no se pase.
+ */
+function ListaProductos({ productos }: { productos: ProductoCaja[] }) {
+  const unidades = productos.reduce((s, p) => s + p.cantidad, 0)
+  return (
+    <div className="col-span-2 rounded-lg bg-marca-superficie/70 px-3 py-2 sm:col-span-4 sm:row-start-2">
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-marca-texto-suave">
+        Lleva {unidades} {unidades === 1 ? 'producto' : 'productos'}
+      </p>
+      <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+        {productos.map((p, i) => (
+          <li key={i} className="min-w-0 text-sm leading-snug text-marca-texto">
+            <span className="flex items-baseline gap-2">
+              <span className="w-6 shrink-0 text-right font-bold tabular-nums">{p.cantidad}×</span>
+              <span className="min-w-0">
+                {p.nombre}
+                {p.estacion ? (
+                  <span
+                    role="img"
+                    aria-label={p.estacion}
+                    title={p.estacion}
+                    className="ml-1.5 inline-block size-2 -translate-y-px rounded-full align-middle"
+                    style={{ backgroundColor: p.color }}
+                  />
+                ) : null}
+              </span>
+            </span>
+            {p.notas ? (
+              <span className="ml-8 block text-xs font-semibold uppercase text-marca-acento-fuerte">
+                {p.notas}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function ZonaAcciones({ children }: { children: React.ReactNode }) {
   return (
-    <div className="col-span-2 mt-1 border-t border-marca-borde pt-3 sm:col-span-1 sm:mt-0 sm:border-0 sm:pt-0">
+    <div className="col-span-2 mt-1 border-t border-marca-borde pt-3 sm:col-span-1 sm:col-start-4 sm:row-start-1 sm:mt-0 sm:border-0 sm:pt-0">
       {children}
     </div>
   )
@@ -1140,6 +1203,7 @@ function FilaVerificar({
   return (
     <EnvolturaFila
       borde={BORDE.verificar}
+      pedidoId={t.pedido_id}
       destino={destinoDe(t.canal)}
       indice={indice}
       resumen={[t.cliente, t.zona].filter(Boolean).join(' · ') || null}
@@ -1222,6 +1286,7 @@ function FilaConfirmar({
   return (
     <EnvolturaFila
       borde={BORDE.confirmar}
+      pedidoId={c.pedido_id}
       destino={destinoDe(c.canal)}
       indice={indice}
       resumen={[c.cliente, c.zona ?? c.direccion].filter(Boolean).join(' · ') || null}
@@ -1351,6 +1416,7 @@ function FilaCobrar({
   return (
     <EnvolturaFila
       borde={BORDE.cobrar}
+      pedidoId={p.pedido_id}
       destino="local"
       indice={indice}
       resumen={[p.mesa ? 'Mesa de salón' : 'Para recoger', p.productos].filter(Boolean).join(' · ')}
@@ -1363,9 +1429,6 @@ function FilaCobrar({
       />
       <div className="col-span-2 min-w-0 sm:col-span-1">
         <p className="truncate text-marca-texto">{p.mesa ? 'Mesa de salón' : 'Para recoger'}</p>
-        {p.productos ? (
-          <p className="truncate text-xs text-marca-texto-suave">{p.productos}</p>
-        ) : null}
       </div>
       <ColPago monto={p.total} medio={medio} />
       {soloLectura ? (
@@ -1627,6 +1690,7 @@ function FilaDespachar({
   return (
     <EnvolturaFila
       borde={BORDE.despachar}
+      pedidoId={d.pedido_id}
       destino="domicilio"
       indice={indice}
       resumen={
@@ -1871,6 +1935,7 @@ function FilaSinCerrar({
   return (
     <EnvolturaFila
       borde={BORDE.sinCerrar}
+      pedidoId={x.pedido_id}
       destino={destinoDe(x.canal)}
       indice={indice}
       resumen={[x.cliente, motivo].filter(Boolean).join(' · ')}
@@ -2010,6 +2075,7 @@ function FilaEntregado({
   return (
     <EnvolturaFila
       borde={BORDE.entregado}
+      pedidoId={e.pedido_id}
       destino="domicilio"
       indice={indice}
       resumen={[e.cliente, e.zona].filter(Boolean).join(' · ') || null}

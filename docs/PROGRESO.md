@@ -1441,3 +1441,19 @@ vuelve a cocina; vaciar pide anular; el mesero anula y las comandas quedan cance
 mesero no edita ni anula domicilios; caja edita un domicilio y el pago pendiente y el
 domicilio se recalculan. Playwright a 360, 1024 y 1280 px. `tsc`, ESLint y
 `npm run build`, en verde. Migración en `supabase/historial/editar-anular-pedidos.sql`.
+
+
+## Los productos de cada pedido dentro de su tarjeta en caja
+
+Cada tarjeta de caja muestra ahora qué lleva el pedido: "Lleva N productos" y la lista con
+la cantidad, el nombre, el punto con el color de su estación (como en cocina) y la nota
+en mayúscula debajo. En pantalla ancha va en una fila propia bajo las cuatro columnas, en
+dos o tres columnas según el ancho; en el celular aparece al abrir la tarjeta con el "+",
+entre el detalle y los botones, para que la lista plegada siga corta.
+
+Se carga en una sola consulta para todos los pedidos de la lista (`productosPorPedido` en
+`cargarCaja`), juntando por producto y nota sin importar la ronda. La fila de mesa ya no
+repite los productos recortados en la columna del cliente.
+
+Verificado con Playwright a 360 y 1280 px. `tsc`, ESLint y `npm run build`, en verde. No
+requiere cambios en la base.
