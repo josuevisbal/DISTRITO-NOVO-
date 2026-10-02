@@ -1405,3 +1405,39 @@ cierre con su número, `entregar_en_local` lo cierra y el turno cierra. Playwrig
 1280 px. `tsc`, ESLint y `npm run build`, en verde. Migración en
 `supabase/historial/cierre-dice-pendientes.sql`: la pantalla ya muestra los pedidos sin
 ella, pero el botón "Ya se lo llevó" la necesita.
+
+
+## Editar y anular pedidos desde mesero y caja
+
+**Productos en la tarjeta del mesero.** La tarjeta solo listaba los platos en "Por
+confirmar" y "Por llevar". Ahora los muestra siempre, también en "En cocina" y "Cuentas
+abiertas", con su estación y su nota. La estación que no participa dice "no aplica" en vez
+de un guion suelto.
+
+**Editar.** Botón "Editar" en todas las tarjetas del mesero y en las de caja que todavía
+se pueden tocar (por cobrar, nuevas, domicilios en cocina o listos). Abre la carta con lo
+que ya tiene el pedido arriba; se sube, baja o quita cantidad, se suman productos y se
+cambia la nota. Va por `editar_pedido(pedido, items)`:
+- Los precios los pone la base (regla 3). Lo que se quita sale de la ronda más reciente.
+- Lo que se suma entra a la ronda que aún no va a cocina; si no hay, como ronda nueva con
+  su comanda, de una (regla 7: lo que escribe el equipo entra derecho).
+- Una comanda que se queda sin platos se cancela y cocina deja de verla. Si ya no queda
+  nada pendiente, el pedido pasa a "listo".
+- No se edita lo que ya tiene plata recibida, lo que va en la calle ni lo cerrado. El
+  mesero solo edita pedidos del salón. Si el pedido quedaría vacío, pide anularlo.
+- Los combos se quedan como están.
+
+**Anular.** Botón "Anular" con motivo obligatorio en todas las tarjetas del mesero y en
+las de caja (por cobrar, nuevas, domicilios en cocina, listos o en el mostrador).
+`anular_pedido` ahora también lo acepta del mesero, solo para pedidos del salón sin plata
+recibida, y **cancela las comandas**: antes un pedido anulado seguía apareciendo en cocina.
+
+**Arreglo de paso.** El disparador que pasa el pedido a "listo" y `marcar_ronda_cocina`
+ignoran las comandas canceladas; si no, un pedido editado nunca quedaba listo.
+
+Probado en Postgres local: editar baja el total y cancela la comanda de la estación que
+quedó vacía; cocina termina lo que queda y el pedido pasa a listo; sumar crea ronda nueva y
+vuelve a cocina; vaciar pide anular; el mesero anula y las comandas quedan canceladas; el
+mesero no edita ni anula domicilios; caja edita un domicilio y el pago pendiente y el
+domicilio se recalculan. Playwright a 360, 1024 y 1280 px. `tsc`, ESLint y
+`npm run build`, en verde. Migración en `supabase/historial/editar-anular-pedidos.sql`.

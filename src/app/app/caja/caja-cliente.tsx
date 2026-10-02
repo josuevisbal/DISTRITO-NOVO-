@@ -1,6 +1,6 @@
 'use client'
 
-import { Children, useEffect, useState, type CSSProperties } from 'react'
+import { Children, createContext, useContext, useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 
 import {
@@ -20,6 +20,7 @@ import {
   IconoTienda,
 } from '@/components/iconos'
 import { Modal } from '@/components/modal'
+import { EditarPedido } from '@/components/pedido/editar-pedido'
 import {
   SelectorProductos,
   totalEstimado,
@@ -196,6 +197,37 @@ type Props = {
   soloLectura?: boolean
 }
 
+/** Abrir el editor de un pedido desde cualquier tarjeta, sin pasar la carta fila por fila. */
+const AbrirEditor = createContext<(p: { id: string; numero: number }) => void>(() => {})
+
+/**
+ * Editar y anular: las acciones de ajuste de una tarjeta. Van juntas y en texto, para no
+ * competir con la acción principal (cobrar, confirmar, despachar).
+ */
+function Ajustes({
+  pedidoId,
+  numero,
+  onAnular,
+  disabled,
+}: {
+  pedidoId: string
+  numero: number
+  onAnular: () => void
+  disabled?: boolean
+}) {
+  const abrir = useContext(AbrirEditor)
+  return (
+    <span className="flex items-center gap-1">
+      <BotonTexto onClick={() => abrir({ id: pedidoId, numero })} disabled={disabled}>
+        Editar
+      </BotonTexto>
+      <BotonTexto tono="peligro" onClick={onAnular} disabled={disabled}>
+        Anular
+      </BotonTexto>
+    </span>
+  )
+}
+
 export function CajaCliente(props: Props) {
   const {
     turno,
@@ -280,6 +312,7 @@ export function CajaCliente(props: Props) {
   // La trazabilidad del turno se puede plegar, pero por defecto acompaña a la caja.
   const [verCobrados, setVerCobrados] = useState(true)
   const [tomando, setTomando] = useState(false)
+  const [editando, setEditando] = useState<{ id: string; numero: number } | null>(null)
 
   // Las cuatro que el cajero mira todo el tiempo, y el resto plegado: siete botones
   // sueltos en un celular son ruido, pero ninguno se elimina.
@@ -394,18 +427,32 @@ export function CajaCliente(props: Props) {
               <Vacio texto="No hay pedidos en este filtro." Icono={IconoCheck} />
             </li>
           ) : (
-            visibles.map((f, i) => (
-              <FilaPedido
-                key={f.key}
-                fila={f}
-                ahora={ahora}
-                indice={i}
-                soloLectura={soloLectura}
-              />
-            ))
+            <AbrirEditor.Provider value={setEditando}>
+              {visibles.map((f, i) => (
+                <FilaPedido
+                  key={f.key}
+                  fila={f}
+                  ahora={ahora}
+                  indice={i}
+                  soloLectura={soloLectura}
+                />
+              ))}
+            </AbrirEditor.Provider>
           )}
         </ul>
       </section>
+
+      {editando ? (
+        <Modal titulo={`Editar · #${editando.numero}`} onCerrar={() => setEditando(null)}>
+          <EditarPedido
+            pedidoId={editando.id}
+            numero={editando.numero}
+            categorias={categorias}
+            productos={productos}
+            onListo={() => setEditando(null)}
+          />
+        </Modal>
+      ) : null}
 
       {tomando ? (
         <Modal titulo="Tomar pedido" onCerrar={() => setTomando(false)}>
@@ -1214,9 +1261,12 @@ function FilaConfirmar({
             </Boton>
           }
           secundaria={
-            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
-              Anular
-            </BotonTexto>
+            <Ajustes
+              pedidoId={c.pedido_id}
+              numero={c.numero}
+              onAnular={() => setAnulando(true)}
+              disabled={ocupado}
+            />
           }
         />
       )}
@@ -1245,7 +1295,20 @@ function FilaCobrar({
   })
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [anulando, setAnulando] = useState(false)
   const { mostrar } = useToast()
+
+  async function anular(motivo: string) {
+    setOcupado(true)
+    setError(null)
+    const r = await anularPedido(p.pedido_id, motivo)
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+    } else {
+      mostrar(`Pedido #${p.numero} anulado`)
+    }
+  }
 
   const valorPropina = Number(propina) || 0
   const aCobrar = p.total + valorPropina
@@ -1307,6 +1370,15 @@ function FilaCobrar({
       <ColPago monto={p.total} medio={medio} />
       {soloLectura ? (
         <EstadoSoloLectura texto="Por cobrar" />
+      ) : anulando ? (
+        <ZonaAcciones>
+          <MotivoInline
+            marcador="Motivo de la anulación"
+            disabled={ocupado}
+            onConfirmar={anular}
+            onCancelar={() => setAnulando(false)}
+          />
+        </ZonaAcciones>
       ) : (
         <Acciones
           /* "La cuenta, por favor": se imprime y el cliente la lleva a la caja. */
@@ -1320,6 +1392,14 @@ function FilaCobrar({
             >
               Cobrar {formatearPesos(p.total)}
             </Boton>
+          }
+          secundaria={
+            <Ajustes
+              pedidoId={p.pedido_id}
+              numero={p.numero}
+              onAnular={() => setAnulando(true)}
+              disabled={ocupado}
+            />
           }
         />
       )}
@@ -1527,6 +1607,7 @@ function FilaDespachar({
 }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [anulando, setAnulando] = useState(false)
   const { mostrar } = useToast()
 
   const enMostrador = d.estado === 'en_despacho' && d.domiciliario_id === null
@@ -1615,6 +1696,17 @@ function FilaDespachar({
               : (d.domiciliario_nombre ?? (enMostrador ? 'En el mostrador' : 'Sin despachar'))
           }
         />
+      ) : anulando ? (
+        <ZonaAcciones>
+          <MotivoInline
+            marcador="Motivo de la anulación"
+            disabled={ocupado}
+            onConfirmar={(m) =>
+              correr(() => anularPedido(d.pedido_id, m), `Pedido #${d.numero} anulado`)
+            }
+            onCancelar={() => setAnulando(false)}
+          />
+        </ZonaAcciones>
       ) : d.estado === 'en_cocina' ? (
         /* Entró derecho a cocina (domicilio en efectivo). Caja ya puede imprimir la cuenta
            para tenerla lista cuando salga. */
@@ -1624,6 +1716,14 @@ function FilaDespachar({
             <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm text-marca-texto-suave sm:bg-transparent">
               Preparándose en cocina
             </span>
+          }
+          secundaria={
+            <Ajustes
+              pedidoId={d.pedido_id}
+              numero={d.numero}
+              onAnular={() => setAnulando(true)}
+              disabled={ocupado}
+            />
           }
         />
       ) : d.estado === 'en_camino' ? (
@@ -1654,6 +1754,14 @@ function FilaDespachar({
               {ocupado ? 'Soltando…' : 'Listo, a la calle'}
             </Boton>
           }
+          secundaria={
+            <Ajustes
+              pedidoId={d.pedido_id}
+              numero={d.numero}
+              onAnular={() => setAnulando(true)}
+              disabled={ocupado}
+            />
+          }
         />
       ) : enMostrador ? (
         <Acciones
@@ -1662,6 +1770,12 @@ function FilaDespachar({
             <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm text-marca-texto-suave sm:bg-transparent">
               Esperando domiciliario
             </span>
+          }
+          /* Ya salió de cocina: no se edita, pero si el cliente cancela se anula. */
+          secundaria={
+            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
+              Anular
+            </BotonTexto>
           }
         />
       ) : (

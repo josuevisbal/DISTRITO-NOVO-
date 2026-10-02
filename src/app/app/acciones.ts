@@ -116,6 +116,78 @@ export async function agregarACuenta(
 }
 
 /**
+ * Lo que el pedido tiene hoy, en el formato del selector, para editarlo. Junta las rondas
+ * por producto (el equipo edita "cuántos", no en qué ronda iba). Los combos no se editan
+ * aquí: se quedan como están.
+ */
+export async function itemsParaEditar(
+  pedidoId: string,
+): Promise<{ ok: true; items: ItemInterno[]; combos: number } | { ok: false; error: string }> {
+  await exigirRol('mesero', 'cajero', 'admin')
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase
+    .from('pedido_items')
+    .select('producto_id, cantidad, notas, promocion_id')
+    .eq('pedido_id', pedidoId)
+    .order('ronda')
+  if (error) return { ok: false, error: error.message }
+
+  const porProducto = new Map<string, ItemInterno>()
+  let combos = 0
+  for (const i of data ?? []) {
+    if (i.promocion_id) {
+      combos += 1
+      continue
+    }
+    const previo = porProducto.get(i.producto_id)
+    const notas = [previo?.notas, i.notas ?? undefined]
+      .filter((n): n is string => Boolean(n && n.trim()))
+      .filter((n, k, arr) => arr.indexOf(n) === k)
+      .join(' / ')
+    porProducto.set(i.producto_id, {
+      producto_id: i.producto_id,
+      cantidad: (previo?.cantidad ?? 0) + i.cantidad,
+      notas: notas || undefined,
+    })
+  }
+  return { ok: true, items: [...porProducto.values()], combos }
+}
+
+/**
+ * Edita un pedido: cantidades, productos y notas. Los precios los pone la base, y cocina
+ * ve el cambio de una (lo que se sumó le llega como comanda nueva).
+ */
+export async function editarPedido(
+  pedidoId: string,
+  items: ItemInterno[],
+): Promise<ResultadoPedidoInterno> {
+  await exigirRol('mesero', 'cajero', 'admin')
+  const supabase = await crearClienteServidor()
+  const { data, error } = await supabase.rpc('editar_pedido', {
+    p_pedido: pedidoId,
+    p_items: limpiar(items.filter((i) => i.cantidad > 0)),
+  })
+  if (error) return { ok: false, error: error.message }
+  const r = data as unknown as { numero: number; total: number }
+  revalidatePath('/app/mesero')
+  revalidatePath('/app/caja')
+  revalidatePath('/app/cocina', 'layout')
+  return { ok: true, numero: r.numero, total: r.total }
+}
+
+/** Anula un pedido con su motivo. El mesero solo los del salón sin plata recibida. */
+export async function anularPedidoEquipo(pedidoId: string, motivo: string): Promise<Resultado> {
+  await exigirRol('mesero', 'cajero', 'admin')
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase.rpc('anular_pedido', { p_pedido: pedidoId, p_motivo: motivo })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/mesero')
+  revalidatePath('/app/caja')
+  revalidatePath('/app/cocina', 'layout')
+  return { ok: true }
+}
+
+/**
  * Confirma un pedido de mesa: manda las comandas a todas las estaciones de una. La RLS y
  * `confirmar_pedido()` validan que el pedido sea del mismo restaurante.
  */

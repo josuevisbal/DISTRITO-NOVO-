@@ -11,6 +11,7 @@ import {
   IconoSilla,
 } from '@/components/iconos'
 import { Modal } from '@/components/modal'
+import { AnularConMotivo, EditarPedido } from '@/components/pedido/editar-pedido'
 import {
   SelectorProductos,
   totalEstimado,
@@ -27,6 +28,7 @@ import { useRefrescarEnCambios } from '@/lib/realtime'
 import { haceCuanto } from '@/lib/tiempo'
 import {
   agregarACuenta,
+  anularPedidoEquipo,
   confirmarPedido,
   crearPedidoInterno,
   marcarServido,
@@ -74,6 +76,7 @@ export function MeseroCliente({
   const [pestana, setPestana] = useState<Pestana>('confirmar')
   const [tomando, setTomando] = useState(false)
   const [cuenta, setCuenta] = useState<PedidoMesa | null>(null)
+  const [editando, setEditando] = useState<PedidoMesa | null>(null)
 
   const pestanas: { valor: Pestana; etiqueta: string; n: number }[] = [
     { valor: 'confirmar', etiqueta: 'Por confirmar', n: porConfirmar.length },
@@ -168,6 +171,7 @@ export function MeseroCliente({
               indice={i}
               soloLectura={soloLectura}
               onAgregar={() => setCuenta(p)}
+              onEditar={() => setEditando(p)}
               alAvisar={avisoListos.listo ? undefined : avisoListos.activar}
             />
           ))
@@ -182,6 +186,23 @@ export function MeseroCliente({
             categorias={categorias}
             productos={productos}
             onListo={() => setTomando(false)}
+          />
+        </Modal>
+      ) : null}
+
+      {editando ? (
+        <Modal
+          titulo={
+            editando.mesa ? `Editar · Mesa ${editando.mesa}` : `Editar · #${editando.numero}`
+          }
+          onCerrar={() => setEditando(null)}
+        >
+          <EditarPedido
+            pedidoId={editando.id}
+            numero={editando.numero}
+            categorias={categorias}
+            productos={productos}
+            onListo={() => setEditando(null)}
           />
         </Modal>
       ) : null}
@@ -220,6 +241,7 @@ function Tarjeta({
   indice,
   soloLectura,
   onAgregar,
+  onEditar,
   alAvisar,
 }: {
   pedido: PedidoMesa
@@ -228,11 +250,13 @@ function Tarjeta({
   indice: number
   soloLectura: boolean
   onAgregar: () => void
+  onEditar: () => void
   /** Si el sonido aún no está desbloqueado, cualquier toque en la tarjeta lo activa. */
   alAvisar?: () => void
 }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [anulando, setAnulando] = useState(false)
   const { mostrar } = useToast()
 
   const borde =
@@ -307,7 +331,8 @@ function Tarjeta({
         </div>
       ) : null}
 
-      {enConfirmar || vista === 'listos' ? (
+      {/* Qué pidió la mesa, siempre a la vista. En "por confirmar" solo lo nuevo. */}
+      {(enConfirmar ? porMandar : pedido.items).length > 0 ? (
         <ul className="mt-3 space-y-1.5 border-t border-marca-borde pt-3">
           {(enConfirmar ? porMandar : pedido.items).map((item, i) => (
             <li key={i} className="text-sm text-marca-texto">
@@ -332,19 +357,47 @@ function Tarjeta({
         </p>
       ) : null}
 
-      {soloLectura ? null : (
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          {pedido.estado !== 'pendiente' ? (
-            <Boton variante="secundario" className="px-4" onClick={onAgregar} disabled={ocupado}>
-              <IconoMas className="mr-1 inline size-4" />
-              Agregar productos
+      {soloLectura ? null : anulando ? (
+        <div className="mt-4">
+          <AnularConMotivo
+            disabled={ocupado}
+            onConfirmar={(motivo) =>
+              ejecutar(
+                () => anularPedidoEquipo(pedido.id, motivo),
+                `Pedido #${pedido.numero} anulado`,
+              )
+            }
+            onCancelar={() => setAnulando(false)}
+          />
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          {/* Acciones de ajuste: editar, sumar y anular. Van en fila aparte para que la
+              principal (confirmar o llevar) quede grande y sola. */}
+          <div className="order-2 flex flex-wrap items-center gap-2 sm:order-none">
+            <Boton variante="secundario" className="px-4" onClick={onEditar} disabled={ocupado}>
+              Editar
             </Boton>
-          ) : null}
+            {pedido.estado !== 'pendiente' ? (
+              <Boton variante="secundario" className="px-4" onClick={onAgregar} disabled={ocupado}>
+                <IconoMas className="mr-1 inline size-4" />
+                Agregar
+              </Boton>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setAnulando(true)}
+              disabled={ocupado}
+              className="ml-auto min-h-11 rounded-lg px-3 text-sm font-medium text-[#9A3320] disabled:opacity-50 sm:ml-0"
+            >
+              Anular
+            </button>
+          </div>
 
           {pedido.estado === 'pendiente' || pedido.rondaPendiente ? (
             <Boton
               variante="exito"
-              className="flex min-w-48 items-center justify-center gap-2 px-4"
+              className="order-1 flex w-full items-center justify-center gap-2 px-4 sm:order-none sm:w-auto sm:min-w-48"
               disabled={ocupado}
               onClick={() =>
                 ejecutar(
@@ -365,7 +418,7 @@ function Tarjeta({
           {pedido.estado === 'listo' && !pedido.servido ? (
             <Boton
               variante="exito"
-              className="flex min-w-48 items-center justify-center gap-2 px-4"
+              className="order-1 flex w-full items-center justify-center gap-2 px-4 sm:order-none sm:w-auto sm:min-w-48"
               disabled={ocupado}
               onClick={() =>
                 ejecutar(
@@ -388,8 +441,8 @@ function Tarjeta({
 function ChipEstacion({ barra }: { barra: BarraEstacion }) {
   if (barra.estado === null) {
     return (
-      <span className="pastilla inline-flex min-h-8 items-center rounded-lg border border-marca-borde px-2 text-xs text-marca-texto-suave">
-        —
+      <span className="pastilla inline-flex min-h-8 items-center rounded-lg border border-dashed border-marca-borde px-2 text-xs text-marca-texto-suave">
+        {barra.nombre} · no aplica
       </span>
     )
   }

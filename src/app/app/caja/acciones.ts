@@ -149,6 +149,8 @@ export async function anularPedido(pedidoId: string, motivo: string): Promise<Re
   const { error } = await supabase.rpc('anular_pedido', { p_pedido: pedidoId, p_motivo: motivo })
   if (error) return { ok: false, error: error.message }
   revalidatePath('/app/caja')
+  revalidatePath('/app/cocina', 'layout')
+  revalidatePath('/app/mesero')
   revalidatePath('/app/admin/caja')
   return { ok: true }
 }

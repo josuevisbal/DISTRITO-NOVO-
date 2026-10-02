@@ -30,11 +30,17 @@ export function SelectorProductos({
   productos,
   renglones,
   onCambiar,
+  primeroLosDelPedido = false,
 }: {
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
   renglones: Renglon[]
   onCambiar: (renglones: Renglon[]) => void
+  /**
+   * Al editar un pedido, lo que ya tenía va arriba de la lista. Se fija al abrir, para que
+   * los productos no salten de lugar mientras se ajustan las cantidades.
+   */
+  primeroLosDelPedido?: boolean
 }) {
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState<string>('todas')
@@ -45,12 +51,18 @@ export function SelectorProductos({
     [renglones],
   )
 
+  const [delPedido] = useState(
+    () => new Set(primeroLosDelPedido ? renglones.map((r) => r.producto_id) : []),
+  )
+
   const texto = busqueda.trim().toLowerCase()
-  const visibles = productos.filter((p) => {
-    if (categoria !== 'todas' && p.categoria_id !== categoria) return false
-    if (!texto) return true
-    return p.nombre.toLowerCase().includes(texto)
-  })
+  const visibles = productos
+    .filter((p) => {
+      if (categoria !== 'todas' && p.categoria_id !== categoria) return false
+      if (!texto) return true
+      return p.nombre.toLowerCase().includes(texto)
+    })
+    .sort((a, b) => Number(delPedido.has(b.id)) - Number(delPedido.has(a.id)))
 
   function ajustar(producto_id: string, delta: number) {
     const actual = porId.get(producto_id)

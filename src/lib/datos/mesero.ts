@@ -109,6 +109,9 @@ export async function cargarMesero(restauranteId: string): Promise<DatosMesero> 
     // más atrasada, porque el pedido no está listo hasta que salgan todas.
     const porEstacion = new Map<string, EstadoComandaMesa>()
     for (const c of p.comandas ?? []) {
+      // Una comanda cancelada (se editó el pedido y esa estación se quedó sin platos)
+      // ya no cuenta: la estación no tiene nada que hacer.
+      if (c.estado === 'cancelada') continue
       const previo = porEstacion.get(c.estacion_id)
       if (previo === undefined || (previo === 'listo' && c.estado !== 'listo')) {
         porEstacion.set(c.estacion_id, c.estado)
