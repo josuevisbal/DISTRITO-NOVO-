@@ -913,7 +913,9 @@ begin
   v_res := crear_pedido(v_slug, p_payload);
   v_id := (v_res->>'id')::uuid;
 
-  if p_confirmar then
+  -- El domicilio en efectivo ya sale de `crear_pedido` derecho a cocina: confirmarlo otra
+  -- vez fallaría con "no hay nada nuevo por confirmar".
+  if p_confirmar and coalesce(v_res->>'estado', '') <> 'en_cocina' then
     perform confirmar_pedido(v_id);
     v_res := jsonb_set(v_res, '{estado}', '"en_cocina"'::jsonb);
   end if;

@@ -1457,3 +1457,16 @@ repite los productos recortados en la columna del cliente.
 
 Verificado con Playwright a 360 y 1280 px. `tsc`, ESLint y `npm run build`, en verde. No
 requiere cambios en la base.
+
+
+## Caja vuelve a tomar domicilios en efectivo
+
+Al tomar un domicilio en efectivo desde "Tomar pedido", caja recibía "No hay nada nuevo
+por confirmar en esta cuenta" y el pedido no entraba. Desde que el domicilio en efectivo
+entra derecho a cocina, `crear_pedido` ya lo confirma; `crear_pedido_interno` lo volvía a
+confirmar y `confirmar_pedido` fallaba porque ya no había nada nuevo. Ahora
+`crear_pedido_interno` solo confirma lo que no salió ya a cocina.
+
+Probado en Postgres local: caja toma un domicilio en efectivo (queda en cocina con su
+comanda) y un pedido para recoger en efectivo (se confirma como siempre). Migración en
+`supabase/historial/tomar-domicilio-efectivo.sql`.
