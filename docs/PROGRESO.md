@@ -1492,3 +1492,12 @@ trazabilidad, pero fuera de toda suma. Probado en Postgres local: una entrega si
 anulada deja sus pagos en `rechazado` y no bloquea el cierre; una transferencia verificada
 de un pedido anulado no entra al cuadre. Playwright a 360 px. Migración en
 `supabase/historial/anulados-fuera-de-cuentas.sql` (sin comentarios, para pegar directo).
+
+
+## Anular sin escribir motivo
+
+A pedido del cliente, anular ya no pide motivo. Al tocar "Anular" la tarjeta pregunta
+"¿Anular este pedido?" con "Sí, anular" y "No", para que un toque de más no anule nada.
+En el pedido queda anotado "Sin motivo" (la base sigue guardando quién lo anuló y cuándo).
+Aplica en todas las tarjetas de caja, en el efectivo por recibir y en el mesero. No
+requiere cambios en la base.

@@ -2426,39 +2426,38 @@ function ColCliente({
   )
 }
 
+/**
+ * Confirmar la anulación en línea, sin pedir motivo: un toque de más no anula nada, pero
+ * tampoco hay que escribir. En el pedido queda anotado "Sin motivo".
+ */
 function MotivoInline({
-  marcador,
   disabled,
   onConfirmar,
   onCancelar,
 }: {
-  marcador: string
+  marcador?: string
   disabled: boolean
   onConfirmar: (motivo: string) => void
   onCancelar: () => void
 }) {
-  const [motivo, setMotivo] = useState('')
   return (
-    <div className="flex w-full items-center gap-1.5 sm:max-w-xs">
-      <input
-        autoFocus
-        value={motivo}
-        onChange={(e) => setMotivo(e.target.value)}
-        placeholder={marcador}
-        className="min-h-11 flex-1 rounded-lg border border-marca-borde bg-marca-fondo px-2 text-sm text-marca-texto"
-      />
+    <div className="flex w-full items-center justify-end gap-1.5">
+      <span className="mr-auto text-sm font-medium text-marca-texto sm:mr-1">
+        ¿Anular este pedido?
+      </span>
       <button
         type="button"
-        disabled={disabled || motivo.trim() === ''}
-        onClick={() => onConfirmar(motivo.trim())}
-        className="min-h-11 rounded-lg border border-marca-acento px-3 text-sm font-medium text-marca-acento-fuerte disabled:opacity-50"
+        autoFocus
+        disabled={disabled}
+        onClick={() => onConfirmar('Sin motivo')}
+        className="min-h-11 shrink-0 rounded-lg border border-[#9A3320] px-3 text-sm font-semibold text-[#9A3320] disabled:opacity-50"
       >
-        Anular
+        {disabled ? 'Anulando…' : 'Sí, anular'}
       </button>
       <button
         type="button"
         onClick={onCancelar}
-        className="min-h-11 rounded-lg px-2 text-sm text-marca-texto-suave"
+        className="min-h-11 shrink-0 rounded-lg px-3 text-sm text-marca-texto-suave"
       >
         No
       </button>
