@@ -152,13 +152,15 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     const { data: movs } = await supabase
       .from('caja_movimientos')
       .select(
-        'id, medio, monto, tipo, creado_en, pedido_id, pedidos(numero, canal, cliente_nombre, mesas(numero))',
+        'id, medio, monto, tipo, creado_en, pedido_id, pedidos(numero, canal, estado, cliente_nombre, mesas(numero))',
       )
       .eq('turno_id', turno.id)
       .in('tipo', ['ingreso', 'legalizacion'])
       .order('creado_en', { ascending: false })
     for (const m of movs ?? []) {
       if (!m.medio) continue
+      // Lo de un pedido anulado no entra a las cuentas del turno.
+      if (m.pedidos?.estado === 'anulado') continue
       // La llave para no contar dos veces: el pedido si lo hay, si no el movimiento.
       const llave = m.pedido_id ?? m.id
       const grupo = grupoDe(m.pedidos?.canal ?? null)
@@ -322,7 +324,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
   const porLegalizarMapa = new Map<string, PorLegalizar>()
   for (const p of entregados) {
     if (!p.domiciliario_id || p.efectivo === 0) continue
-    const renglon = { numero: p.numero, total: p.efectivo, cliente: p.cliente }
+    const renglon = { pedido_id: p.pedido_id, numero: p.numero, total: p.efectivo, cliente: p.cliente }
     const previo = porLegalizarMapa.get(p.domiciliario_id)
     if (previo) {
       previo.total += p.efectivo

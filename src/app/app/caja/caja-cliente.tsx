@@ -94,7 +94,7 @@ export type PorLegalizar = {
   total: number
   pedidos: number
   /** Qué pedidos componen esa plata: el domiciliario y caja cuentan sobre lo mismo. */
-  detalle: { numero: number; total: number; cliente: string | null }[]
+  detalle: { pedido_id: string; numero: number; total: number; cliente: string | null }[]
 }
 /** Una entrega ya hecha cuya plata todavía no está en caja. */
 export type Entregado = {
@@ -2055,7 +2055,20 @@ function FilaEntregado({
 }) {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [anulando, setAnulando] = useState(false)
   const { mostrar } = useToast()
+
+  async function anular(motivo: string) {
+    setOcupado(true)
+    setError(null)
+    const r = await anularPedido(e.pedido_id, motivo)
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+      return
+    }
+    mostrar(`Pedido #${e.numero} anulado: ya no sale en las cuentas`)
+  }
 
   const falta = e.efectivo + e.transferencia
   const repartido = e.efectivo > 0 && e.transferencia > 0
@@ -2128,6 +2141,16 @@ function FilaEntregado({
 
       {soloLectura ? (
         <EstadoSoloLectura texto={e.transferencia > 0 ? 'Por verificar' : 'Por recibir'} />
+      ) : anulando ? (
+        <ZonaAcciones>
+          <MotivoInline
+            marcador="Motivo de la anulación"
+            disabled={ocupado}
+            onConfirmar={anular}
+            onCancelar={() => setAnulando(false)}
+          />
+          {error ? <Error texto={error} /> : null}
+        </ZonaAcciones>
       ) : e.transferencia > 0 ? (
         <ZonaAcciones>
           <div className="flex flex-col gap-1.5 sm:items-end">
@@ -2150,10 +2173,28 @@ function FilaEntregado({
               </p>
             ) : null}
             {error ? <Error texto={error} /> : null}
+            <span className="self-end">
+              <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
+                Anular
+              </BotonTexto>
+            </span>
           </div>
         </ZonaAcciones>
       ) : (
-        <EstadoSoloLectura texto="Se recibe al cierre" />
+        <Acciones
+          principal={
+            <span className="flex min-h-11 items-center justify-center rounded-lg bg-marca-superficie-tenue px-3 text-sm font-semibold text-marca-texto-suave sm:bg-transparent">
+              Se recibe al cierre
+            </span>
+          }
+          /* Un pedido de prueba o que el cliente no recibió: se anula y deja de salir en
+             el efectivo por recibir y en las cuentas del turno. */
+          secundaria={
+            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
+              Anular
+            </BotonTexto>
+          }
+        />
       )}
     </EnvolturaFila>
   )
@@ -2425,6 +2466,70 @@ function MotivoInline({
   )
 }
 
+/**
+ * Un pedido dentro del efectivo por recibir. Si es de prueba o el cliente no lo recibió,
+ * se anula desde aquí mismo y sale de la suma (y de las cuentas del turno).
+ */
+function RenglonLegalizar({
+  d,
+  soloLectura,
+}: {
+  d: PorLegalizar['detalle'][number]
+  soloLectura: boolean
+}) {
+  const [anulando, setAnulando] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { mostrar } = useToast()
+
+  async function anular(motivo: string) {
+    setOcupado(true)
+    setError(null)
+    const r = await anularPedido(d.pedido_id, motivo)
+    if (!r.ok) {
+      setError(r.error)
+      setOcupado(false)
+      return
+    }
+    mostrar(`Pedido #${d.numero} anulado: ya no sale en las cuentas`)
+  }
+
+  return (
+    <li className="py-1.5 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 truncate text-marca-texto">
+          <span className="font-semibold tabular-nums">#{d.numero}</span>
+          {d.cliente ? <span className="text-marca-texto-suave"> · {d.cliente}</span> : null}
+        </span>
+        <span className="flex shrink-0 items-center gap-1">
+          <span className="tabular-nums text-marca-texto">{formatearPesos(d.total)}</span>
+          {soloLectura || anulando ? null : (
+            <button
+              type="button"
+              onClick={() => setAnulando(true)}
+              aria-label={`Anular el pedido #${d.numero}`}
+              className="min-h-11 rounded-lg px-2 text-xs font-medium text-[#9A3320]"
+            >
+              Anular
+            </button>
+          )}
+        </span>
+      </div>
+      {anulando ? (
+        <div className="mt-1.5">
+          <MotivoInline
+            marcador="Motivo de la anulación"
+            disabled={ocupado}
+            onConfirmar={anular}
+            onCancelar={() => setAnulando(false)}
+          />
+        </div>
+      ) : null}
+      {error ? <Error texto={error} /> : null}
+    </li>
+  )
+}
+
 function TarjetaLegalizar({
   liquidacion,
   soloLectura = false,
@@ -2470,15 +2575,7 @@ function TarjetaLegalizar({
           falta plata se ve enseguida cuál pedido es. */}
       <ul className="mt-3 divide-y divide-marca-borde border-t border-marca-borde">
         {liquidacion.detalle.map((d) => (
-          <li key={d.numero} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-            <span className="min-w-0 truncate text-marca-texto">
-              <span className="font-semibold tabular-nums">#{d.numero}</span>
-              {d.cliente ? <span className="text-marca-texto-suave"> · {d.cliente}</span> : null}
-            </span>
-            <span className="shrink-0 tabular-nums text-marca-texto">
-              {formatearPesos(d.total)}
-            </span>
-          </li>
+          <RenglonLegalizar key={d.pedido_id} d={d} soloLectura={soloLectura} />
         ))}
       </ul>
 

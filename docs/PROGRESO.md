@@ -1470,3 +1470,25 @@ confirmar y `confirmar_pedido` fallaba porque ya no había nada nuevo. Ahora
 Probado en Postgres local: caja toma un domicilio en efectivo (queda en cocina con su
 comanda) y un pedido para recoger en efectivo (se confirma como siempre). Migración en
 `supabase/historial/tomar-domicilio-efectivo.sql`.
+
+
+## Lo anulado ya no sale en las cuentas
+
+El cliente pidió que los pedidos que cancela no le aparezcan cuando hace cuentas. En la caja
+del admin se veían "32 entregas en efectivo por recibir" a nombre de Admin, sin forma de
+quitarlas: las entregas sin cobrar no tenían botón de anular.
+
+- **Anular entregas sin cobrar.** La tarjeta "entregado" tiene "Anular" (con motivo), y en
+  "Efectivo que traen los domiciliarios" cada renglón también. Al anular, el pedido sale de
+  la suma "Recibí $…" y deja de impedir el cierre del turno.
+- **`anular_pedido`** pasa los pagos pendientes del pedido a `rechazado`: esa plata ya no
+  se espera ni se cuenta.
+- **Las cuentas del turno ignoran lo anulado.** El resumen de ventas, "Cobros del turno",
+  el cuadre de `cerrar_turno` y `propinas_por_dia` excluyen los movimientos de pedidos
+  anulados. Los reportes del admin ya lo hacían.
+
+No se borra nada de la base: anular deja el pedido con su motivo y quién lo anuló, para la
+trazabilidad, pero fuera de toda suma. Probado en Postgres local: una entrega sin cobrar
+anulada deja sus pagos en `rechazado` y no bloquea el cierre; una transferencia verificada
+de un pedido anulado no entra al cuadre. Playwright a 360 px. Migración en
+`supabase/historial/anulados-fuera-de-cuentas.sql` (sin comentarios, para pegar directo).

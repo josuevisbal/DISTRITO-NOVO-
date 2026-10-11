@@ -1294,6 +1294,10 @@ begin
   update pedidos set estado = 'anulado', motivo_anulacion = p_motivo, anulado_por = auth.uid()
    where id = p_pedido;
 
+  -- La plata que se esperaba ya no viene: nadie la cobra ni la cuenta.
+  update pagos set estado = 'rechazado', verificado_por = auth.uid(), verificado_en = now()
+   where pedido_id = p_pedido and estado = 'pendiente';
+
   -- Cocina deja de verlo: lo que no se ha terminado se cancela.
   update comandas set estado = 'cancelada'
    where pedido_id = p_pedido and estado in ('pendiente','preparando');
@@ -1494,20 +1498,26 @@ begin
     raise exception 'Hay % entrega(s) sin cobrar: %. Recibe el efectivo y verifica las transferencias antes de cerrar la caja.', v_por_legalizar, v_lista;
   end if;
 
-  select coalesce(sum(monto) filter (where tipo in ('ingreso','legalizacion') and medio = 'efectivo'),0),
-         coalesce(sum(monto) filter (where tipo = 'egreso'),0),
-         coalesce(sum(propina) filter (where tipo in ('ingreso','legalizacion')),0)
+  -- Lo de un pedido anulado no cuenta: el cliente pidió que lo cancelado no salga en
+  -- las cuentas del turno.
+  select coalesce(sum(m.monto) filter (where m.tipo in ('ingreso','legalizacion') and m.medio = 'efectivo'),0),
+         coalesce(sum(m.monto) filter (where m.tipo = 'egreso'),0),
+         coalesce(sum(m.propina) filter (where m.tipo in ('ingreso','legalizacion')),0)
     into v_efectivo, v_egreso, v_propinas
-    from caja_movimientos where turno_id = v_turno;
+    from caja_movimientos m
+    left join pedidos p on p.id = m.pedido_id
+   where m.turno_id = v_turno and (p.id is null or p.estado <> 'anulado');
 
   v_esperado := v_base + v_efectivo - v_egreso;
   v_dif := p_efectivo_contado - v_esperado;
 
   select coalesce(jsonb_object_agg(medio, total),'{}'::jsonb) into v_arqueo from (
-    select medio::text as medio, sum(monto) as total
-    from caja_movimientos
-    where turno_id = v_turno and tipo in ('ingreso','legalizacion')
-    group by medio
+    select m.medio::text as medio, sum(m.monto) as total
+    from caja_movimientos m
+    left join pedidos p on p.id = m.pedido_id
+    where m.turno_id = v_turno and m.tipo in ('ingreso','legalizacion')
+      and (p.id is null or p.estado <> 'anulado')
+    group by m.medio
   ) s;
 
   update caja_turnos
@@ -1834,8 +1844,10 @@ begin
     ) x
     from caja_movimientos m
     join caja_turnos t on t.id = m.turno_id
+    left join pedidos p on p.id = m.pedido_id
     where t.restaurante_id = v_rest
       and m.tipo in ('ingreso','legalizacion')
+      and (p.id is null or p.estado <> 'anulado')
       and m.creado_en >= p_desde and m.creado_en < p_hasta
     group by (m.creado_en at time zone p_zona)::date
   ) s;
