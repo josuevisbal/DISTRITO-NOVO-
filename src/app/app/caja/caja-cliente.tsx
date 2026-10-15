@@ -37,7 +37,7 @@ import { MARCA } from '@/config/tema'
 import { crearPedidoInterno } from '@/app/app/acciones'
 import type { ArqueoMedio, Cobrado, GrupoVenta, ResumenVentas, ZonaCaja } from '@/lib/datos/caja'
 import { useAviso } from '@/lib/aviso'
-import { formatearPesos } from '@/lib/formato'
+import { formatearPesos, propinaSugerida } from '@/lib/formato'
 import { useConteo } from '@/lib/use-conteo'
 import { useRefrescarEnCambios } from '@/lib/realtime'
 import { haceCuanto } from '@/lib/tiempo'
@@ -1621,7 +1621,7 @@ function Propina({
   onCambiar: (v: string) => void
   base: number
 }) {
-  const sugerida = Math.round((base * 0.1) / 100) * 100
+  const sugerida = propinaSugerida(base)
   const puesta = String(sugerida) === valor
 
   return (

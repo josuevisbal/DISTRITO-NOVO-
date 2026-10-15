@@ -1529,3 +1529,13 @@ Tabla `gastos` con RLS solo para admin; `resumen_rentabilidad(desde, hasta, zona
 cuentas en la base y excluye lo anulado. Probado en Postgres local (cortes de la 1 a. m. y
 de las 6 a. m., cajero sin acceso a gastos) y con Playwright a 360 y 1280 px. Migración en
 `supabase/historial/jornada-y-gastos.sql` (sin comentarios, se puede correr dos veces).
+
+
+## Propina sugerida en la cuenta impresa
+
+La cuenta del punto físico que todavía no se ha cobrado (mesa, mostrador, para recoger)
+trae, debajo del TOTAL, "Propina sugerida (10 %)", el "Total con propina" y la nota "La
+propina es voluntaria". El TOTAL no cambia: la propina sigue yendo aparte y solo se cobra
+si caja la digita. No sale en domicilios ni en la factura ya cobrada (ahí va la propina
+real, si la hubo). El 10 % redondeado a la centena vive en `propinaSugerida()` y es el
+mismo del atajo "10 %" de caja. No requiere cambios en la base.

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 
 import { LogoMarca } from '@/components/logo-marca'
 import type { Factura } from '@/lib/datos/factura'
-import { formatearPesos } from '@/lib/formato'
+import { formatearPesos, propinaSugerida } from '@/lib/formato'
 
 const NOMBRE_MEDIO: Record<string, string> = {
   efectivo: 'Efectivo',
@@ -46,6 +46,13 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
     minute: '2-digit',
     hour12: true,
   })
+
+  // En la cuenta del punto físico que aún no se cobra va la propina sugerida, aparte del
+  // total: el cliente decide. En domicilios no se sugiere.
+  const sugerida =
+    !factura.pagado && factura.canal !== 'domicilio' && factura.propina === 0
+      ? propinaSugerida(factura.total)
+      : 0
 
   const origen = factura.mesa
     ? `Mesa ${factura.mesa}`
@@ -147,6 +154,15 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
             <dt>TOTAL</dt>
             <dd className="tabular-nums">{formatearPesos(factura.total + factura.propina)}</dd>
           </div>
+          {sugerida > 0 ? (
+            <div className="mt-2 space-y-1 border-t border-dashed border-[#bbb] pt-2">
+              <Renglon termino="Propina sugerida (10 %)" valor={formatearPesos(sugerida)} />
+              <div className="flex justify-between font-semibold">
+                <dt>Total con propina</dt>
+                <dd className="tabular-nums">{formatearPesos(factura.total + sugerida)}</dd>
+              </div>
+            </div>
+          ) : null}
           {factura.medio_pago ? (
             <Renglon
               termino="Pago"
@@ -154,6 +170,9 @@ export function FacturaCliente({ factura, logo }: { factura: Factura; logo: stri
             />
           ) : null}
         </dl>
+        {sugerida > 0 ? (
+          <p className="mt-1 text-[0.85em] leading-snug">La propina es voluntaria.</p>
+        ) : null}
 
         {/* Un solo pie, esté cobrada o no: el documento es el mismo. El aviso legal se
             queda porque esto no es factura electrónica. */}

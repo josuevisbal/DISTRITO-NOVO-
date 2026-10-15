@@ -10,6 +10,14 @@ export function formatearPesos(valor: number): string {
   return PESOS.format(valor).replace(/\s/g, '')
 }
 
+/**
+ * Propina sugerida: el 10 % acostumbrado en Colombia, redondeado a la centena. Es solo una
+ * sugerencia; nunca se suma sola a la cuenta.
+ */
+export function propinaSugerida(total: number): number {
+  return Math.round((total * 0.1) / 100) * 100
+}
+
 /** "humberto josue visbal caro" -> "Humberto Josue Visbal Caro". */
 export function capitalizarNombre(nombre: string): string {
   return nombre
