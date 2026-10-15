@@ -1,3 +1,4 @@
+import { horaDeCorte } from '@/lib/datos/jornada'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { mesActual, nombreDeMes, rangoDeMesISO, zonaDelNegocio } from '@/lib/zona-horaria'
@@ -28,10 +29,12 @@ export default async function PaginaReportes({
 }: {
   searchParams: Promise<{ mes?: string }>
 }) {
-  await exigirRol('admin')
+  const staff = await exigirRol('admin')
   const supabase = await crearClienteServidor()
+  // Los meses se cuentan en días de trabajo: lo de la madrugada del 1 es del mes anterior.
+  const corte = await horaDeCorte(staff.restaurante_id)
 
-  const hoy = mesActual()
+  const hoy = mesActual(corte)
   const { mes: mesParam } = await searchParams
   const [anioSel, mesSel] = (() => {
     const m = mesParam?.match(/^(\d{4})-(\d{1,2})$/)
@@ -42,9 +45,9 @@ export default async function PaginaReportes({
   })()
 
   // Mes elegido y mes anterior, para las variaciones (+12 %, -3 %).
-  const rango = rangoDeMesISO(anioSel, mesSel)
+  const rango = rangoDeMesISO(anioSel, mesSel, corte)
   const prev = mesSel === 1 ? { anio: anioSel - 1, mes: 12 } : { anio: anioSel, mes: mesSel - 1 }
-  const rangoPrev = rangoDeMesISO(prev.anio, prev.mes)
+  const rangoPrev = rangoDeMesISO(prev.anio, prev.mes, corte)
   const zona = zonaDelNegocio()
 
   const [actualRes, anteriorRes, propinasRes, propinasPrevRes] = await Promise.all([

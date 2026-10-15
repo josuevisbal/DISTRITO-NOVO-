@@ -13,6 +13,7 @@ import {
   IconoCerrar,
   IconoEquipo,
   IconoFuego,
+  IconoBillete,
   IconoGrafica,
   IconoMenu,
   IconoMoto,
@@ -41,6 +42,7 @@ const MODULOS: Modulo[] = [
   { href: '/app/admin/mesas', titulo: 'Mesas · QR', Icono: IconoTablero },
   { href: '/app/admin/usuarios', titulo: 'Equipo', Icono: IconoEquipo },
   { href: '/app/admin/reportes', titulo: 'Reportes', Icono: IconoGrafica },
+  { href: '/app/admin/gastos', titulo: 'Gastos y rentabilidad', Icono: IconoBillete },
 ]
 
 /** Sub-secciones que viven dentro del Menú Digital (se navegan con pestañas). */

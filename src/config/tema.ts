@@ -117,6 +117,15 @@ export const MARCA = {
   textoSuave: TEMA_CARTA.textoSuave,
   /** Fondo oscuro de la app del equipo (manifiesto). */
   fondoApp: TEMA_CARTA.fondo,
+  /**
+   * Gastos y rentabilidad: ventas contra gastos. Par validado para daltonismo y contraste
+   * sobre el fondo claro del panel (azul / naranja), más el verde y rojo de ganancia y
+   * pérdida, que siempre van con su texto ("Ganancia", "Pérdida").
+   */
+  graficaVentas: '#2a78d6',
+  graficaGastos: '#eb6834',
+  ganancia: '#1E9E6A',
+  perdida: '#C2452F',
 }
 
 /** Degradado dorado de los botones destacados (entrar en el login). */

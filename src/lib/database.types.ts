@@ -556,6 +556,39 @@ export type Database = {
           },
         ]
       }
+      gastos: {
+        Row: {
+          id: string
+          restaurante_id: string
+          fecha: string
+          monto: number
+          categoria: string
+          descripcion: string | null
+          creado_por: string | null
+          creado_en: string
+        }
+        Insert: {
+          id?: string
+          restaurante_id: string
+          fecha: string
+          monto: number
+          categoria: string
+          descripcion?: string | null
+          creado_por?: string | null
+          creado_en?: string
+        }
+        Update: {
+          id?: string
+          restaurante_id?: string
+          fecha?: string
+          monto?: number
+          categoria?: string
+          descripcion?: string | null
+          creado_por?: string | null
+          creado_en?: string
+        }
+        Relationships: []
+      }
       producto_costos: {
         Row: {
           actualizado_en: string
@@ -763,6 +796,7 @@ export type Database = {
           slug: string
           whatsapp: string | null
           whatsapp_pedidos: string | null
+          hora_corte: number
         }
         Insert: {
           activo?: boolean
@@ -782,6 +816,7 @@ export type Database = {
           slug: string
           whatsapp?: string | null
           whatsapp_pedidos?: string | null
+          hora_corte?: number
         }
         Update: {
           activo?: boolean
@@ -801,6 +836,7 @@ export type Database = {
           slug?: string
           whatsapp?: string | null
           whatsapp_pedidos?: string | null
+          hora_corte?: number
         }
         Relationships: []
       }
@@ -947,6 +983,11 @@ export type Database = {
       despachar_domicilio: { Args: { p_pedido: string }; Returns: undefined }
       tomar_domicilio: { Args: { p_pedido: string }; Returns: undefined }
       entregar_en_local: { Args: { p_pedido: string }; Returns: undefined }
+      resumen_rentabilidad: {
+        Args: { p_desde: string; p_hasta: string; p_zona?: string }
+        Returns: Json
+      }
+      dia_jornada: { Args: { p_ts: string; p_zona: string; p_corte: number }; Returns: string }
       editar_pedido: { Args: { p_pedido: string; p_items: Json }; Returns: Json }
       marcar_ronda_cocina: {
         Args: { p_pedido: string; p_ronda: number; p_estado: string }

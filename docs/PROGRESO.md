@@ -1501,3 +1501,31 @@ A pedido del cliente, anular ya no pide motivo. Al tocar "Anular" la tarjeta pre
 En el pedido queda anotado "Sin motivo" (la base sigue guardando quién lo anuló y cuándo).
 Aplica en todas las tarjetas de caja, en el efectivo por recibir y en el mesero. No
 requiere cambios en la base.
+
+
+## El día de trabajo va de 6 a. m. a 6 a. m.
+
+Lo vendido después de medianoche se contaba para el día siguiente. Ahora el día de trabajo
+termina a la **hora de corte** del restaurante (`restaurantes.hora_corte`, 6 por defecto):
+lo de la 1 a. m. del jueves cuenta para el miércoles.
+
+- `dia_jornada(ts, zona, corte)` en la base y `diaDeJornada()` en `src/lib/zona-horaria.ts`
+  hacen la misma cuenta.
+- El Tablero arranca "hoy" a las 6 a. m.; Reportes agrupa por día de trabajo y el mes va
+  del 1 a las 6 a. m. al 1 del mes siguiente a las 6 a. m. (`reporte_rango`,
+  `propinas_por_dia`).
+
+## Gastos y rentabilidad
+
+Módulo nuevo del admin (`/app/admin/gastos`): el dueño anota cada gasto con monto,
+categoría libre (con sugerencias y las que ya usó) y en qué se gastó, con la fecha del día
+de trabajo por defecto. Por mes muestra:
+
+- Ventas, gastos, costo de platos y **ganancia o pérdida** con su margen.
+- Ventas contra gastos por día (gráfica o tabla) y en qué se va la plata por categoría.
+- Aviso cuando hay productos vendidos sin costo cargado (la ganancia saldría inflada).
+
+Tabla `gastos` con RLS solo para admin; `resumen_rentabilidad(desde, hasta, zona)` hace las
+cuentas en la base y excluye lo anulado. Probado en Postgres local (cortes de la 1 a. m. y
+de las 6 a. m., cajero sin acceso a gastos) y con Playwright a 360 y 1280 px. Migración en
+`supabase/historial/jornada-y-gastos.sql` (sin comentarios, se puede correr dos veces).

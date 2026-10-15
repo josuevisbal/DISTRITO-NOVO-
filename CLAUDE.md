@@ -73,6 +73,8 @@ Caja además imprime cuentas y facturas, cobra en el punto físico y registra la
 
 - Todo en español: interfaz, esquema, mensajes, commits.
 - Dinero colombiano sin decimales: `$32.000`.
+- El día de trabajo va de la hora de corte (`restaurantes.hora_corte`, 6 a. m.) a la misma
+  hora del día siguiente: lo de madrugada cuenta para el día anterior (`dia_jornada()`).
 - Dos temas por tokens (`src/config/tema.ts`): la **carta del cliente** va negro `#0B0B0C`
   y dorado `#D8AC4E` (premium, `obtenerTemaCarta`); los **módulos internos** van blanco y
   dorado corporativo (`obtenerTema`). Los componentes solo usan `--marca-*`; nunca colores

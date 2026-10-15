@@ -1,5 +1,6 @@
 import { crearClienteServidor } from '@/lib/supabase/servidor'
-import { inicioDeHoyISO } from '@/lib/zona-horaria'
+import { horaDeCorte } from '@/lib/datos/jornada'
+import { inicioDeJornadaISO } from '@/lib/zona-horaria'
 
 export type VentaEstacion = {
   estacion_id: string
@@ -25,10 +26,13 @@ export type DatosTablero = {
   alertas: AlertaTablero[]
 }
 
-/** Resumen del día para el Tablero. "Hoy" es el día del negocio (zona horaria propia). */
+/**
+ * Resumen del día para el Tablero. "Hoy" es el día de TRABAJO: con corte a las 6 a. m.,
+ * lo vendido a la 1 a. m. sigue contando en el día anterior.
+ */
 export async function cargarTablero(restauranteId: string): Promise<DatosTablero> {
   const supabase = await crearClienteServidor()
-  const desde = inicioDeHoyISO()
+  const desde = inicioDeJornadaISO(await horaDeCorte(restauranteId))
 
   const [
     pedidosRes,
