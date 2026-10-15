@@ -1539,3 +1539,12 @@ propina es voluntaria". El TOTAL no cambia: la propina sigue yendo aparte y solo
 si caja la digita. No sale en domicilios ni en la factura ya cobrada (ahí va la propina
 real, si la hubo). El 10 % redondeado a la centena vive en `propinaSugerida()` y es el
 mismo del atajo "10 %" de caja. No requiere cambios en la base.
+
+
+## Escoger la propina al cobrar
+
+Al cobrar, la propina tiene tres opciones claras: **Sin propina**, **10 %** (con el valor,
+el mismo que sugiere la cuenta impresa) y **Otro valor**, que abre un campo en blanco para
+escribir lo que el cliente quiera dejar, más o menos. El total a cobrar se actualiza al
+instante. Sigue arrancando en "Sin propina": nunca se cobra sola. No requiere cambios en
+la base.

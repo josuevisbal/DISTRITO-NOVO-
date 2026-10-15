@@ -1566,8 +1566,8 @@ function FilaCobrar({
             </div>
 
             {/* La propina, aparte de la cuenta. Nunca se cobra sola. */}
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-marca-texto">Propina</span>
+            <div className="space-y-2">
+              <span className="block text-sm font-medium text-marca-texto">Propina</span>
               <Propina pedidoId={p.pedido_id} valor={propina} onCambiar={setPropina} base={p.total} />
             </div>
 
@@ -1606,9 +1606,9 @@ function FilaCobrar({
 }
 
 /**
- * La propina. En Colombia es voluntaria y el 10 % es lo acostumbrado, así que hay un
- * atajo para ese caso y un campo para digitar cualquier otro valor. Va vacía por defecto:
- * nunca se cobra sola, la digita caja cuando el cliente dice que sí.
+ * La propina. En Colombia es voluntaria y el 10 % es lo acostumbrado (es lo que sugiere la
+ * cuenta impresa). Caja escoge lo que el cliente decida: sin propina, el 10 % o el valor
+ * que diga, más o menos. Va vacía por defecto: nunca se cobra sola.
  */
 function Propina({
   pedidoId,
@@ -1622,36 +1622,74 @@ function Propina({
   base: number
 }) {
   const sugerida = propinaSugerida(base)
-  const puesta = String(sugerida) === valor
+  const [otro, setOtro] = useState(false)
+  const n = Number(valor) || 0
+  const eleccion = otro ? 'otro' : n === 0 ? 'nada' : n === sugerida ? 'sugerida' : 'otro'
+  const opcion = (activa: boolean) =>
+    `min-h-11 rounded-lg border px-2 text-xs font-medium leading-tight ${
+      activa
+        ? 'border-marca-acento bg-marca-acento text-marca-acento-texto'
+        : 'border-marca-borde text-marca-texto-suave'
+    }`
 
   return (
-    <span className="flex items-center gap-1">
-      <label className="sr-only" htmlFor={`propina-${pedidoId}`}>
-        Propina
-      </label>
-      <input
-        id={`propina-${pedidoId}`}
-        inputMode="numeric"
-        value={valor}
-        onChange={(e) => onCambiar(e.target.value.replace(/\D/g, ''))}
-        placeholder="Propina"
-        className="min-h-11 w-28 rounded-lg border border-marca-borde bg-marca-fondo px-3 text-right text-sm tabular-nums text-marca-texto"
-      />
-      {sugerida > 0 ? (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2">
         <button
           type="button"
-          onClick={() => onCambiar(puesta ? '' : String(sugerida))}
-          aria-pressed={puesta}
-          className={`min-h-11 rounded-lg border px-3 text-xs font-medium ${
-            puesta
-              ? 'border-marca-acento bg-marca-acento text-marca-acento-texto'
-              : 'border-marca-borde text-marca-texto-suave'
-          }`}
+          onClick={() => {
+            setOtro(false)
+            onCambiar('')
+          }}
+          aria-pressed={eleccion === 'nada'}
+          className={opcion(eleccion === 'nada')}
+        >
+          Sin propina
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOtro(false)
+            onCambiar(String(sugerida))
+          }}
+          aria-pressed={eleccion === 'sugerida'}
+          disabled={sugerida === 0}
+          className={opcion(eleccion === 'sugerida')}
         >
           10 %
+          <span className="block tabular-nums">{formatearPesos(sugerida)}</span>
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            // Se arranca en blanco: el cajero escribe lo que el cliente diga.
+            setOtro(true)
+            onCambiar('')
+            document.getElementById(`propina-${pedidoId}`)?.focus()
+          }}
+          aria-pressed={eleccion === 'otro'}
+          className={opcion(eleccion === 'otro')}
+        >
+          Otro valor
+        </button>
+      </div>
+      {eleccion === 'otro' ? (
+        <div>
+          <label className="sr-only" htmlFor={`propina-${pedidoId}`}>
+            Valor de la propina
+          </label>
+          <input
+            id={`propina-${pedidoId}`}
+            inputMode="numeric"
+            autoFocus
+            value={n > 0 ? formatearPesos(n) : ''}
+            onChange={(e) => onCambiar(e.target.value.replace(/\D/g, ''))}
+            placeholder="¿Cuánto deja?"
+            className="min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 text-right tabular-nums text-marca-texto"
+          />
+        </div>
       ) : null}
-    </span>
+    </div>
   )
 }
 
