@@ -167,7 +167,14 @@ export function GastosCliente({
           color={ganancia >= 0 ? MARCA.ganancia : MARCA.perdida}
           Icono={IconoPorcentaje}
           sub={{
-            texto: margen === null ? 'sin ventas aún' : `margen ${margen} %`,
+            // Un margen negativo enorme ("-2852 %") no le dice nada a nadie: en pérdida se
+            // dice en palabras.
+            texto:
+              margen === null
+                ? 'sin ventas aún'
+                : margen < 0
+                  ? 'los gastos superan lo vendido'
+                  : `margen ${margen} %`,
             porcentaje: margen !== null && margen > 0 ? Math.min(100, margen) : undefined,
           }}
           indice={3}
