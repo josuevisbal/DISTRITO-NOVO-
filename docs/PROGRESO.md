@@ -1592,3 +1592,9 @@ ventas siguen siendo las de todo el mes.
 
 Migración en `supabase/historial/ganancia-desde.sql`: agrega la columna y deja el cuadre en
 el día de trabajo de hoy. Sin la columna, la página sigue funcionando con todo el mes.
+
+Ajuste a pedido del dueño: desde el cuadre, la ganancia es **lo vendido menos el costo de
+los platos**; lo de antes se da por gastado (sin saber en qué) y los gastos anotados no se
+restan. Si el cuadre es hoy, la tarjeta dice "Ganancia de hoy". En "Ganancia por día" los
+días desde el cuadre tampoco restan gastos. En pérdida (días antes del cuadre) ya no sale un
+margen negativo, sino "los gastos superan lo vendido".

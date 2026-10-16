@@ -96,8 +96,12 @@ export function GastosCliente({
   const utilidad = resumen.ventas - resumen.costo - resumen.gastos
   // La tarjeta de ganancia cuenta desde el cuadre (si lo hay), no todo el mes: el dueño
   // quiere ver la plata que de verdad tiene. Las ventas siguen siendo las del mes.
+  // Desde el cuadre, la ganancia es lo vendido menos el costo de los platos: lo de antes
+  // se da por gastado (no se sabe en qué) y los gastos anotados no se restan.
+  const ganancia = cuadre
+    ? cuadre.ventas - cuadre.costo
+    : resumen.ventas - resumen.costo - resumen.gastos
   const base = cuadre ?? resumen
-  const ganancia = base.ventas - base.costo - base.gastos
   const margen = base.ventas > 0 ? Math.round((ganancia / base.ventas) * 100) : null
   const salidas = resumen.costo + resumen.gastos
 
@@ -157,7 +161,9 @@ export function GastosCliente({
         <TarjetaKpi
           titulo={
             cuadre
-              ? `${ganancia >= 0 ? 'Ganancia' : 'Pérdida'} desde el ${fechaCorta(cuadre.desde)}`
+              ? cuadre.desde === hoy
+                ? 'Ganancia de hoy'
+                : `Ganancia desde el ${fechaCorta(cuadre.desde)}`
               : ganancia >= 0
                 ? 'Ganancia'
                 : 'Pérdida'
@@ -408,7 +414,11 @@ function GananciaPorDia({
   if (datos.length === 0) return <Vacio texto="Sin movimientos en este mes." Icono={IconoGrafica} />
 
   const dias = [...datos]
-    .map((d) => ({ ...d, ganancia: d.ventas - d.costo - d.gastos }))
+    .map((d) => {
+      // Desde el cuadre los gastos anotados no se restan: cuenta lo vendido.
+      const restaGastos = desde === null || d.dia < desde
+      return { ...d, restaGastos, ganancia: d.ventas - d.costo - (restaGastos ? d.gastos : 0) }
+    })
     .sort((a, b) => b.dia.localeCompare(a.dia))
   const conVentas = dias.filter((d) => d.ventas > 0 && (desde === null || d.dia >= desde))
   const mejor =
@@ -459,7 +469,7 @@ function GananciaPorDia({
                   </p>
                   <p className="text-xs tabular-nums text-marca-texto-suave">
                     Vendió {formatearPesos(d.ventas)}
-                    {d.gastos > 0 ? ` · gastó ${formatearPesos(d.gastos)}` : ''}
+                    {d.restaGastos && d.gastos > 0 ? ` · gastó ${formatearPesos(d.gastos)}` : ''}
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
@@ -488,7 +498,7 @@ function GananciaPorDia({
                 <dl className="mb-3 space-y-1 rounded-lg bg-marca-superficie-tenue p-3 text-sm">
                   <Linea t="Ventas" v={d.ventas} />
                   <Linea t="Costo de los platos" v={-d.costo} />
-                  {delDia.length > 0 ? (
+                  {!d.restaGastos ? null : delDia.length > 0 ? (
                     delDia.map((g) => (
                       <Linea
                         key={g.id}
@@ -548,8 +558,9 @@ function CuadreGanancia({ cuadre, hoy }: { cuadre: Cuadre | null; hoy: string })
         {cuadre ? (
           <>
             La ganancia se cuenta desde el{' '}
-            <span className="font-semibold text-marca-texto">{fechaLarga(cuadre.desde)}</span>. Las
-            ventas son las de todo el mes.
+            <span className="font-semibold text-marca-texto">{fechaLarga(cuadre.desde)}</span>: es
+            lo vendido desde ese día. Lo de antes se da por gastado. Las ventas son las de todo el
+            mes.
           </>
         ) : (
           'La ganancia se cuenta con todo el mes. Cuádrala para contar solo desde hoy.'
