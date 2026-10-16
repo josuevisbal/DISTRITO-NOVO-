@@ -125,6 +125,8 @@ export const MARCA = {
   graficaVentas: '#2a78d6',
   graficaGastos: '#eb6834',
   ganancia: '#1E9E6A',
+  /** Verde de ganancia para TEXTO sobre blanco (el de arriba no da 4.5:1). */
+  gananciaTexto: '#116B47',
   perdida: '#C2452F',
 }
 

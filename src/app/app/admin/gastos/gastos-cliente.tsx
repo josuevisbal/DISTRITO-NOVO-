@@ -6,6 +6,7 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recha
 
 import {
   IconoAlerta,
+  IconoAtras,
   IconoBillete,
   IconoBolsa,
   IconoCerrar,
@@ -174,6 +175,14 @@ export function GastosCliente({
           </section>
 
           <section className="tarjeta p-4">
+            <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-titulo text-base text-marca-texto">Ganancia por día</h2>
+              <span className="text-xs text-marca-texto-suave">Toca un día para ver el detalle</span>
+            </div>
+            <GananciaPorDia datos={resumen.por_dia} gastos={gastos} />
+          </section>
+
+          <section className="tarjeta p-4">
             <h2 className="mb-3 font-titulo text-base text-marca-texto">En qué se va la plata</h2>
             <PorCategoria datos={resumen.por_categoria} total={resumen.gastos} />
           </section>
@@ -322,6 +331,142 @@ function PorDia({ datos }: { datos: Resumen['por_dia'] }) {
         </div>
       )}
     </>
+  )
+}
+
+/** "2026-10-15" -> "jueves, 15 oct". */
+function fechaLarga(iso: string): string {
+  const [a, m, d] = iso.split('-').map(Number)
+  return new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  })
+    .format(new Date(Date.UTC(a, m - 1, d, 12)))
+    .replace(' de ', ' ')
+    .replace('.', '')
+}
+
+/**
+ * La ganancia de cada día de trabajo, del más reciente al más viejo: lo que se vendió
+ * menos el costo de los platos y los gastos anotados ese día. Al tocar un día se abre el
+ * desglose con los gastos que lo componen.
+ */
+function GananciaPorDia({ datos, gastos }: { datos: Resumen['por_dia']; gastos: Gasto[] }) {
+  const [abierto, setAbierto] = useState<string | null>(null)
+
+  if (datos.length === 0) return <Vacio texto="Sin movimientos en este mes." Icono={IconoGrafica} />
+
+  const dias = [...datos]
+    .map((d) => ({ ...d, ganancia: d.ventas - d.costo - d.gastos }))
+    .sort((a, b) => b.dia.localeCompare(a.dia))
+  const conVentas = dias.filter((d) => d.ventas > 0)
+  const mejor = conVentas.length > 1 ? conVentas.reduce((m, d) => (d.ganancia > m.ganancia ? d : m)) : null
+  const promedio = conVentas.length
+    ? Math.round(conVentas.reduce((s, d) => s + d.ganancia, 0) / conVentas.length)
+    : 0
+
+  return (
+    <>
+      {conVentas.length > 0 ? (
+        <p className="mb-2 text-xs text-marca-texto-suave">
+          Promedio por día con ventas:{' '}
+          <span className="font-semibold tabular-nums text-marca-texto">
+            {promedio < 0 ? '-' : ''}
+            {formatearPesos(Math.abs(promedio))}
+          </span>
+        </p>
+      ) : null}
+      <ul className="divide-y divide-marca-borde">
+        {dias.map((d) => {
+          const gana = d.ganancia >= 0
+          const margen = d.ventas > 0 ? Math.round((d.ganancia / d.ventas) * 100) : null
+          const verDetalle = abierto === d.dia
+          const delDia = gastos.filter((g) => g.fecha === d.dia)
+          return (
+            <li key={d.dia}>
+              <button
+                type="button"
+                onClick={() => setAbierto(verDetalle ? null : d.dia)}
+                aria-expanded={verDetalle}
+                className="flex min-h-14 w-full items-center gap-3 py-2.5 text-left"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-center gap-x-2 text-sm text-marca-texto">
+                    <span className="first-letter:uppercase">{fechaLarga(d.dia)}</span>
+                    {mejor?.dia === d.dia ? (
+                      <span className="rounded-full border border-marca-acento px-2 text-[11px] text-marca-acento-fuerte">
+                        Mejor día
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-xs tabular-nums text-marca-texto-suave">
+                    Vendió {formatearPesos(d.ventas)}
+                    {d.gastos > 0 ? ` · gastó ${formatearPesos(d.gastos)}` : ''}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p
+                    className="font-semibold tabular-nums"
+                    style={{ color: gana ? MARCA.gananciaTexto : MARCA.perdida }}
+                  >
+                    {gana ? '' : '-'}
+                    {formatearPesos(Math.abs(d.ganancia))}
+                  </p>
+                  <p className="text-xs text-marca-texto-suave">
+                    {gana ? 'Ganancia' : 'Pérdida'}
+                    {margen !== null && gana ? ` · ${margen} %` : ''}
+                  </p>
+                </div>
+                <IconoAtras
+                  className={`size-4 shrink-0 text-marca-texto-suave transition-transform ${
+                    verDetalle ? 'rotate-90' : '-rotate-90'
+                  }`}
+                />
+              </button>
+
+              {verDetalle ? (
+                <dl className="mb-3 space-y-1 rounded-lg bg-marca-superficie-tenue p-3 text-sm">
+                  <Linea t="Ventas" v={d.ventas} />
+                  <Linea t="Costo de los platos" v={-d.costo} />
+                  {delDia.length > 0 ? (
+                    delDia.map((g) => (
+                      <Linea
+                        key={g.id}
+                        t={g.descripcion ? `${g.categoria} · ${g.descripcion}` : g.categoria}
+                        v={-g.monto}
+                      />
+                    ))
+                  ) : (
+                    <Linea t="Gastos" v={-d.gastos} />
+                  )}
+                  <div className="flex justify-between gap-3 border-t border-marca-borde pt-1.5 font-semibold text-marca-texto">
+                    <dt>{gana ? 'Ganancia del día' : 'Pérdida del día'}</dt>
+                    <dd className="shrink-0 tabular-nums">
+                      {gana ? '' : '-'}
+                      {formatearPesos(Math.abs(d.ganancia))}
+                    </dd>
+                  </div>
+                </dl>
+              ) : null}
+            </li>
+          )
+        })}
+      </ul>
+    </>
+  )
+}
+
+function Linea({ t, v }: { t: string; v: number }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="min-w-0 text-marca-texto-suave">{t}</dt>
+      <dd className="shrink-0 tabular-nums text-marca-texto">
+        {v < 0 ? '-' : ''}
+        {formatearPesos(Math.abs(v))}
+      </dd>
+    </div>
   )
 }
 

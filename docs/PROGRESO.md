@@ -1565,3 +1565,13 @@ el restaurante no recibía el mensaje.
   sistema y está en preparación" en vez de "en espera de aprobación en caja".
 
 No requiere cambios en la base.
+
+
+## Ganancia por día
+
+En Gastos y rentabilidad, debajo de la gráfica, una lista con la ganancia de cada día de
+trabajo del mes, del más reciente al más viejo: "jueves, 15 oct", cuánto vendió y gastó, y
+la ganancia (verde) o pérdida (roja) con su margen. Arriba, el promedio por día con ventas,
+y el mejor día marcado. Al tocar un día se abre el desglose: ventas, costo de los platos,
+cada gasto de ese día con su categoría y descripción, y el resultado. Sin cambios en la
+base (sale de `resumen_rentabilidad`).
