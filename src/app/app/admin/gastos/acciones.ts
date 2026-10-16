@@ -21,7 +21,8 @@ export async function registrarGasto(datos: {
   if (!Number.isFinite(monto) || monto <= 0) return { ok: false, error: 'Escribe el monto.' }
   const categoria = datos.categoria.trim()
   if (!categoria) return { ok: false, error: 'Ponle una categoría.' }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha)) return { ok: false, error: 'La fecha no es válida.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha))
+    return { ok: false, error: 'La fecha no es válida.' }
 
   const { error } = await supabase.from('gastos').insert({
     restaurante_id: staff.restaurante_id,
@@ -33,6 +34,23 @@ export async function registrarGasto(datos: {
   })
   if (error) return { ok: false, error: error.message }
 
+  revalidatePath('/app/admin/gastos')
+  return { ok: true }
+}
+
+/**
+ * Desde qué día de trabajo se cuenta la ganancia. El dueño la "cuadra" con la plata que
+ * de verdad tiene: lo de antes de esa fecha ya no se suma. Las ventas no cambian.
+ */
+export async function fijarGananciaDesde(fecha: string): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { ok: false, error: 'La fecha no es válida.' }
+  const supabase = await crearClienteServidor()
+  const { error } = await supabase
+    .from('restaurantes')
+    .update({ ganancia_desde: fecha })
+    .eq('id', staff.restaurante_id)
+  if (error) return { ok: false, error: error.message }
   revalidatePath('/app/admin/gastos')
   return { ok: true }
 }

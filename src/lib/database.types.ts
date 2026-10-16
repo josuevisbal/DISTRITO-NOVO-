@@ -797,6 +797,7 @@ export type Database = {
           whatsapp: string | null
           whatsapp_pedidos: string | null
           hora_corte: number
+          ganancia_desde: string | null
         }
         Insert: {
           activo?: boolean
@@ -817,6 +818,7 @@ export type Database = {
           whatsapp?: string | null
           whatsapp_pedidos?: string | null
           hora_corte?: number
+          ganancia_desde?: string | null
         }
         Update: {
           activo?: boolean
@@ -837,6 +839,7 @@ export type Database = {
           whatsapp?: string | null
           whatsapp_pedidos?: string | null
           hora_corte?: number
+          ganancia_desde?: string | null
         }
         Relationships: []
       }

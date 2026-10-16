@@ -111,6 +111,9 @@ alter table restaurantes add column if not exists whatsapp_pedidos text; -- adon
 -- El día de trabajo no termina a medianoche: lo que se vende de madrugada cuenta para el
 -- día anterior. `hora_corte` es la hora local en que empieza la jornada (6 = 6 a. m.).
 alter table restaurantes add column if not exists hora_corte int not null default 6;
+-- Desde qué día de trabajo se cuenta la ganancia en Gastos y rentabilidad: el dueño la
+-- "cuadra" con la plata que de verdad tiene. Las ventas no dependen de esto.
+alter table restaurantes add column if not exists ganancia_desde date;
 
 create table if not exists usuarios (
   id uuid primary key references auth.users(id) on delete cascade,

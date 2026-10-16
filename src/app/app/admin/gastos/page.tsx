@@ -2,7 +2,7 @@ import { horaDeCorte } from '@/lib/datos/jornada'
 import { exigirRol } from '@/lib/sesion'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 import { diaDeJornada, fechaISO, mesActual, nombreDeMes, zonaDelNegocio } from '@/lib/zona-horaria'
-import { GastosCliente, type Gasto, type Resumen } from './gastos-cliente'
+import { GastosCliente, type Cuadre, type Gasto, type Resumen } from './gastos-cliente'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,7 +44,11 @@ export default async function PaginaGastos({
   const hasta = primeroDe(siguiente.a, siguiente.m)
 
   const [resumenRes, gastosRes, usadasRes] = await Promise.all([
-    supabase.rpc('resumen_rentabilidad', { p_desde: desde, p_hasta: hasta, p_zona: zonaDelNegocio() }),
+    supabase.rpc('resumen_rentabilidad', {
+      p_desde: desde,
+      p_hasta: hasta,
+      p_zona: zonaDelNegocio(),
+    }),
     supabase
       .from('gastos')
       .select('id, fecha, monto, categoria, descripcion')
@@ -53,16 +57,49 @@ export default async function PaginaGastos({
       .lt('fecha', hasta)
       .order('fecha', { ascending: false })
       .order('creado_en', { ascending: false }),
-    supabase.from('gastos').select('categoria').eq('restaurante_id', staff.restaurante_id).limit(500),
+    supabase
+      .from('gastos')
+      .select('categoria')
+      .eq('restaurante_id', staff.restaurante_id)
+      .limit(500),
   ])
 
   const resumen = resumenRes.data as unknown as Resumen | null
   if (!resumen) {
     return (
       <p className="text-sm text-marca-texto-suave">
-        No se pudo cargar la rentabilidad{resumenRes.error ? `: ${resumenRes.error.message}` : '.'}
+        No se pudo cargar la rentabilidad
+        {resumenRes.error ? `: ${resumenRes.error.message}` : '.'}
       </p>
     )
+  }
+
+  // La ganancia se cuenta desde la fecha de cuadre hasta hoy, sin importar el mes que se
+  // vea: es la plata que el negocio de verdad tiene. Sin fecha, se usa la del mes.
+  const hoyISO = fechaISO(diaDeJornada(corte))
+  const [a0, m0, d0] = hoyISO.split('-').map(Number)
+  const manana = new Date(Date.UTC(a0, m0 - 1, d0 + 1)).toISOString().slice(0, 10)
+  const { data: rest } = await supabase
+    .from('restaurantes')
+    .select('ganancia_desde')
+    .eq('id', staff.restaurante_id)
+    .maybeSingle()
+  const gananciaDesde = rest?.ganancia_desde ?? null
+  let cuadre: Cuadre | null = null
+  if (gananciaDesde) {
+    const { data } = await supabase.rpc('resumen_rentabilidad', {
+      p_desde: gananciaDesde,
+      p_hasta: manana,
+      p_zona: zonaDelNegocio(),
+    })
+    const r = data as unknown as Resumen | null
+    if (r)
+      cuadre = {
+        desde: gananciaDesde,
+        ventas: r.ventas,
+        costo: r.costo,
+        gastos: r.gastos,
+      }
   }
 
   const usadas = (usadasRes.data ?? []).map((g) => g.categoria)
@@ -80,7 +117,6 @@ export default async function PaginaGastos({
   }
 
   // El gasto nuevo cae por defecto en el día de trabajo en curso (si es el mes que se ve).
-  const hoyISO = fechaISO(diaDeJornada(corte))
   const fechaPorDefecto = hoyISO >= desde && hoyISO < hasta ? hoyISO : desde
 
   return (
@@ -93,6 +129,8 @@ export default async function PaginaGastos({
       etiquetaMes={`${nombreDeMes(mes)} ${anio}`}
       fechaPorDefecto={fechaPorDefecto}
       rango={{ desde, hasta }}
+      cuadre={cuadre}
+      hoy={hoyISO}
     />
   )
 }

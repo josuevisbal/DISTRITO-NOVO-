@@ -21,7 +21,7 @@ import { TarjetaKpi } from '@/components/ui/tarjeta-kpi'
 import { Vacio } from '@/components/ui/vacio'
 import { MARCA } from '@/config/tema'
 import { formatearPesos } from '@/lib/formato'
-import { eliminarGasto, registrarGasto } from './acciones'
+import { eliminarGasto, fijarGananciaDesde, registrarGasto } from './acciones'
 
 export type Resumen = {
   hora_corte: number
@@ -42,6 +42,14 @@ export type Gasto = {
   descripcion: string | null
 }
 
+/** Lo acumulado desde la fecha de cuadre hasta hoy: la ganancia que de verdad se tiene. */
+export type Cuadre = {
+  desde: string
+  ventas: number
+  costo: number
+  gastos: number
+}
+
 type Props = {
   resumen: Resumen
   gastos: Gasto[]
@@ -51,12 +59,18 @@ type Props = {
   etiquetaMes: string
   fechaPorDefecto: string
   rango: { desde: string; hasta: string }
+  cuadre: Cuadre | null
+  hoy: string
 }
 
 /** "2026-10-15" -> "15 oct". */
 function fechaCorta(iso: string): string {
   const [a, m, d] = iso.split('-').map(Number)
-  return new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+  return new Intl.DateTimeFormat('es-CO', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  })
     .format(new Date(Date.UTC(a, m - 1, d, 12)))
     .replace('.', '')
 }
@@ -74,11 +88,17 @@ export function GastosCliente({
   etiquetaMes,
   fechaPorDefecto,
   rango,
+  cuadre,
+  hoy,
 }: Props) {
   const router = useRouter()
 
   const utilidad = resumen.ventas - resumen.costo - resumen.gastos
-  const margen = resumen.ventas > 0 ? Math.round((utilidad / resumen.ventas) * 100) : null
+  // La tarjeta de ganancia cuenta desde el cuadre (si lo hay), no todo el mes: el dueño
+  // quiere ver la plata que de verdad tiene. Las ventas siguen siendo las del mes.
+  const base = cuadre ?? resumen
+  const ganancia = base.ventas - base.costo - base.gastos
+  const margen = base.ventas > 0 ? Math.round((ganancia / base.ventas) * 100) : null
   const salidas = resumen.costo + resumen.gastos
 
   return (
@@ -135,10 +155,16 @@ export function GastosCliente({
           indice={2}
         />
         <TarjetaKpi
-          titulo={utilidad >= 0 ? 'Ganancia' : 'Pérdida'}
-          valor={Math.abs(utilidad)}
+          titulo={
+            cuadre
+              ? `${ganancia >= 0 ? 'Ganancia' : 'Pérdida'} desde el ${fechaCorta(cuadre.desde)}`
+              : ganancia >= 0
+                ? 'Ganancia'
+                : 'Pérdida'
+          }
+          valor={Math.abs(ganancia)}
           dinero
-          color={utilidad >= 0 ? MARCA.ganancia : MARCA.perdida}
+          color={ganancia >= 0 ? MARCA.ganancia : MARCA.perdida}
           Icono={IconoPorcentaje}
           sub={{
             texto: margen === null ? 'sin ventas aún' : `margen ${margen} %`,
@@ -147,6 +173,8 @@ export function GastosCliente({
           indice={3}
         />
       </div>
+
+      <CuadreGanancia cuadre={cuadre} hoy={hoy} />
 
       {resumen.sin_costo > 0 ? (
         <p className="flex items-start gap-2 rounded-xl border border-marca-borde bg-marca-superficie-tenue px-3 py-2.5 text-sm text-marca-texto-suave">
@@ -170,16 +198,18 @@ export function GastosCliente({
             <div className="mt-4 grid grid-cols-3 gap-2 border-t border-marca-borde pt-3 text-sm">
               <Cifra etiqueta="Entró" valor={resumen.ventas} />
               <Cifra etiqueta="Salió" valor={salidas} />
-              <Cifra etiqueta="Quedó" valor={utilidad} />
+              <Cifra etiqueta="Diferencia" valor={utilidad} />
             </div>
           </section>
 
           <section className="tarjeta p-4">
             <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="font-titulo text-base text-marca-texto">Ganancia por día</h2>
-              <span className="text-xs text-marca-texto-suave">Toca un día para ver el detalle</span>
+              <span className="text-xs text-marca-texto-suave">
+                Toca un día para ver el detalle
+              </span>
             </div>
-            <GananciaPorDia datos={resumen.por_dia} gastos={gastos} />
+            <GananciaPorDia datos={resumen.por_dia} gastos={gastos} desde={cuadre?.desde ?? null} />
           </section>
 
           <section className="tarjeta p-4">
@@ -238,7 +268,10 @@ function PorDia({ datos }: { datos: Resumen['por_dia'] }) {
 
   if (datos.length === 0) return <Vacio texto="Sin movimientos en este mes." Icono={IconoGrafica} />
 
-  const filas = datos.map((d) => ({ ...d, etiqueta: String(Number(d.dia.slice(8))) }))
+  const filas = datos.map((d) => ({
+    ...d,
+    etiqueta: String(Number(d.dia.slice(8))),
+  }))
 
   return (
     <>
@@ -353,7 +386,16 @@ function fechaLarga(iso: string): string {
  * menos el costo de los platos y los gastos anotados ese día. Al tocar un día se abre el
  * desglose con los gastos que lo componen.
  */
-function GananciaPorDia({ datos, gastos }: { datos: Resumen['por_dia']; gastos: Gasto[] }) {
+function GananciaPorDia({
+  datos,
+  gastos,
+  desde,
+}: {
+  datos: Resumen['por_dia']
+  gastos: Gasto[]
+  /** Fecha de cuadre: los días anteriores se ven, pero no cuentan en la ganancia. */
+  desde: string | null
+}) {
   const [abierto, setAbierto] = useState<string | null>(null)
 
   if (datos.length === 0) return <Vacio texto="Sin movimientos en este mes." Icono={IconoGrafica} />
@@ -361,8 +403,9 @@ function GananciaPorDia({ datos, gastos }: { datos: Resumen['por_dia']; gastos: 
   const dias = [...datos]
     .map((d) => ({ ...d, ganancia: d.ventas - d.costo - d.gastos }))
     .sort((a, b) => b.dia.localeCompare(a.dia))
-  const conVentas = dias.filter((d) => d.ventas > 0)
-  const mejor = conVentas.length > 1 ? conVentas.reduce((m, d) => (d.ganancia > m.ganancia ? d : m)) : null
+  const conVentas = dias.filter((d) => d.ventas > 0 && (desde === null || d.dia >= desde))
+  const mejor =
+    conVentas.length > 1 ? conVentas.reduce((m, d) => (d.ganancia > m.ganancia ? d : m)) : null
   const promedio = conVentas.length
     ? Math.round(conVentas.reduce((s, d) => s + d.ganancia, 0) / conVentas.length)
     : 0
@@ -384,8 +427,9 @@ function GananciaPorDia({ datos, gastos }: { datos: Resumen['por_dia']; gastos: 
           const margen = d.ventas > 0 ? Math.round((d.ganancia / d.ventas) * 100) : null
           const verDetalle = abierto === d.dia
           const delDia = gastos.filter((g) => g.fecha === d.dia)
+          const noCuenta = desde !== null && d.dia < desde
           return (
-            <li key={d.dia}>
+            <li key={d.dia} className={noCuenta ? 'opacity-60' : undefined}>
               <button
                 type="button"
                 onClick={() => setAbierto(verDetalle ? null : d.dia)}
@@ -395,6 +439,11 @@ function GananciaPorDia({ datos, gastos }: { datos: Resumen['por_dia']; gastos: 
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-x-2 text-sm text-marca-texto">
                     <span className="first-letter:uppercase">{fechaLarga(d.dia)}</span>
+                    {noCuenta ? (
+                      <span className="rounded-full border border-marca-borde px-2 text-[11px] text-marca-texto-suave">
+                        Antes del cuadre
+                      </span>
+                    ) : null}
                     {mejor?.dia === d.dia ? (
                       <span className="rounded-full border border-marca-acento px-2 text-[11px] text-marca-acento-fuerte">
                         Mejor día
@@ -409,7 +458,9 @@ function GananciaPorDia({ datos, gastos }: { datos: Resumen['por_dia']; gastos: 
                 <div className="shrink-0 text-right">
                   <p
                     className="font-semibold tabular-nums"
-                    style={{ color: gana ? MARCA.gananciaTexto : MARCA.perdida }}
+                    style={{
+                      color: gana ? MARCA.gananciaTexto : MARCA.perdida,
+                    }}
                   >
                     {gana ? '' : '-'}
                     {formatearPesos(Math.abs(d.ganancia))}
@@ -455,6 +506,91 @@ function GananciaPorDia({ datos, gastos }: { datos: Resumen['por_dia']; gastos: 
         })}
       </ul>
     </>
+  )
+}
+
+/**
+ * La fecha desde la que se cuenta la ganancia. El dueño la mueve cuando cuadra la plata
+ * que tiene: "desde hoy" es lo normal; también puede escoger otro día.
+ */
+function CuadreGanancia({ cuadre, hoy }: { cuadre: Cuadre | null; hoy: string }) {
+  const [editando, setEditando] = useState(false)
+  const [fecha, setFecha] = useState(cuadre?.desde ?? hoy)
+  const [guardando, setGuardando] = useState(false)
+  const { mostrar } = useToast()
+
+  async function fijar(f: string) {
+    setGuardando(true)
+    const r = await fijarGananciaDesde(f)
+    setGuardando(false)
+    if (!r.ok) {
+      mostrar(r.error)
+      return
+    }
+    setEditando(false)
+    mostrar(
+      f === hoy
+        ? 'La ganancia se cuenta desde hoy'
+        : `La ganancia se cuenta desde el ${fechaCorta(f)}`,
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-marca-borde bg-marca-superficie px-3 py-2.5 text-sm">
+      <p className="min-w-0 flex-1 text-marca-texto-suave">
+        {cuadre ? (
+          <>
+            La ganancia se cuenta desde el{' '}
+            <span className="font-semibold text-marca-texto">{fechaLarga(cuadre.desde)}</span>. Las
+            ventas son las de todo el mes.
+          </>
+        ) : (
+          'La ganancia se cuenta con todo el mes. Cuádrala para contar solo desde hoy.'
+        )}
+      </p>
+      {editando ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="sr-only" htmlFor="ganancia-desde">
+            Contar la ganancia desde
+          </label>
+          <input
+            id="ganancia-desde"
+            type="date"
+            value={fecha}
+            max={hoy}
+            onChange={(e) => setFecha(e.target.value)}
+            className="min-h-11 rounded-lg border border-marca-borde bg-marca-fondo px-3 text-marca-texto"
+          />
+          <Boton
+            variante="primario"
+            className="px-3"
+            disabled={guardando || !fecha}
+            onClick={() => fijar(fecha)}
+          >
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </Boton>
+          <Boton variante="secundario" className="px-3" onClick={() => setEditando(false)}>
+            Cancelar
+          </Boton>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          {cuadre?.desde !== hoy ? (
+            <Boton
+              variante="primario"
+              className="px-3"
+              disabled={guardando}
+              onClick={() => fijar(hoy)}
+            >
+              {guardando ? 'Guardando…' : 'Contar desde hoy'}
+            </Boton>
+          ) : null}
+          <Boton variante="secundario" className="px-3" onClick={() => setEditando(true)}>
+            Otra fecha
+          </Boton>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -555,7 +691,12 @@ function FormularioGasto({
     e.preventDefault()
     setGuardando(true)
     setError(null)
-    const r = await registrarGasto({ fecha, monto: valor, categoria, descripcion })
+    const r = await registrarGasto({
+      fecha,
+      monto: valor,
+      categoria,
+      descripcion,
+    })
     setGuardando(false)
     if (!r.ok) {
       setError(r.error)

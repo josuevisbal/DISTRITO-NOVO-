@@ -1575,3 +1575,20 @@ la ganancia (verde) o pérdida (roja) con su margen. Arriba, el promedio por dí
 y el mejor día marcado. Al tocar un día se abre el desglose: ventas, costo de los platos,
 cada gasto de ese día con su categoría y descripción, y el resultado. Sin cambios en la
 base (sale de `resumen_rentabilidad`).
+
+
+## Cuadrar la ganancia desde una fecha
+
+El dueño veía la ganancia de todo el mes, pero esa plata ya no la tiene. Ahora la ganancia
+se cuenta desde una **fecha de cuadre** (`restaurantes.ganancia_desde`) hasta hoy; las
+ventas siguen siendo las de todo el mes.
+
+- La tarjeta dice "Ganancia desde el 16 oct" y suma ventas menos costo y gastos solo desde
+  ese día de trabajo, aunque cruce de mes.
+- Debajo, "La ganancia se cuenta desde el …" con **Contar desde hoy** y **Otra fecha**.
+- En "Ganancia por día" los días anteriores al cuadre se ven atenuados con "Antes del
+  cuadre" y no entran al promedio ni al mejor día. El pie de la gráfica dice "Diferencia"
+  (la del mes) para no confundirlo con la ganancia.
+
+Migración en `supabase/historial/ganancia-desde.sql`: agrega la columna y deja el cuadre en
+el día de trabajo de hoy. Sin la columna, la página sigue funcionando con todo el mes.
