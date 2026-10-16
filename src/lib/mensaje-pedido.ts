@@ -27,6 +27,11 @@ export type DatosMensaje = {
    * de avisar el pedido anuncia que el comprobante va enseguida.
    */
   avisaComprobante?: boolean
+  /**
+   * El domicilio en efectivo entra derecho a cocina: no hay nada que aprobar, así que el
+   * mensaje no dice "en espera de aprobación".
+   */
+  enCocina?: boolean
 }
 
 const NOMBRE_MEDIO: Record<string, string> = {
@@ -100,7 +105,11 @@ export function armarMensajePedido(d: DatosMensaje): string {
     l.push('📸 *Le envío el comprobante de la transferencia enseguida.*')
     l.push('')
   }
-  l.push('✅ _Este pedido ya entró al sistema y está en espera de aprobación en caja._')
+  l.push(
+    d.enCocina
+      ? '✅ _Este pedido ya entró al sistema y está en preparación._'
+      : '✅ _Este pedido ya entró al sistema y está en espera de aprobación en caja._',
+  )
   l.push('¡Gracias! 🙌')
 
   return l.join('\n')

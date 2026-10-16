@@ -1548,3 +1548,20 @@ el mismo que sugiere la cuenta impresa) y **Otro valor**, que abre un campo en b
 escribir lo que el cliente quiera dejar, más o menos. El total a cobrar se actualiza al
 instante. Sigue arrancando en "Sin propina": nunca se cobra sola. No requiere cambios en
 la base.
+
+
+## El pedido en efectivo también se manda por WhatsApp
+
+Al pedir en efectivo (o datáfono), la carta intentaba abrir WhatsApp sola, pero en el
+celular el navegador bloquea esa ventana porque se abre después de guardar el pedido, y el
+seguimiento no tenía botón de respaldo (solo la pantalla de transferencia lo tenía). Así
+el restaurante no recibía el mensaje.
+
+- El seguimiento muestra arriba **"Enviar mi pedido por WhatsApp"** con el pedido completo
+  (cliente, teléfono, dirección, indicaciones, productos con sus notas, domicilio, total y
+  medio de pago) para domicilio y para recoger. No sale en mesa, ni en transferencia (que
+  ya manda su mensaje desde la pantalla de la llave), ni en pedidos entregados o anulados.
+- El domicilio en efectivo entra derecho a cocina, así que su mensaje dice "ya entró al
+  sistema y está en preparación" en vez de "en espera de aprobación en caja".
+
+No requiere cambios en la base.

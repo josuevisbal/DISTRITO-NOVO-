@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react'
 
-import { IconoAlerta, IconoBolsa, IconoCheck, IconoCopiar, IconoReloj } from '@/components/iconos'
+import {
+  IconoAlerta,
+  IconoBolsa,
+  IconoCheck,
+  IconoCopiar,
+  IconoReloj,
+  IconoWhatsApp,
+} from '@/components/iconos'
 import type { PedidoSeguimiento } from '@/lib/datos/pedido'
 import { pasoDe, pasosVisibles, type EstadoPedido } from '@/lib/estados'
 import { formatearPesos } from '@/lib/formato'
@@ -60,6 +67,8 @@ export function SeguimientoCliente({ token, slug, inicial, pago }: Props) {
       {esperandoPago ? (
         <PanelTransferencia pedido={pedido} pago={pago} token={token} slug={slug} />
       ) : null}
+
+      {!esperandoPago && !anulado ? <AvisoWhatsApp pedido={pedido} pago={pago} /> : null}
 
       {anulado ? (
         <p className="mt-6 flex gap-2.5 rounded-lg border border-marca-acento bg-marca-superficie p-4 text-sm text-marca-texto">
@@ -342,6 +351,60 @@ function LineaEstados({ estado }: { estado: EstadoPedido }) {
         )
       })}
     </ol>
+  )
+}
+
+/**
+ * El aviso del pedido por WhatsApp para lo que no pasa por transferencia (efectivo,
+ * datáfono). Al pedir se intenta abrir WhatsApp solo, pero en el celular el navegador
+ * casi siempre lo bloquea: este botón es el que de verdad lo manda.
+ */
+function AvisoWhatsApp({ pedido, pago }: { pedido: PedidoSeguimiento; pago: Props['pago'] }) {
+  const terminado = pedido.estado === 'entregado' || pedido.estado === 'cerrado'
+  // La transferencia ya mandó su mensaje desde la pantalla de la llave: no se repite.
+  const porTransferencia = pedido.medio_pago === 'transferencia' || pedido.medio_pago === 'mixto'
+  if (!pago.whatsapp || pedido.canal === 'mesa' || porTransferencia || terminado) return null
+
+  const enlace = enlacePedidoWhatsApp(
+    pago.whatsapp,
+    armarMensajePedido({
+      restaurante: pago.restaurante,
+      numero: pedido.numero,
+      canal: pedido.canal,
+      cliente: pedido.cliente_nombre,
+      telefono: pedido.cliente_tel,
+      direccion: pedido.direccion,
+      indicaciones: pedido.indicaciones,
+      items: pedido.items.map((i) => ({
+        nombre: i.nombre_snap,
+        cantidad: i.cantidad,
+        total: i.precio_snap * i.cantidad,
+        notas: i.notas,
+      })),
+      subtotal: pedido.subtotal,
+      domicilio: pedido.domicilio,
+      total: pedido.total,
+      medioPago: pedido.medio_pago,
+      enCocina: pedido.estado !== 'pendiente',
+    }),
+  )
+
+  return (
+    <section className="mt-6 rounded-xl border border-marca-acento bg-marca-superficie p-4">
+      <p className="text-sm text-marca-texto">
+        Tu pedido ya quedó registrado. Envíanos el pedido completo por WhatsApp para
+        confirmarlo contigo.
+      </p>
+      <a
+        href={enlace}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-marca-acento px-3 py-2 text-center font-semibold text-marca-acento-texto"
+      >
+        <IconoWhatsApp className="size-5" />
+        Enviar mi pedido por WhatsApp
+      </a>
+    </section>
   )
 }
 

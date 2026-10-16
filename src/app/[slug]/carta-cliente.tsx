@@ -229,6 +229,7 @@ export function CartaCliente({ carta, mesa }: Props) {
         domicilio: resultado.domicilio,
         total: resultado.total,
         medioPago: datos?.medio ?? null,
+        enCocina: canal === 'domicilio' && datos?.medio === 'efectivo',
       })
       // Si el navegador bloquea la ventana, el seguimiento ofrece el enlace de respaldo.
       window.open(enlacePedidoWhatsApp(numeroWa, mensaje), '_blank', 'noopener')
