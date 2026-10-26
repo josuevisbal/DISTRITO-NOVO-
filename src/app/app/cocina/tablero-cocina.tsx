@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { useRefrescarEnCambios } from '@/lib/realtime'
+
 import {
   IconoAlerta,
   IconoCheck,
@@ -13,7 +15,6 @@ import {
 } from '@/components/iconos'
 import { obtenerTema, obtenerTemaOperacion, variablesTema } from '@/config/tema'
 import { calcularCronometro, formatearRestante, type Semaforo } from '@/lib/cronometro'
-import { crearClienteNavegador } from '@/lib/supabase/navegador'
 import { cambiarDisponibilidad, marcarRondaCocina } from '../acciones'
 
 export type ItemComanda = {
@@ -126,25 +127,10 @@ export function TableroCocina({
 
   const [enLinea, setEnLinea] = useState(true)
 
-  // Realtime + reintento periódico: un pedido nuevo aparece solo, sin recargar.
-  // Si la conexión se cae, se avisa y se sigue reintentando.
-  useEffect(() => {
-    const supabase = crearClienteNavegador()
-    const canal = supabase
-      .channel('cocina-comandas')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comandas' }, () =>
-        router.refresh(),
-      )
-      .subscribe((estado) => {
-        setEnLinea(estado === 'SUBSCRIBED')
-      })
-
-    const id = setInterval(() => router.refresh(), 15000)
-    return () => {
-      supabase.removeChannel(canal)
-      clearInterval(id)
-    }
-  }, [router])
+  // Realtime + red de seguridad: un pedido nuevo aparece solo, sin recargar. La red de
+  // seguridad (cada 15 s) solo corre con la pantalla a la vista; al volver a mirarla se
+  // pone al día de una, y una ráfaga de cambios es una sola recarga.
+  useRefrescarEnCambios(['comandas'], { onEstado: setEnLinea, intervaloMs: 15000 })
 
   // Respuesta óptimista: el estado local pisa al del servidor apenas el cocinero toca,
   // y el servidor confirma detrás. Si la acción falla, se revierte y se reintenta a mano.

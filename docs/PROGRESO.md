@@ -1598,3 +1598,16 @@ los platos**; lo de antes se da por gastado (sin saber en qué) y los gastos ano
 restan. Si el cuadre es hoy, la tarjeta dice "Ganancia de hoy". En "Ganancia por día" los
 días desde el cuadre tampoco restan gastos. En pérdida (días antes del cuadre) ya no sale un
 margen negativo, sino "los gastos superan lo vendido".
+
+## Consumo de Vercel (octubre 2026)
+
+La cuenta pasó el CPU del plan gratis. Se trajeron las mejoras que ya tenía Caribbean, sin
+volver más lenta ninguna pantalla:
+- La carta pública ya no pasa por la comprobación de sesión del middleware, y el middleware
+  no corre para video, audio, fuentes, manifiesto ni service worker.
+- La sesión del personal se verifica por la firma del token (`sesion-verificada.ts`), sin
+  viaje a Supabase, y `staffActual` se resuelve una sola vez por petición.
+- `useRefrescarEnCambios`: autentica el socket antes de suscribirse, junta las ráfagas de
+  eventos en una sola recarga (300 ms), refresca al reconectar y al volver a mirar la
+  pantalla, y la red de seguridad (mismos intervalos de antes) solo corre con la pantalla
+  a la vista. La cocina usa el mismo hook.

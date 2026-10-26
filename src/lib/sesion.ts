@@ -1,7 +1,9 @@
+import { cache } from 'react'
 import { redirect } from 'next/navigation'
 
 import type { Database } from '@/lib/database.types'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
+import { idDeSesion } from '@/lib/supabase/sesion-verificada'
 
 export type Rol = Database['public']['Enums']['rol_usuario']
 
@@ -13,23 +15,26 @@ export type Staff = {
   estacion_id: string | null
 }
 
-/** El staff que tiene la sesión actual, o null si no hay sesión o no es staff activo. */
-export async function staffActual(): Promise<Staff | null> {
+/**
+ * El staff que tiene la sesión actual, o null si no hay sesión o no es staff activo.
+ *
+ * Va en `cache()` porque en una misma petición se pedía varias veces (armazón, página y
+ * redibujo tras una acción), y la sesión se verifica por firma, sin viaje a Supabase.
+ */
+export const staffActual = cache(async function staffActual(): Promise<Staff | null> {
   const supabase = await crearClienteServidor()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
+  const usuario = await idDeSesion(supabase)
+  if (!usuario) return null
 
   const { data } = await supabase
     .from('usuarios')
     .select('id, nombre, rol, restaurante_id, estacion_id')
-    .eq('id', user.id)
+    .eq('id', usuario)
     .eq('activo', true)
     .maybeSingle()
 
   return data
-}
+})
 
 /**
  * Exige sesión y, si se pasan roles, que el rol esté entre ellos. Si no cumple, redirige:
