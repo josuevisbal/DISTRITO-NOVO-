@@ -24,7 +24,8 @@ export async function verificarTransferencia(
   ok: boolean,
   motivo?: string,
 ): Promise<Resultado> {
-  await exigirRol('cajero', 'admin')
+  // Aprobar es de caja; rechazar (que anula el pedido) es solo de administración.
+  await (ok ? exigirRol('cajero', 'admin') : exigirRol('admin'))
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('verificar_transferencia', {
     p_pedido: pedidoId,

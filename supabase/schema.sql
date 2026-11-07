@@ -1053,6 +1053,11 @@ language plpgsql security definer set search_path = public as $$
 declare v_turno uuid; v_monto bigint; v_rest uuid; v_estado estado_pedido; v_pago uuid;
 begin
   if mi_rol() not in ('cajero','admin') then raise exception 'Solo caja o administración'; end if;
+  -- Rechazar una transferencia anula el pedido (o lo deja en deuda): eso es solo de
+  -- administración, como anular. Caja aprueba; el rechazo lo decide el dueño.
+  if not p_ok and mi_rol() is distinct from 'admin' then
+    raise exception 'Solo administración rechaza transferencias';
+  end if;
 
   select restaurante_id, coalesce(monto_exacto, total), estado
     into v_rest, v_monto, v_estado from pedidos where id = p_pedido;
@@ -1114,7 +1119,7 @@ begin
        where id = p_pedido;
     else
       update pedidos set estado='anulado', motivo_anulacion = coalesce(p_motivo,'Transferencia no verificada'),
-             anulado_por = auth.uid()
+             anulado_por = auth.uid(), anulado_en = now()
         where id = p_pedido;
     end if;
   end if;

@@ -1217,6 +1217,7 @@ function FilaVerificar({
   soloLectura: boolean
 }) {
   const [ocupado, setOcupado] = useState(false)
+  const puedeAnular = useContext(PuedeAnular)
   const [error, setError] = useState<string | null>(null)
   const { mostrar } = useToast()
 
@@ -1269,10 +1270,13 @@ function FilaVerificar({
               {ocupado ? 'Verificando…' : 'Verifiqué en el banco'}
             </Boton>
           }
+          /* Rechazar anula el pedido: solo administración. */
           secundaria={
-            <BotonTexto tono="peligro" onClick={() => verificar(false)} disabled={ocupado}>
-              No llegó
-            </BotonTexto>
+            puedeAnular ? (
+              <BotonTexto tono="peligro" onClick={() => verificar(false)} disabled={ocupado}>
+                No llegó
+              </BotonTexto>
+            ) : null
           }
         />
       )}

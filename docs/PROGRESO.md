@@ -1644,3 +1644,18 @@ deja de ver el anulado y sigue editando los demás; la migración corre dos vece
 Playwright a 320 y 390 px, sin desbordes. Migración en
 `supabase/historial/solo-admin-anula-y-carta.sql` (sin comentarios). **La carta nueva lee las
 columnas nuevas de `categorias`: correr la migración antes de desplegar.**
+
+
+## Rechazar transferencias, solo administración · Fotos de los platos
+
+- **"No llegó" (rechazar una transferencia) es solo de administración**, como anular:
+  `verificar_transferencia` exige admin cuando `p_ok` es falso y el botón no se le muestra a
+  caja. Caja sigue aprobando. Al anular por transferencia rechazada también queda
+  `anulado_en`. Migración en `supabase/historial/solo-admin-rechaza-transferencia.sql`.
+- **Fotos para la carta.** 60 fotos de Pexels (licencia libre, uso comercial sin atribución)
+  escogidas plato por plato, en WebP de 900 px (3,7 MB en total), servidas desde
+  `public/carta/<slug>/`. `supabase/seed-fotos-distrito-novo.sql` las asigna por nombre
+  (sin importar espacios ni mayúsculas) y SOLO a los productos sin foto: no pisa las que el
+  dueño ya haya subido. En la carta de prueba quedan 66 de 84 con foto; los 18 restantes
+  son bebidas de marca (gaseosas, aguas, jugos en caja), que no llevan foto de otra marca.
+  El dueño puede cambiar cualquiera desde el panel.
