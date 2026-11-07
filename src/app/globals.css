@@ -433,3 +433,34 @@ body {
 @page {
   margin: 4mm;
 }
+
+/* ---------- Carta editorial ---------- */
+/* La palabra de acento de cada título: itálica serif en dorado ("Hamburguesas *angus*"). */
+.acento-carta {
+  font-family: var(--fuente-acento), serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 1.12em;
+  letter-spacing: 0;
+  color: var(--marca-acento-fuerte);
+}
+/* Velo sobre las fotos para que el nombre y el precio se lean siempre. */
+.velo-carta {
+  background: linear-gradient(
+    180deg,
+    transparent 35%,
+    color-mix(in srgb, var(--marca-fondo) 55%, transparent) 62%,
+    color-mix(in srgb, var(--marca-fondo) 94%, transparent)
+  );
+}
+/* Hojas que suben desde abajo: ficha del plato y barra del pedido. */
+@keyframes hoja-sube {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hoja-sube {
+  animation: hoja-sube var(--mov-media) var(--mov-entrar) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hoja-sube { animation: none; }
+}

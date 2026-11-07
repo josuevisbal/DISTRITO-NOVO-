@@ -32,7 +32,7 @@ export async function cargarTicketsCocina(
   const { data: comandas } = await supabase
     .from('comandas')
     .select(
-      'id, pedido_id, estacion_id, estado, disparo_en, minutos, ronda, pedidos!inner(numero, canal, indicaciones, mesas(numero))',
+      'id, pedido_id, estacion_id, estado, disparo_en, minutos, ronda, pedidos!inner(numero, canal, indicaciones, cliente_nombre, mesas(numero))',
     )
     .in('estacion_id', idsEstaciones)
     .in('estado', ['pendiente', 'preparando'])
@@ -99,6 +99,7 @@ export async function cargarTicketsCocina(
       mesa: c.pedidos.mesas?.numero ?? null,
       canal: c.pedidos.canal,
       indicaciones: c.pedidos.indicaciones,
+      cliente: c.pedidos.cliente_nombre,
       estado: c.estado,
       disparo_en: c.disparo_en,
       objetivo_en: objetivo.toISOString(),

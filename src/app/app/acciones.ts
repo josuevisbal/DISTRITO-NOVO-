@@ -175,9 +175,9 @@ export async function editarPedido(
   return { ok: true, numero: r.numero, total: r.total }
 }
 
-/** Anula un pedido con su motivo. El mesero solo los del salón sin plata recibida. */
+/** Anula un pedido. Solo administración (la base lo vuelve a exigir). */
 export async function anularPedidoEquipo(pedidoId: string, motivo: string): Promise<Resultado> {
-  await exigirRol('mesero', 'cajero', 'admin')
+  await exigirRol('admin')
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('anular_pedido', { p_pedido: pedidoId, p_motivo: motivo })
   if (error) return { ok: false, error: error.message }

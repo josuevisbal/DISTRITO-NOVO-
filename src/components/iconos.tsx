@@ -422,3 +422,13 @@ export function IconoDestello({ className }: Props) {
     </svg>
   )
 }
+
+/** Prohibido / anulado: un círculo cruzado. */
+export function IconoAnulado(props: Props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M6 6l12 12" />
+    </Svg>
+  )
+}

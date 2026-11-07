@@ -208,3 +208,32 @@ export async function retirarProducto(productoId: string): Promise<Resultado> {
   revalidatePath('/app/admin/carta')
   return { ok: true }
 }
+
+/* ---------- Cómo se presenta cada familia en la carta ---------- */
+
+const ESTILOS = ['lista', 'mosaico', 'carrusel', 'compacta'] as const
+
+/**
+ * Título (con la palabra de acento entre asteriscos), línea de abajo y estilo de una
+ * familia. Vacío vuelve al automático: el nombre y el estilo según las fotos.
+ */
+export async function guardarCategoria(
+  categoriaId: string,
+  campos: { titulo: string; subtitulo: string; estilo: string },
+): Promise<Resultado> {
+  const staff = await exigirRol('admin')
+  const supabase = await crearClienteServidor()
+  const estilo = (ESTILOS as readonly string[]).includes(campos.estilo) ? campos.estilo : null
+  const { error } = await supabase
+    .from('categorias')
+    .update({
+      titulo: campos.titulo.trim().slice(0, 80) || null,
+      subtitulo: campos.subtitulo.trim().slice(0, 160) || null,
+      estilo,
+    })
+    .eq('id', categoriaId)
+    .eq('restaurante_id', staff.restaurante_id)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath('/app/admin/carta')
+  return { ok: true }
+}

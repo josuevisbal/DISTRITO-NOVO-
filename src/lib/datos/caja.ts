@@ -10,6 +10,7 @@ import type {
   Turno,
 } from '@/app/app/caja/caja-cliente'
 import type { CategoriaElegible, ProductoElegible } from '@/components/pedido/selector-productos'
+import type { DatosClientePedido } from '@/components/ui/ficha-cliente'
 import { crearClienteServidor } from '@/lib/supabase/servidor'
 
 /** Barrio y su tarifa fija: el domicilio se cobra por zona, no por distancia. */
@@ -80,6 +81,8 @@ export type DatosCaja = {
   pendientesCierre: number[]
   /** Qué lleva cada pedido de la lista, para verlo dentro de su tarjeta. */
   productosPorPedido: Record<string, ProductoCaja[]>
+  /** Nombre, teléfono, dirección e indicaciones de cada pedido de la lista. */
+  clientePorPedido: Record<string, DatosClientePedido>
   /** La carta, para que caja tome pedidos de quien llama o llega al mostrador. */
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
@@ -160,7 +163,9 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     for (const m of movs ?? []) {
       if (!m.medio) continue
       // Lo de un pedido anulado no entra a las cuentas del turno.
-      if (m.pedidos?.estado === 'anulado') continue
+      // Lo de un pedido anulado no entra a las cuentas del turno. Caja ni siquiera ve los
+      // pedidos anulados (RLS): si el movimiento tiene pedido pero no llegó, es uno anulado.
+      if (m.pedidos?.estado === 'anulado' || (m.pedido_id && !m.pedidos)) continue
       // La llave para no contar dos veces: el pedido si lo hay, si no el movimiento.
       const llave = m.pedido_id ?? m.id
       const grupo = grupoDe(m.pedidos?.canal ?? null)
@@ -402,13 +407,32 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
       ...sinCerrar.map((x) => x.pedido_id),
     ]),
   )
-  const { data: renglones } = idsLista.length
-    ? await supabase
+  const [{ data: renglones }, { data: clientes }] = await Promise.all([
+    idsLista.length
+    ? supabase
         .from('pedido_items')
         .select('pedido_id, nombre_snap, cantidad, notas, ronda, estaciones(nombre, color, orden)')
         .in('pedido_id', idsLista)
         .order('ronda')
-    : { data: [] }
+    : { data: [] },
+    // Los datos del cliente de cada pedido: el equipo no depende del mensaje de WhatsApp.
+    idsLista.length
+      ? supabase
+          .from('pedidos')
+          .select('id, cliente_nombre, cliente_tel, direccion, indicaciones, zonas_domicilio(nombre)')
+          .in('id', idsLista)
+      : { data: [] },
+  ])
+  const clientePorPedido: Record<string, DatosClientePedido> = {}
+  for (const c of clientes ?? []) {
+    clientePorPedido[c.id] = {
+      nombre: c.cliente_nombre,
+      telefono: c.cliente_tel,
+      direccion: c.direccion,
+      zona: c.zonas_domicilio?.nombre ?? null,
+      indicaciones: c.indicaciones,
+    }
+  }
   const productosPorPedido: Record<string, ProductoCaja[]> = {}
   for (const r of renglones ?? []) {
     const lista = (productosPorPedido[r.pedido_id] ??= [])
@@ -444,6 +468,7 @@ export async function cargarCaja(restauranteId: string): Promise<DatosCaja> {
     sinCerrar,
     pendientesCierre,
     productosPorPedido,
+    clientePorPedido,
     categorias: categoriaRes.data ?? [],
     productos: productoRes.data ?? [],
     zonas: zonaRes.data ?? [],

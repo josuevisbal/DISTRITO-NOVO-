@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties } from 'react'
 
 import {
   IconoAlerta,
@@ -43,15 +43,21 @@ const BORDE = {
 
 type Pestana = 'confirmar' | 'cocina' | 'listos' | 'cuentas'
 
+/** Anular es solo de administración: las tarjetas preguntan aquí si muestran el botón. */
+const PuedeAnular = createContext(false)
+
 export function MeseroCliente({
   datos,
   servidorAhoraISO,
   soloLectura = false,
+  puedeAnular = false,
 }: {
   datos: DatosMesero
   servidorAhoraISO: string
   /** Monitoreo del admin: espejo sin controles. Observa, no opera. */
   soloLectura?: boolean
+  /** Solo administración anula pedidos; el mesero corrige, pero no anula. */
+  puedeAnular?: boolean
 }) {
   const { porConfirmar, enCocina, listos, cuentas, mesas, categorias, productos } = datos
 
@@ -95,6 +101,7 @@ export function MeseroCliente({
           : cuentas
 
   return (
+    <PuedeAnular.Provider value={puedeAnular && !soloLectura}>
     <div className="mx-auto w-full max-w-3xl space-y-4 p-4 pb-24">
       {/* El navegador no deja sonar nada hasta que la persona toca la pantalla. */}
       {sonidoPendiente ? (
@@ -221,6 +228,7 @@ export function MeseroCliente({
         </Modal>
       ) : null}
     </div>
+    </PuedeAnular.Provider>
   )
 }
 
@@ -257,6 +265,7 @@ function Tarjeta({
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [anulando, setAnulando] = useState(false)
+  const puedeAnular = useContext(PuedeAnular)
   const { mostrar } = useToast()
 
   const borde =
@@ -384,14 +393,16 @@ function Tarjeta({
                 Agregar
               </Boton>
             ) : null}
-            <button
-              type="button"
-              onClick={() => setAnulando(true)}
-              disabled={ocupado}
-              className="ml-auto min-h-11 rounded-lg px-3 text-sm font-medium text-[#9A3320] disabled:opacity-50 sm:ml-0"
-            >
-              Anular
-            </button>
+            {puedeAnular ? (
+              <button
+                type="button"
+                onClick={() => setAnulando(true)}
+                disabled={ocupado}
+                className="ml-auto min-h-11 rounded-lg px-3 text-sm font-medium text-[#9A3320] disabled:opacity-50 sm:ml-0"
+              >
+                Anular
+              </button>
+            ) : null}
           </div>
 
           {pedido.estado === 'pendiente' || pedido.rondaPendiente ? (

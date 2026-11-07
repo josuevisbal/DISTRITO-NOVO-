@@ -251,6 +251,10 @@ function TarjetaEntrega({
       {entrega.cliente ? (
         <p className="mt-3 text-lg font-medium text-marca-texto">{entrega.cliente}</p>
       ) : null}
+      {/* El número a la vista: si se cae el WhatsApp o el botón, se marca a mano. */}
+      {entrega.telefono ? (
+        <p className="text-base tabular-nums text-marca-texto-suave">Tel. {entrega.telefono}</p>
+      ) : null}
 
       {/* Dirección grande: se lee de pie, con las manos ocupadas. */}
       <p className={`text-2xl font-semibold leading-tight text-marca-texto ${entrega.cliente ? '' : 'mt-3'}`}>

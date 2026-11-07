@@ -13,6 +13,7 @@ import {
 } from '@/components/iconos'
 import { obtenerTema, obtenerTemaOperacion, variablesTema } from '@/config/tema'
 import { calcularCronometro, formatearRestante, type Semaforo } from '@/lib/cronometro'
+import { capitalizarNombre } from '@/lib/formato'
 import { crearClienteNavegador } from '@/lib/supabase/navegador'
 import { cambiarDisponibilidad, marcarRondaCocina } from '../acciones'
 
@@ -37,6 +38,8 @@ export type Ticket = {
   canal: string
   /** Lo que el cliente escribió para todo el pedido (además de la nota de cada plato). */
   indicaciones: string | null
+  /** Para quién es: con el nombre se arma y se marca la bolsa del domicilio. */
+  cliente: string | null
   estado: 'pendiente' | 'preparando' | 'listo' | 'cancelada'
   disparo_en: string
   objetivo_en: string
@@ -339,6 +342,11 @@ function TicketKds({
           <span className="whitespace-nowrap rounded-full bg-marca-superficie-tenue px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-marca-texto-suave">
             {ticket.mesa ? `Mesa ${ticket.mesa}` : (NOMBRE_CANAL[ticket.canal] ?? ticket.canal)}
           </span>
+          {!ticket.mesa && ticket.cliente ? (
+            <span className="min-w-0 truncate text-sm font-semibold">
+              {capitalizarNombre(ticket.cliente)}
+            </span>
+          ) : null}
 
           {/* Ronda 2 en adelante: la mesa pidió más sin cerrar la cuenta. Es tarjeta
             aparte, así que aquí solo va lo NUEVO. */}

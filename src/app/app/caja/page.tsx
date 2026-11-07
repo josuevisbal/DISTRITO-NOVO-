@@ -16,7 +16,11 @@ export default async function PaginaCaja() {
     <>
       <BarraStaff staff={staff} titulo="Caja" />
       <main className="mx-auto w-full max-w-[1150px] px-6 py-6 sm:px-8">
-        <CajaCliente {...datos} servidorAhoraISO={new Date().toISOString()} />
+        <CajaCliente
+          {...datos}
+          servidorAhoraISO={new Date().toISOString()}
+          puedeAnular={staff.rol === 'admin'}
+        />
       </main>
     </>
   )

@@ -16,7 +16,7 @@ export default async function MonitoreoCaja() {
   return (
     <>
       <AvisoMonitoreo />
-      <CajaCliente {...datos} servidorAhoraISO={new Date().toISOString()} />
+      <CajaCliente {...datos} servidorAhoraISO={new Date().toISOString()} puedeAnular />
     </>
   )
 }

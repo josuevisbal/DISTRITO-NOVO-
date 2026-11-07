@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 
 import { cerrarSesion } from '@/app/app/login/acciones'
 import {
+  IconoAnulado,
   IconoBolsa,
   IconoCaja,
   IconoCampana,
@@ -43,6 +44,7 @@ const MODULOS: Modulo[] = [
   { href: '/app/admin/usuarios', titulo: 'Equipo', Icono: IconoEquipo },
   { href: '/app/admin/reportes', titulo: 'Reportes', Icono: IconoGrafica },
   { href: '/app/admin/gastos', titulo: 'Gastos y rentabilidad', Icono: IconoBillete },
+  { href: '/app/admin/anulados', titulo: 'Pedidos anulados', Icono: IconoAnulado },
 ]
 
 /** Sub-secciones que viven dentro del Menú Digital (se navegan con pestañas). */

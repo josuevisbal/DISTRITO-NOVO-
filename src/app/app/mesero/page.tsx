@@ -16,7 +16,11 @@ export default async function PaginaMesero() {
   return (
     <>
       <BarraStaff staff={staff} titulo="Salón" />
-      <MeseroCliente datos={datos} servidorAhoraISO={new Date().toISOString()} />
+      <MeseroCliente
+        datos={datos}
+        servidorAhoraISO={new Date().toISOString()}
+        puedeAnular={staff.rol === 'admin'}
+      />
     </>
   )
 }

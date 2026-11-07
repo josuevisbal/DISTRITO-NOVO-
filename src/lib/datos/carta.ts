@@ -13,7 +13,16 @@ export type ProductoCarta = {
   destacado: boolean
 }
 
-export type CategoriaCarta = { id: string; nombre: string; slug: string }
+export type EstiloCategoria = 'lista' | 'mosaico' | 'carrusel' | 'compacta'
+export type CategoriaCarta = {
+  id: string
+  nombre: string
+  slug: string
+  /** Título de la sección con la palabra de acento entre asteriscos. */
+  titulo: string | null
+  subtitulo: string | null
+  estilo: EstiloCategoria | null
+}
 export type ZonaCarta = { id: string; nombre: string; valor: number }
 export type EstacionCarta = { id: string; nombre: string; color: string }
 
@@ -99,7 +108,7 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
   ] = await Promise.all([
       supabase
         .from('categorias')
-        .select('id, nombre, slug')
+        .select('id, nombre, slug, titulo, subtitulo, estilo')
         .eq('restaurante_id', restaurante.id)
         .eq('activa', true)
         .order('orden'),
@@ -136,7 +145,7 @@ export async function cargarCarta(slug: string): Promise<Carta | null> {
       ...restaurante,
       landing: (restaurante.landing ?? {}) as FrasesLanding,
     },
-    categorias: categorias ?? [],
+    categorias: (categorias ?? []) as CategoriaCarta[],
     productos: productos ?? [],
     zonas: zonas ?? [],
     estaciones: estaciones ?? [],

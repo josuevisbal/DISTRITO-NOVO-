@@ -50,6 +50,8 @@ pantallas vivas. Sin librerías de estado global.
 Cinco, ni uno más (tabla `usuarios`): `admin · cajero · mesero · cocina · domicilio`.
 `admin` es el único rol de mando y ve todo, incluidos costos y rentabilidad. Además
 puede **operar** cualquier módulo —caja, cocina, salón y domicilios— igual que el equipo.
+**Solo `admin` anula pedidos**, y solo él ve los anulados (RLS de `pedidos` y su módulo
+"Pedidos anulados"); caja y mesero corrigen un pedido, pero no lo anulan.
 El comensal no tiene cuenta: entra por `slug`, pide, y sigue su pedido con un `token`.
 
 ## Los dos flujos

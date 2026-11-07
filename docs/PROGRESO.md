@@ -1598,3 +1598,49 @@ los platos**; lo de antes se da por gastado (sin saber en qué) y los gastos ano
 restan. Si el cuadre es hoy, la tarjeta dice "Ganancia de hoy". En "Ganancia por día" los
 días desde el cuadre tampoco restan gastos. En pérdida (días antes del cuadre) ya no sale un
 margen negativo, sino "los gastos superan lo vendido".
+
+
+## Solo administración anula, registro de anulados y datos del cliente en cada pedido
+
+Pedido del dueño: que los pedidos cancelados los vea solo él, que solo él pueda anular y
+que cada pedido traiga los datos del cliente aunque se pierda el mensaje de WhatsApp.
+
+- **Solo administración anula.** `anular_pedido` exige rol admin; caja y mesero ya no ven el
+  botón "Anular" (siguen pudiendo editar). La RLS de `pedidos` tampoco deja que otro rol
+  ponga un pedido en `anulado` con un update directo. Rechazar una transferencia que no
+  llegó sigue siendo de caja (es otra acción).
+- **Los anulados solo los ve administración.** La RLS de lectura de `pedidos` esconde los
+  anulados a todo rol que no sea admin. Nuevo módulo **Pedidos anulados**
+  (`/app/admin/anulados`): por mes, cuántos y cuánto sumaban, y cada uno con fecha, quién
+  lo anuló (`anulado_por`) y cuándo (`anulado_en`, columna nueva), motivo, cliente, dirección y
+  productos.
+- **Datos del cliente en las tarjetas.** Caja muestra en cada pedido una franja con nombre,
+  teléfono (botones de WhatsApp y llamar), dirección con barrio e indicaciones
+  (`TiraCliente`). Cocina muestra el nombre del cliente en la tarjeta del domicilio. El
+  domiciliario ve el número escrito además de los botones.
+
+## Carta editorial (estilo Candela)
+
+La carta del cliente pasa a una sola página con todas las familias y la barra de familias
+fija arriba, que marca la sección que se está viendo.
+
+- **"Para arrancar *con todo*"**: carrusel de los platos marcados POPULAR, con foto grande.
+- **Cada familia es una sección** con ceja, título con una palabra en dorado itálico
+  (Cormorant, `--fuente-acento`) y una línea debajo. Cuatro estilos: lista, mosaico (tarjetas
+  con la foto de fondo; el POPULAR va a lo ancho como "La insignia"), carrusel y compacta
+  (dos columnas, para bebidas). Sin estilo escogido, mosaico si la mitad tiene foto y lista
+  si no.
+- **Ficha del plato** al tocarlo: foto, descripción, cocina, nota para la cocina y cantidad.
+- **Barra del pedido** flotante: cuántos productos, total, cuánto falta para el domicilio
+  gratis con su barra de avance, y "Pedir".
+- Sin foto, cada plato muestra un brillo del color de su cocina con la inicial en dorado
+  tenue; al subir la foto desde el panel aparece sola.
+- **Panel → Menú Digital → Carta**: al escoger una familia aparece "Cómo se ve en la carta"
+  para escribir el título (con la palabra de acento entre asteriscos), la línea y el estilo.
+  Columnas nuevas en `categorias`: `titulo`, `subtitulo`, `estilo`.
+
+Probado en Postgres local (cajero y mesero no anulan ni por función ni por update; el cajero
+deja de ver el anulado y sigue editando los demás; la migración corre dos veces). Carta con
+Playwright a 320 y 390 px, sin desbordes. Migración en
+`supabase/historial/solo-admin-anula-y-carta.sql` (sin comentarios). **La carta nueva lee las
+columnas nuevas de `categorias`: correr la migración antes de desplegar.**

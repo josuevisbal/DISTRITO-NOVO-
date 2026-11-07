@@ -142,6 +142,9 @@ export type Database = {
           orden: number
           restaurante_id: string
           slug: string
+          titulo: string | null
+          subtitulo: string | null
+          estilo: string | null
         }
         Insert: {
           activa?: boolean
@@ -150,6 +153,9 @@ export type Database = {
           orden?: number
           restaurante_id: string
           slug: string
+          titulo?: string | null
+          subtitulo?: string | null
+          estilo?: string | null
         }
         Update: {
           activa?: boolean
@@ -158,6 +164,9 @@ export type Database = {
           orden?: number
           restaurante_id?: string
           slug?: string
+          titulo?: string | null
+          subtitulo?: string | null
+          estilo?: string | null
         }
         Relationships: [
           {
@@ -410,6 +419,7 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          anulado_en: string | null
           anulado_por: string | null
           canal: Database["public"]["Enums"]["canal_pedido"]
           cliente_nombre: string | null
@@ -444,6 +454,7 @@ export type Database = {
           pago_cambiado_en: string | null
         }
         Insert: {
+          anulado_en?: string | null
           anulado_por?: string | null
           canal: Database["public"]["Enums"]["canal_pedido"]
           cliente_nombre?: string | null
@@ -478,6 +489,7 @@ export type Database = {
           pago_cambiado_en?: string | null
         }
         Update: {
+          anulado_en?: string | null
           anulado_por?: string | null
           canal?: Database["public"]["Enums"]["canal_pedido"]
           cliente_nombre?: string | null

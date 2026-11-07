@@ -16,7 +16,7 @@ export default async function MonitoreoSalon() {
   return (
     <>
       <AvisoMonitoreo />
-      <MeseroCliente datos={datos} servidorAhoraISO={new Date().toISOString()} />
+      <MeseroCliente datos={datos} servidorAhoraISO={new Date().toISOString()} puedeAnular />
     </>
   )
 }

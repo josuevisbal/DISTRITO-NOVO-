@@ -16,6 +16,7 @@ import { formatearPesos } from '@/lib/formato'
 import {
   alternarProducto,
   crearProducto,
+  guardarCategoria,
   guardarProducto,
   quitarFotoProducto,
   retirarProducto,
@@ -36,7 +37,14 @@ export type ProductoAdmin = {
   color_estacion: string
 }
 
-export type CategoriaAdmin = { id: string; nombre: string; productos: ProductoAdmin[] }
+export type CategoriaAdmin = {
+  id: string
+  nombre: string
+  titulo: string | null
+  subtitulo: string | null
+  estilo: string | null
+  productos: ProductoAdmin[]
+}
 export type EstacionOpcion = { id: string; nombre: string }
 
 export function CartaAdmin({
@@ -91,6 +99,14 @@ export function CartaAdmin({
           className="min-h-11 w-full max-w-sm rounded-lg border border-marca-borde bg-marca-superficie px-3 text-sm text-marca-texto placeholder:text-marca-texto-suave/60"
         />
       </div>
+
+      {/* Con una familia elegida: cómo se presenta en la carta del cliente. */}
+      {familia !== 'todos'
+        ? (() => {
+            const cat = categorias.find((c) => c.id === familia)
+            return cat ? <PresentacionFamilia key={cat.id} categoria={cat} /> : null
+          })()
+        : null}
 
       {/* Agregar un plato nuevo a la carta. */}
       {creando ? (
@@ -624,5 +640,111 @@ function Interruptor({
       {activo ? <IconoCheck className="size-4 shrink-0" /> : null}
       {etiqueta}
     </button>
+  )
+}
+
+const ESTILOS_FAMILIA = [
+  { valor: '', etiqueta: 'Automático', ayuda: 'Con fotos, mosaico; sin fotos, lista.' },
+  { valor: 'lista', etiqueta: 'Lista', ayuda: 'Foto pequeña, nombre, descripción y precio.' },
+  { valor: 'mosaico', etiqueta: 'Mosaico', ayuda: 'Tarjetas grandes con la foto de fondo.' },
+  { valor: 'carrusel', etiqueta: 'Carrusel', ayuda: 'Tarjetas que se deslizan de lado.' },
+  { valor: 'compacta', etiqueta: 'Compacta', ayuda: 'Dos columnas pequeñas, ideal para bebidas.' },
+]
+
+/**
+ * Cómo se presenta una familia en la carta: título con una palabra en dorado itálico
+ * (entre asteriscos), una línea que la describe y el estilo de la sección.
+ */
+function PresentacionFamilia({ categoria }: { categoria: CategoriaAdmin }) {
+  const [titulo, setTitulo] = useState(categoria.titulo ?? '')
+  const [subtitulo, setSubtitulo] = useState(categoria.subtitulo ?? '')
+  const [estilo, setEstilo] = useState(categoria.estilo ?? '')
+  const [guardando, setGuardando] = useState(false)
+  const { mostrar } = useToast()
+  const campo =
+    'mt-1 min-h-11 w-full rounded-lg border border-marca-borde bg-marca-fondo px-3 text-marca-texto'
+
+  async function guardar() {
+    setGuardando(true)
+    const r = await guardarCategoria(categoria.id, { titulo, subtitulo, estilo })
+    setGuardando(false)
+    mostrar(r.ok ? `${categoria.nombre}: guardado` : r.error)
+  }
+
+  const partes = (titulo.trim() || categoria.nombre).split('*')
+
+  return (
+    <section className="tarjeta space-y-3 p-4">
+      <div>
+        <h2 className="font-titulo text-base text-marca-texto">
+          Cómo se ve «{categoria.nombre}» en la carta
+        </h2>
+        <p className="text-xs text-marca-texto-suave">
+          Vista previa:{' '}
+          <span className="font-titulo text-marca-texto">
+            {partes.map((p, k) =>
+              k % 2 ? (
+                <em key={k} className="text-marca-acento-fuerte" style={{ fontFamily: 'var(--fuente-acento)' }}>
+                  {p}
+                </em>
+              ) : (
+                <span key={k}>{p}</span>
+              ),
+            )}
+          </span>
+        </p>
+      </div>
+      <label className="block">
+        <span className="text-xs text-marca-texto-suave">
+          Título · pon entre asteriscos la palabra en dorado: Hamburguesas *angus*
+        </span>
+        <input
+          value={titulo}
+          onChange={(e) => setTitulo(e.target.value)}
+          placeholder={categoria.nombre}
+          maxLength={80}
+          className={campo}
+        />
+      </label>
+      <label className="block">
+        <span className="text-xs text-marca-texto-suave">Línea de abajo (opcional)</span>
+        <input
+          value={subtitulo}
+          onChange={(e) => setSubtitulo(e.target.value)}
+          placeholder="Pan brioche y carne a la parrilla"
+          maxLength={160}
+          className={campo}
+        />
+      </label>
+      <fieldset>
+        <legend className="text-xs text-marca-texto-suave">Estilo de la sección</legend>
+        <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {ESTILOS_FAMILIA.map((e) => (
+            <button
+              key={e.valor}
+              type="button"
+              onClick={() => setEstilo(e.valor)}
+              aria-pressed={estilo === e.valor}
+              title={e.ayuda}
+              className={`min-h-11 rounded-lg border px-2 text-sm ${
+                estilo === e.valor
+                  ? 'border-marca-acento bg-marca-acento font-semibold text-marca-acento-texto'
+                  : 'border-marca-borde text-marca-texto'
+              }`}
+            >
+              {e.etiqueta}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-marca-texto-suave">
+          {ESTILOS_FAMILIA.find((e) => e.valor === estilo)?.ayuda}
+        </p>
+      </fieldset>
+      <div className="flex justify-end">
+        <Boton variante="primario" className="px-4" onClick={guardar} disabled={guardando}>
+          {guardando ? 'Guardando…' : 'Guardar presentación'}
+        </Boton>
+      </div>
+    </section>
   )
 }

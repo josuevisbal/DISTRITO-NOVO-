@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import {
@@ -18,6 +18,7 @@ import { formatearPesos } from '@/lib/formato'
 import { armarMensajePedido, enlacePedidoWhatsApp } from '@/lib/mensaje-pedido'
 import { actualizarPedido, crearPedido } from './acciones'
 import { BannerPromociones } from './promociones'
+import { BarraPedido, MenuCarta } from './carta-menu'
 import { Checkout, type DatosCheckout } from './checkout'
 
 type Linea = { producto: ProductoCarta; cantidad: number; notas: string }
@@ -80,15 +81,22 @@ export function CartaCliente({ carta, mesa }: Props) {
     }
   }, [carta.productos])
 
-  function agregar(producto: ProductoCarta, cantidad = 1) {
+  function agregar(producto: ProductoCarta, cantidad = 1, notas = '') {
     setLineas((previas) => {
       const existente = previas.find((l) => l.producto.id === producto.id)
       if (existente) {
+        // La nota nueva se suma a la que ya tenía, sin repetirla.
+        const nota =
+          notas && !existente.notas.includes(notas)
+            ? [existente.notas, notas].filter(Boolean).join(' · ')
+            : existente.notas
         return previas.map((l) =>
-          l.producto.id === producto.id ? { ...l, cantidad: l.cantidad + cantidad } : l,
+          l.producto.id === producto.id
+            ? { ...l, cantidad: l.cantidad + cantidad, notas: nota }
+            : l,
         )
       }
-      return [...previas, { producto, cantidad, notas: '' }]
+      return [...previas, { producto, cantidad, notas }]
     })
   }
 
@@ -270,12 +278,18 @@ export function CartaCliente({ carta, mesa }: Props) {
         onAgregarCombo={agregarCombo}
       />
 
-      <Menu carta={carta} lineas={lineas} onAgregar={agregar} />
+      <MenuCarta
+        carta={carta}
+        cantidadDe={(id) => lineas.find((l) => l.producto.id === id)?.cantidad ?? 0}
+        onAgregar={agregar}
+      />
 
       {unidades > 0 ? (
-        <BarraCarrito
+        <BarraPedido
           unidades={unidades}
           subtotal={subtotal}
+          umbralEnvioGratis={umbralEnvioGratis}
+          esMesa={!!mesa}
           onAbrir={() => setVista('carrito')}
         />
       ) : null}
@@ -378,225 +392,6 @@ function Encabezado({
       </a>
       </div>
     </header>
-  )
-}
-
-function Menu({
-  carta,
-  lineas,
-  onAgregar,
-}: {
-  carta: Carta
-  lineas: Linea[]
-  onAgregar: (p: ProductoCarta) => void
-}) {
-  const contenedorChips = useRef<HTMLDivElement>(null)
-
-  const conProductos = useMemo(
-    () =>
-      carta.categorias
-        .map((c) => ({ ...c, items: carta.productos.filter((p) => p.categoria_id === c.id) }))
-        .filter((c) => c.items.length > 0),
-    [carta],
-  )
-
-  // Una familia a la vez: la categoría seleccionada es la única que se muestra.
-  const [activa, setActiva] = useState<string | null>(null)
-  const seleccionada = conProductos.find((c) => c.id === activa) ?? conProductos[0]
-
-  // Mantiene el chip activo a la vista en la tira, que en móvil no cabe entera.
-  useEffect(() => {
-    if (!seleccionada) return
-    contenedorChips.current
-      ?.querySelector(`[data-chip="${seleccionada.id}"]`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
-  }, [seleccionada])
-
-  const cantidadDe = (id: string) => lineas.find((l) => l.producto.id === id)?.cantidad ?? 0
-  const colorEstacion = useMemo(
-    () => new Map(carta.estaciones.map((e) => [e.id, e.color])),
-    [carta.estaciones],
-  )
-
-  if (!seleccionada) return null
-
-  return (
-    <>
-      <nav
-        aria-label="Categorías"
-        className="sticky top-0 z-20 mt-6 border-b border-marca-borde bg-marca-fondo/95 backdrop-blur"
-      >
-        <div ref={contenedorChips} className="flex gap-2 overflow-x-auto px-5 py-3 sm:px-8">
-          {conProductos.map((c) => {
-            const esta = seleccionada.id === c.id
-            return (
-              <button
-                key={c.id}
-                type="button"
-                data-chip={c.id}
-                aria-pressed={esta}
-                onClick={() => setActiva(c.id)}
-                className={`min-h-11 shrink-0 rounded-full border px-4 text-sm transition-all duration-200 ${
-                  esta
-                    ? 'border-marca-acento bg-marca-acento font-semibold text-marca-acento-texto shadow-sm'
-                    : 'border-marca-borde bg-marca-superficie text-marca-texto hover:border-marca-acento'
-                }`}
-              >
-                {c.nombre}
-              </button>
-            )
-          })}
-        </div>
-      </nav>
-
-      {/* key=categoría reinicia la animación de entrada al cambiar de familia */}
-      <div key={seleccionada.id} className="mx-auto max-w-3xl px-5 pb-40 sm:px-8">
-        <section className="pt-10">
-          <EncabezadoSeccion titulo={seleccionada.nombre} />
-
-          <ul className="mt-6 grid gap-3">
-            {seleccionada.items.map((producto, i) => (
-              <ItemProducto
-                key={producto.id}
-                producto={producto}
-                cantidad={cantidadDe(producto.id)}
-                indice={Math.min(i, 10)}
-                colorEstacion={colorEstacion.get(producto.estacion_id) ?? '#888888'}
-                onAgregar={onAgregar}
-              />
-            ))}
-          </ul>
-        </section>
-      </div>
-    </>
-  )
-}
-
-/** Encabezado de categoría enmarcado en dorado, como los rótulos de la carta impresa. */
-function EncabezadoSeccion({ titulo }: { titulo: string }) {
-  return (
-    <div className="flex items-center gap-4">
-      <IconoFloritura className="hidden h-3 w-14 text-marca-acento opacity-70 sm:block" />
-      <h2 className="marco-oro rounded-xl bg-marca-superficie px-6 py-2.5 text-center font-titulo text-xl font-bold uppercase tracking-wide text-marca-acento-fuerte sm:text-2xl">
-        {titulo}
-      </h2>
-      <IconoFloritura className="hidden h-3 w-14 -scale-x-100 text-marca-acento opacity-70 sm:block" />
-    </div>
-  )
-}
-
-function ItemProducto({
-  producto,
-  cantidad,
-  indice,
-  colorEstacion,
-  onAgregar,
-}: {
-  producto: ProductoCarta
-  cantidad: number
-  indice: number
-  colorEstacion: string
-  onAgregar: (p: ProductoCarta) => void
-}) {
-  return (
-    <li
-      className="entra flex items-center gap-4 rounded-2xl border border-marca-borde bg-marca-superficie p-4 shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-shadow hover:shadow-lg sm:gap-6 sm:p-5"
-      style={{ '--i': indice } as CSSProperties}
-    >
-      {/* Texto a la izquierda, plato a la derecha (estilo carta de restaurante). */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <h3
-            className={`font-titulo text-lg font-bold leading-tight ${
-              producto.disponible ? 'text-marca-acento-fuerte' : 'text-marca-texto-suave'
-            }`}
-          >
-            {producto.nombre}
-          </h3>
-          {producto.destacado ? (
-            <span className="entra-pastilla flex shrink-0 items-center gap-1 rounded-full border border-marca-acento px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-marca-acento-fuerte">
-              <IconoDestello className="size-3" />
-              Popular
-            </span>
-          ) : null}
-        </div>
-
-        {producto.descripcion ? (
-          <p className="mt-1 text-sm leading-snug text-marca-texto-suave">
-            {producto.descripcion}
-          </p>
-        ) : null}
-
-        <p className="mt-3 font-titulo text-2xl font-bold tabular-nums text-marca-acento">
-          {formatearPesos(producto.precio)}
-        </p>
-
-        <div className="mt-3">
-          {producto.disponible ? (
-            <button
-              type="button"
-              onClick={() => onAgregar(producto)}
-              aria-label={`Agregar ${producto.nombre}`}
-              className="flex min-h-11 items-center gap-1.5 rounded-lg bg-marca-acento px-4 font-medium text-marca-acento-texto shadow-sm transition-transform active:scale-95"
-            >
-              <IconoMas className="size-4 shrink-0" />
-              {cantidad > 0 ? `Agregar · ${cantidad}` : 'Agregar'}
-            </button>
-          ) : (
-            <span className="inline-block rounded-lg border border-marca-borde px-3 py-2.5 text-sm text-marca-texto-suave">
-              Agotado
-            </span>
-          )}
-        </div>
-      </div>
-
-      {producto.foto_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={producto.foto_url}
-          alt=""
-          className="size-24 shrink-0 rounded-full border-2 border-marca-borde object-cover shadow-lg sm:size-32"
-        />
-      ) : (
-        // Sin foto real: marcador elegante con la inicial sobre el color de su estación.
-        // El admin sube la foto desde el panel y aparece aquí al instante.
-        <span
-          aria-hidden
-          className="flex size-24 shrink-0 items-center justify-center rounded-full border-2 border-marca-borde font-titulo text-4xl font-bold text-white shadow-lg sm:size-32"
-          style={{
-            background: `linear-gradient(135deg, ${colorEstacion}, color-mix(in srgb, ${colorEstacion} 45%, #000))`,
-          }}
-        >
-          {producto.nombre.trim().charAt(0).toUpperCase()}
-        </span>
-      )}
-    </li>
-  )
-}
-
-function BarraCarrito({
-  unidades,
-  subtotal,
-  onAbrir,
-}: {
-  unidades: number
-  subtotal: number
-  onAbrir: () => void
-}) {
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-marca-borde bg-marca-fondo/95 p-4 backdrop-blur">
-      <button
-        type="button"
-        onClick={onAbrir}
-        className="mx-auto flex min-h-14 w-full max-w-3xl items-center justify-between gap-4 rounded-lg bg-marca-acento px-5 font-medium text-marca-acento-texto"
-      >
-        <span className="flex items-center gap-2">
-          <IconoBolsa className="size-5 shrink-0" />
-          Ver pedido · {unidades} {unidades === 1 ? 'producto' : 'productos'}
-        </span>
-        <span className="text-lg font-bold">{formatearPesos(subtotal)}</span>
-      </button>
-    </div>
   )
 }
 

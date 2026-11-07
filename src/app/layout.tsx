@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Cinzel, Cinzel_Decorative, Dancing_Script, Inter } from 'next/font/google'
+import { Cinzel, Cinzel_Decorative, Cormorant_Garamond, Dancing_Script, Inter } from 'next/font/google'
 
 import { MARCA } from '@/config/tema'
 
@@ -25,6 +25,14 @@ const fuenteScript = Dancing_Script({
   weight: ['600', '700'],
 })
 
+// Itálica de acento para los títulos de la carta: "Hamburguesas *angus*".
+const fuenteAcento = Cormorant_Garamond({
+  variable: '--fuente-acento',
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  style: ['italic'],
+})
+
 const fuenteTexto = Inter({
   variable: '--fuente-texto',
   subsets: ['latin'],
@@ -47,7 +55,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${fuenteTitulo.variable} ${fuenteLogo.variable} ${fuenteScript.variable} ${fuenteTexto.variable} antialiased`}
+        className={`${fuenteTitulo.variable} ${fuenteLogo.variable} ${fuenteScript.variable} ${fuenteAcento.variable} ${fuenteTexto.variable} antialiased`}
       >
         {children}
       </body>

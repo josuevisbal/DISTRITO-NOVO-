@@ -19,7 +19,7 @@ export default async function PaginaAdminCarta() {
   const [{ data: categorias }, { data: productos }, { data: estaciones }] = await Promise.all([
     supabase
       .from('categorias')
-      .select('id, nombre')
+      .select('id, nombre, titulo, subtitulo, estilo')
       .eq('restaurante_id', staff.restaurante_id)
       .eq('activa', true)
       .order('orden'),
@@ -42,6 +42,9 @@ export default async function PaginaAdminCarta() {
     .map((c) => ({
       id: c.id,
       nombre: c.nombre,
+      titulo: c.titulo,
+      subtitulo: c.subtitulo,
+      estilo: c.estilo,
       productos: (productos ?? [])
         .filter((p) => p.categoria_id === c.id)
         .map((p) => ({

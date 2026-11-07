@@ -143,8 +143,9 @@ export async function entregarEnLocal(pedidoId: string): Promise<Resultado> {
   return { ok: true }
 }
 
+/** Anular es solo de administración; la base lo vuelve a exigir. */
 export async function anularPedido(pedidoId: string, motivo: string): Promise<Resultado> {
-  await exigirRol('cajero', 'admin')
+  await exigirRol('admin')
   const supabase = await crearClienteServidor()
   const { error } = await supabase.rpc('anular_pedido', { p_pedido: pedidoId, p_motivo: motivo })
   if (error) return { ok: false, error: error.message }

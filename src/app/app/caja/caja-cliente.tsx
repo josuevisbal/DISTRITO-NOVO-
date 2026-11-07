@@ -30,7 +30,11 @@ import {
 } from '@/components/pedido/selector-productos'
 import { useToast } from '@/components/toast'
 import { Boton } from '@/components/ui/boton'
-import { FichaCliente, FichaDireccion } from '@/components/ui/ficha-cliente'
+import {
+  FichaCliente,
+  TiraCliente,
+  type DatosClientePedido,
+} from '@/components/ui/ficha-cliente'
 import { Pildora, type TonoPildora } from '@/components/ui/pildora'
 import { Vacio } from '@/components/ui/vacio'
 import { MARCA } from '@/config/tema'
@@ -199,16 +203,38 @@ type Props = {
   sinCerrar: SinCerrar[]
   pendientesCierre: number[]
   productosPorPedido: Record<string, ProductoCaja[]>
+  clientePorPedido: Record<string, DatosClientePedido>
   categorias: CategoriaElegible[]
   productos: ProductoElegible[]
   zonas: ZonaCaja[]
   servidorAhoraISO: string
   /** Monitoreo del admin: espejo sin controles. Observa, no cobra. */
   soloLectura?: boolean
+  /** Solo administración anula pedidos. */
+  puedeAnular?: boolean
 }
 
 /** Qué lleva cada pedido: la tarjeta lo busca por su id, sin pasarlo fila por fila. */
 const ProductosDe = createContext<Record<string, ProductoCaja[]>>({})
+
+/** Los datos del cliente de cada pedido, también por id. */
+const ClienteDe = createContext<Record<string, DatosClientePedido>>({})
+
+/**
+ * Anular es solo de administración (la base lo vuelve a exigir): caja y mesero corrigen un
+ * pedido, pero no lo anulan. Las tarjetas preguntan aquí si muestran el botón.
+ */
+const PuedeAnular = createContext(false)
+
+/** Botón de anular de una tarjeta; no se pinta para quien no puede anular. */
+function BotonAnular({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  if (!useContext(PuedeAnular)) return null
+  return (
+    <BotonTexto tono="peligro" onClick={onClick} disabled={disabled}>
+      Anular
+    </BotonTexto>
+  )
+}
 
 /** Abrir el editor de un pedido desde cualquier tarjeta, sin pasar la carta fila por fila. */
 const AbrirEditor = createContext<(p: { id: string; numero: number }) => void>(() => {})
@@ -234,9 +260,7 @@ function Ajustes({
       <BotonTexto onClick={() => abrir({ id: pedidoId, numero })} disabled={disabled}>
         Editar
       </BotonTexto>
-      <BotonTexto tono="peligro" onClick={onAnular} disabled={disabled}>
-        Anular
-      </BotonTexto>
+      <BotonAnular onClick={onAnular} disabled={disabled} />
     </span>
   )
 }
@@ -256,11 +280,13 @@ export function CajaCliente(props: Props) {
     sinCerrar,
     pendientesCierre,
     productosPorPedido,
+    clientePorPedido,
     categorias,
     productos,
     zonas,
     servidorAhoraISO,
     soloLectura = false,
+    puedeAnular = false,
   } = props
 
   // El turno y sus movimientos también mueven esta pantalla (y la de monitoreo del
@@ -343,6 +369,7 @@ export function CajaCliente(props: Props) {
   ] as const
 
   return (
+    <PuedeAnular.Provider value={puedeAnular && !soloLectura}>
     <div className="space-y-5 pb-24">
       {/* El navegador no deja sonar nada hasta que la persona toca la pantalla. */}
       {!soloLectura && !aviso.listo ? (
@@ -442,6 +469,7 @@ export function CajaCliente(props: Props) {
             </li>
           ) : (
             <ProductosDe.Provider value={productosPorPedido}>
+            <ClienteDe.Provider value={clientePorPedido}>
             <AbrirEditor.Provider value={setEditando}>
               {visibles.map((f, i) => (
                 <FilaPedido
@@ -453,6 +481,7 @@ export function CajaCliente(props: Props) {
                 />
               ))}
             </AbrirEditor.Provider>
+            </ClienteDe.Provider>
             </ProductosDe.Provider>
           )}
         </ul>
@@ -509,6 +538,7 @@ export function CajaCliente(props: Props) {
       ) : null}
 
     </div>
+    </PuedeAnular.Provider>
   )
 }
 
@@ -902,6 +932,7 @@ function EnvolturaFila({
   const [abierta, setAbierta] = useState(false)
   const [pedido, detalle, pago, acciones, ...resto] = Children.toArray(children)
   const productos = useContext(ProductosDe)[pedidoId] ?? []
+  const cliente = useContext(ClienteDe)[pedidoId]
 
   return (
     <li
@@ -937,7 +968,12 @@ function EnvolturaFila({
       <div className={abierta ? 'contents' : 'hidden sm:contents'}>
         {/* Qué lleva el pedido. En pantalla ancha va en su propia fila, debajo de las
             cuatro columnas; en el celular, entre el detalle y los botones. */}
-        {productos.length > 0 ? <ListaProductos productos={productos} /> : null}
+        {productos.length > 0 || cliente ? (
+          <div className="col-span-2 space-y-2 sm:col-span-4 sm:row-start-2">
+            <TiraCliente datos={cliente} />
+            {productos.length > 0 ? <ListaProductos productos={productos} /> : null}
+          </div>
+        ) : null}
         {acciones}
         {resto}
       </div>
@@ -959,7 +995,7 @@ function EnvolturaFila({
 function ListaProductos({ productos }: { productos: ProductoCaja[] }) {
   const unidades = productos.reduce((s, p) => s + p.cantidad, 0)
   return (
-    <div className="col-span-2 rounded-lg bg-marca-superficie/70 px-3 py-2 sm:col-span-4 sm:row-start-2">
+    <div className="rounded-lg bg-marca-superficie/70 px-3 py-2">
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-marca-texto-suave">
         Lleva {unidades} {unidades === 1 ? 'producto' : 'productos'}
       </p>
@@ -1763,8 +1799,8 @@ function FilaDespachar({
       />
 
       <div className="col-span-2 min-w-0 sm:col-span-1">
-        {/* El barrio ya lo dice el subtítulo de arriba: aquí solo la calle. */}
-        <FichaDireccion direccion={d.direccion} zona={null} />
+        {/* La dirección completa, el teléfono y el nombre van en la franja del cliente. */}
+        <p className="truncate text-sm text-marca-texto">{d.direccion ?? 'Domicilio'}</p>
         {d.nota_entrega ? (
           <p className="mt-1 flex items-center gap-1 text-xs text-marca-acento-fuerte">
             <IconoAlerta className="size-3.5" /> Volvió: {d.nota_entrega}
@@ -1875,9 +1911,7 @@ function FilaDespachar({
           }
           /* Ya salió de cocina: no se edita, pero si el cliente cancela se anula. */
           secundaria={
-            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
-              Anular
-            </BotonTexto>
+            <BotonAnular onClick={() => setAnulando(true)} disabled={ocupado} />
           }
         />
       ) : (
@@ -2052,18 +2086,14 @@ function FilaSinCerrar({
             </Boton>
           }
           secundaria={
-            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
-              Anular
-            </BotonTexto>
+            <BotonAnular onClick={() => setAnulando(true)} disabled={ocupado} />
           }
         />
       ) : (
         <Acciones
           cuentaDe={x.pedido_id}
           principal={
-            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
-              Anular
-            </BotonTexto>
+            <BotonAnular onClick={() => setAnulando(true)} disabled={ocupado} />
           }
         />
       )}
@@ -2212,9 +2242,7 @@ function FilaEntregado({
             ) : null}
             {error ? <Error texto={error} /> : null}
             <span className="self-end">
-              <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
-                Anular
-              </BotonTexto>
+              <BotonAnular onClick={() => setAnulando(true)} disabled={ocupado} />
             </span>
           </div>
         </ZonaAcciones>
@@ -2228,9 +2256,7 @@ function FilaEntregado({
           /* Un pedido de prueba o que el cliente no recibió: se anula y deja de salir en
              el efectivo por recibir y en las cuentas del turno. */
           secundaria={
-            <BotonTexto tono="peligro" onClick={() => setAnulando(true)} disabled={ocupado}>
-              Anular
-            </BotonTexto>
+            <BotonAnular onClick={() => setAnulando(true)} disabled={ocupado} />
           }
         />
       )}
@@ -2458,7 +2484,8 @@ function ColCliente({
   }
   return (
     <div className="col-span-2 min-w-0 space-y-1 sm:col-span-1">
-      <FichaCliente nombre={nombre} telefono={telefono} />
+      {/* El teléfono, con botones para llamar y escribir, va en la franja del cliente. */}
+      <FichaCliente nombre={nombre} telefono={null} />
       {extra ? <p className="truncate text-xs text-marca-texto-suave">{extra}</p> : null}
     </div>
   )
@@ -2514,6 +2541,7 @@ function RenglonLegalizar({
   d: PorLegalizar['detalle'][number]
   soloLectura: boolean
 }) {
+  const puedeAnular = useContext(PuedeAnular)
   const [anulando, setAnulando] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -2540,7 +2568,7 @@ function RenglonLegalizar({
         </span>
         <span className="flex shrink-0 items-center gap-1">
           <span className="tabular-nums text-marca-texto">{formatearPesos(d.total)}</span>
-          {soloLectura || anulando ? null : (
+          {soloLectura || anulando || !puedeAnular ? null : (
             <button
               type="button"
               onClick={() => setAnulando(true)}

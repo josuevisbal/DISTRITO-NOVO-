@@ -148,6 +148,13 @@ create table if not exists categorias (
   activa boolean not null default true,
   unique (restaurante_id, slug)
 );
+-- Cómo se presenta cada familia en la carta: título con una palabra de acento entre
+-- asteriscos ("Hamburguesas *angus*"), una línea debajo y el estilo de la sección.
+-- Sin valor, la carta usa el nombre y escoge el estilo según las fotos que haya.
+alter table categorias add column if not exists titulo text;
+alter table categorias add column if not exists subtitulo text;
+alter table categorias add column if not exists estilo text
+  check (estilo in ('lista','mosaico','carrusel','compacta'));
 
 create table if not exists productos (
   id uuid primary key default gen_random_uuid(),
@@ -238,6 +245,7 @@ create table if not exists pedidos (
   motivo_anulacion text,
   nota_entrega text,        -- motivo cuando el domiciliario no pudo entregar
   anulado_por uuid references usuarios(id),
+  anulado_en timestamptz,
   en_edicion timestamptz    -- el cliente está modificando su pedido: caja lo ve congelado
 );
 create index if not exists ix_pedidos_rest_estado on pedidos(restaurante_id, estado);
@@ -256,6 +264,8 @@ alter table pedidos add column if not exists ronda_pendiente_en timestamptz;
 -- El domiciliario avisó que el cliente ya no paga en efectivo sino por transferencia.
 -- Caja lo ve como alerta y es quien cobra.
 alter table pedidos add column if not exists pago_cambiado_en timestamptz;
+-- Cuándo se anuló: lo muestra el registro de anulados de administración.
+alter table pedidos add column if not exists anulado_en timestamptz;
 
 create table if not exists pedido_items (
   id uuid primary key default gen_random_uuid(),
@@ -1293,8 +1303,9 @@ create or replace function anular_pedido(p_pedido uuid, p_motivo text) returns v
 language plpgsql security definer set search_path = public as $$
 declare v_rest uuid; v_estado estado_pedido; v_canal canal_pedido;
 begin
-  if mi_rol() not in ('mesero','cajero','admin') then
-    raise exception 'Solo mesero, caja o administración';
+  -- Anular es solo de administración: caja y mesero corrigen un pedido, no lo anulan.
+  if mi_rol() is distinct from 'admin' then
+    raise exception 'Solo administración anula pedidos';
   end if;
   if coalesce(trim(p_motivo),'') = '' then raise exception 'La anulación necesita un motivo'; end if;
 
@@ -1303,16 +1314,8 @@ begin
   if v_estado = 'cerrado' then raise exception 'Un pedido cerrado no se anula'; end if;
   if v_estado = 'anulado' then return; end if;
 
-  -- El mesero anula lo del salón que todavía no tiene plata recibida. Lo que ya se
-  -- cobró, o lo que no es de mesa, lo anula caja.
-  if mi_rol() = 'mesero' then
-    if v_canal <> 'mesa' then raise exception 'El mesero solo anula pedidos del salón'; end if;
-    if exists (select 1 from pagos where pedido_id = p_pedido and estado = 'verificado') then
-      raise exception 'Ese pedido ya tiene un pago recibido: lo anula caja';
-    end if;
-  end if;
-
-  update pedidos set estado = 'anulado', motivo_anulacion = p_motivo, anulado_por = auth.uid()
+  update pedidos set estado = 'anulado', motivo_anulacion = p_motivo, anulado_por = auth.uid(),
+         anulado_en = now()
    where id = p_pedido;
 
   -- La plata que se esperaba ya no viene: nadie la cobra ni la cuenta.
@@ -2245,12 +2248,15 @@ create policy admin_usuarios on usuarios for all to authenticated
   with check (restaurante_id = mi_restaurante() and mi_rol() = 'admin');
 
 drop policy if exists staff_ped on pedidos;
+-- Los pedidos anulados solo los ve administración (su registro de anulados); el resto del
+-- equipo no los ve en ninguna pantalla.
 create policy staff_ped on pedidos for select to authenticated
-  using (restaurante_id = mi_restaurante());
+  using (restaurante_id = mi_restaurante() and (estado <> 'anulado' or mi_rol() = 'admin'));
 
 drop policy if exists staff_ped_upd on pedidos;
 create policy staff_ped_upd on pedidos for update to authenticated
-  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','cajero','mesero'));
+  using (restaurante_id = mi_restaurante() and mi_rol() in ('admin','cajero','mesero'))
+  with check (estado <> 'anulado' or mi_rol() = 'admin');
 
 drop policy if exists staff_items on pedido_items;
 create policy staff_items on pedido_items for select to authenticated
